@@ -12,7 +12,7 @@ const (
 	INSERT uint8 = iota
 	DELETE
 	SELECT
-	UPDATE
+	UPDATE 
 
 	// sql LIKE 语句
 	ALK // 全模糊 如: xxx LIKE "%xxx%"
