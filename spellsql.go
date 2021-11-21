@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	// "github.com/gogf/gf/os/glog"
 )
 
 const (
@@ -12,7 +13,7 @@ const (
 	INSERT uint8 = iota
 	DELETE
 	SELECT
-	UPDATE 
+	UPDATE
 
 	// sql LIKE 语句
 	ALK // 全模糊 如: xxx LIKE "%xxx%"
@@ -45,6 +46,8 @@ type SqlStrObj struct {
 	needAddComma    bool  // 标记初始化后, UPDATE, INSERT 再添加的值是是否需要添加 ,
 	isPrintSqlLog   bool  // 标记是否打印 生成的 sqlStr log
 	isCallCacheInit bool  // 标记是否为 NewCacheSql 初始化生产的对象
+	needAddbracket  bool  // 标记 INSERT 时, 是否添加括号(SetInsertValuesArgs)
+	isHandled       bool  // 标记是否处理
 	actionNum       uint8 // INSERT/DELETE/SELECT/UPDATE
 	limitStr        string
 	orderByStr      string
@@ -206,6 +209,8 @@ func (s *SqlStrObj) initFlag() {
 	s.needAddJoinStr = false
 	s.needAddComma = false
 	s.isCallCacheInit = false
+	s.needAddbracket = false
+	s.isHandled = false
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
@@ -354,7 +359,7 @@ func (s *SqlStrObj) initValues() {
 		}
 		if s.needAddComma {
 			// 第一次添加的时候, 判断是否需要添加逗号
-			s.valuesBuf.WriteString(", ")
+			s.valuesBuf.WriteString(",")
 			s.needAddComma = false
 			isAddComma = false
 		}
@@ -448,6 +453,25 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 		}
 	}
 	s.valuesBuf.WriteString(")")
+	return s
+}
+
+// 支持占位符, 如 SetInsertValuesArg("(?, ?, ?d)", "test", "12345", "123456") 或 SetInsertValuesArg("?, ?, ?d", "test", "12345", "123456")
+// => ("test", "123456", 123456)
+// 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
+func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *SqlStrObj {
+	s.initValues()
+	if !s.isHandled { // 防止重复处理
+		if IndexForBF(true, sqlStr, "(") == -1 && IndexForBF(false, sqlStr, ")") == -1 {
+			s.needAddbracket = true
+		}
+		s.isHandled = true
+	}
+
+	if s.needAddbracket {
+		sqlStr = "(" + sqlStr + ")"
+	}
+	s.writeSqlStr2Buf(&s.valuesBuf, " "+sqlStr, args...)
 	return s
 }
 
