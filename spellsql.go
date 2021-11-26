@@ -549,8 +549,8 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				buf.WriteString(s.toEscape(val, true))
 				i++
 				continue
-			} else if sqlStr[i+1] == 'v' {
-				buf.WriteString(s.toEscape(val, false))
+			} else if sqlStr[i+1] == 'v' { // 原样输出
+				buf.WriteString(val)
 				i++
 				continue
 			} else {
