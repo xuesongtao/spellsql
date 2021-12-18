@@ -1,6 +1,7 @@
 #!/bin/bash
 
 curPath=$(pwd)
+echo "curPath=" $curPath;
 
 function checkIsOk() {
     # $1 操作名
