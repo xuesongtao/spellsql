@@ -18,18 +18,20 @@ function updateSqlStr() {
 
 
     # 更换包名 > 注释 log > 取消 glog 注释 > 注释 log. > 取消注释 glog.
+    cd $curPath && checkIsOk "cd"
     sed -e "s/package spellsql/package mysql/g" \
         -e "s/\"log\"/\/\/ \"log\"/g" \
         -e "s/\/\/ \"github.com/\"github.com/g" \
         -e "s/log.P/\/\/ log.P/g" \
         -e "s/\/\/ glog.I/glog.I/g" \
-        "${curPath}/spellsql.go" >$1 && checkIsOk "updateTestSqlStr"
+        spellsql.go >$1 && checkIsOk "updateTestSqlStr"
 }
 
 function updateTestSqlStr() {
     # $1 目标文件
 
     # 更换包名
+    cd $curPath && checkIsOk "cd"
     sed -e "s/package spellsql/package mysql/g" "${curPath}/spellsql_test.go" >$1 && checkIsOk "updateTestSqlStr"
 }
 
