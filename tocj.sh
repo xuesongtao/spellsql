@@ -47,7 +47,7 @@ function handle() {
     projectDirIndex=$(echo $goFile | awk 'BEGIN {print index("'$goFile'", "/app/model/mysql")}')
     projectDir=${goFile:0:$projectDirIndex-1}
     printf "======= 开始处理: %s ===========" $projectDir
-    isTestFile=$($goFile | awk -F "_test.go" '{print $1}' | wc -l)
+    isTestFile=$(echo $goFile | awk 'BEGIN {print index("'$goFile'", "_test.go")}')
     if [[ $isTestFile > 0 ]]; then
         updateTestSqlStr $goFile && checkIsOk "updateTestSqlStr"
         continue
@@ -59,6 +59,7 @@ function handle() {
 
 function main() {
     # $1 gofile
+
     if [[ $1 != "" ]]; then
         handle $1
         return
