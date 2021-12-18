@@ -1,5 +1,7 @@
 #!/bin/bash
 
+curPath=$(pwd)
+
 function checkIsOk() {
     # $1 操作名
 
@@ -13,20 +15,21 @@ function checkIsOk() {
 function updateSqlStr() {
     # $1 目标文件
 
+
     # 更换包名 > 注释 log > 取消 glog 注释 > 注释 log. > 取消注释 glog.
     sed -e "s/package spellsql/package mysql/g" \
         -e "s/\"log\"/\/\/ \"log\"/g" \
         -e "s/\/\/ \"github.com/\"github.com/g" \
         -e "s/log.P/\/\/ log.P/g" \
         -e "s/\/\/ glog.I/glog.I/g" \
-        spellsql.go >$1
+        "${curPath}/spellsql.go" >$1 && checkIsOk "updateTestSqlStr"
 }
 
 function updateTestSqlStr() {
     # $1 目标文件
 
     # 更换包名
-    sed -e "s/package spellsql/package mysql/g" spellsql_test.go >$1
+    sed -e "s/package spellsql/package mysql/g" "${curPath}/spellsql_test.go" >$1 && checkIsOk "updateTestSqlStr"
 }
 
 function gitHandle() {
@@ -49,10 +52,10 @@ function handle() {
     printf "======= 开始处理: %s ===========" $projectDir
     isTestFile=$(echo $goFile | awk 'BEGIN {print index("'$goFile'", "_test.go")}')
     if [[ $isTestFile > 0 ]]; then
-        updateTestSqlStr $goFile && checkIsOk "updateTestSqlStr"
+        updateTestSqlStr $goFile 
         continue
     fi
-    updateSqlStr $goFile && checkIsOk "updateSqlStr"
+    updateSqlStr $goFile
     gitHandle $projectDir
     printf "======= 处理成功: %s ===========" $projectDir
 }
