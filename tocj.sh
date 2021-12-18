@@ -32,7 +32,7 @@ function updateTestSqlStr() {
 function gitHandle() {
     # $1 项目路径
 
-    cd $projectDir
+    cd $projectDir && checkIsOk "cd"
     git pull && checkIsOk "git pull"
     git add . && checkIsOk "git add"
     git commit -m "update getsqlstr" && checkIsOk "git commit"
