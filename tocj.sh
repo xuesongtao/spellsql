@@ -30,10 +30,8 @@ function updateTestSqlStr() {
 }
 
 function gitHandle() {
-    # $1 文件路径
+    # $1 项目路径
 
-    projectDirIndex=$(echo $1 | awk 'BEGIN {print index("'$1'", "/app/model/mysql")}')
-    projectDir=${1:0:$projectDirIndex-1}
     cd $projectDir
     git pull && checkIsOk "git pull"
     git add . && checkIsOk "git add"
@@ -45,14 +43,18 @@ function handle() {
     # $1 gofile
 
     goFile=$1
+    # 解析项目路径
+    projectDirIndex=$(echo $goFile | awk 'BEGIN {print index("'$goFile'", "/app/model/mysql")}')
+    projectDir=${goFile:0:$projectDirIndex-1}
+    printf "======= 开始处理: %s ===========" $projectDir
     isTestFile=$($goFile | awk -F "_test.go" '{print $1}' | wc -l)
     if [[ $isTestFile > 0 ]]; then
         updateTestSqlStr $goFile && checkIsOk "updateTestSqlStr"
         continue
     fi
     updateSqlStr $goFile && checkIsOk "updateSqlStr"
-    gitHandle $goFile
-    echo "end handle: ${goFile}"
+    gitHandle $projectDir
+    printf "======= 处理成功: %s ===========" $projectDir
 }
 
 function main() {
