@@ -14,12 +14,14 @@ function checkIsOk() {
 }
 
 function updateCjGoFile() {
-    # $1 目标文件
+    # $1 getsqlstr.go
+    # $2 getsqlstr_test.go
 
     # 更换包名 > 注释 log > 取消 glog 注释 > 注释 log. > 取消注释 glog.
     cd $curPath && checkIsOk "cd ${curPath}"
 
     # 处理 getsqlstr.go
+
     sed -e "s/package spellsql/package mysql/g" \
         -e "s/\"log\"/\/\/ \"log\"/g" \
         -e "s/\/\/ \"github.com/\"github.com/g" \
@@ -28,7 +30,7 @@ function updateCjGoFile() {
         spellsql.go >$1 && checkIsOk "update getsqlstr.go"
 
     # 处理 getsqlstr_test.go
-    sed -e "s/package spellsql/package mysql/g" spellsql_test.go >$1 && checkIsOk "update getsqlstr_test.go"
+    sed -e "s/package spellsql/package mysql/g" spellsql_test.go >$2 && checkIsOk "update getsqlstr_test.go"
 }
 
 function gitHandle() {
@@ -46,16 +48,17 @@ function startHandle() {
     # $1 gofile
 
     goFile=$1
+    goFilePathDir="/app/model/mysql"
     # 解析项目路径
-    projectDirIndex=$(echo $goFile | awk 'BEGIN {print index("'$goFile'", "/app/model/mysql")}')
+    projectDirIndex=$(echo $goFile | awk 'BEGIN {print index("'$goFile'", "'$goFilePathDir'")}')
     if [[ $projectDirIndex < 1 ]]; then
         echo "parse projectDirIndex is failed"
         return
     fi
 
-    projectDir=${goFile:0:$projectDirIndex-1}
+    projectDir=${goFile:0:$projectDirIndex}
     printf "======= 开始处理: %s ===========\n" $projectDir
-    updateCjGoFile $goFile
+    updateCjGoFile "${projectDir}/${goFilePathDir}/getsqlstr.go" "${projectDir}/${goFilePathDir}/getsqlstr_test.go"
     gitHandle $projectDir
     printf "======= 处理成功: %s ===========\n" $projectDir
 }
@@ -74,7 +77,6 @@ function main() {
     done
 }
 
-# main
-
-main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr.go"
+main
+# main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr.go"
 # main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr_test.go"
