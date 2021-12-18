@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	
 	// "github.com/gogf/gf/os/glog"
 )
 
@@ -852,24 +853,26 @@ func (s *SqlStrObj) SqlStrLen() int {
 	return s.buf.Len()
 }
 
-// 默认打印 sqlStr, args[0] 为 title, arg[1] 为 sql 结束符默认";"
+// 默认打印 sqlStr, title 为打印 log 的标题, 对外只支持一个参数, 多传没有用
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
-func (s *SqlStrObj) GetSqlStr(args ...string) (sqlStr string) {
+func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	defer s.free(true)
 	s.mergeSql()
 
-	argsLen := len(args)
+	argsLen := len(title)
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
 	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
-		endMarkStr = args[1]
+		if title[1] == "" {
+			endMarkStr = ""
+		}
 	}
 
 	sqlStr = s.buf.String() + endMarkStr
 	if s.isPrintSqlLog {
 		sqlStrTitle := "sqlStr"
 		if argsLen > 0 {
-			sqlStrTitle = args[0]
+			sqlStrTitle = title[0]
 		}
 		log.Println("[INFO]", sqlStrTitle+":", sqlStr) // 减少第三方的依赖
 		// glog.Info(sqlStrTitle+":", sqlStr)
@@ -877,8 +880,8 @@ func (s *SqlStrObj) GetSqlStr(args ...string) (sqlStr string) {
 	return
 }
 
-// 默认打印 sqlStr, args[0] 为 title, arg[1] 为 sql 结束符默认";"
-func (s *SqlStrObj) GetTotalSqlStr(args ...string) (findSqlStr string) {
+// 默认打印 sqlStr, title 为打印 log 的标题, 对外只支持一个参数, 多传没有用
+func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	if s.actionNum != SELECT {
 		return
 	}
@@ -919,19 +922,11 @@ func (s *SqlStrObj) GetTotalSqlStr(args ...string) (findSqlStr string) {
 			}
 		}
 	}
-
-	argsLen := len(args)
-	// sqlStr 的结束符, 默认为 ";"
-	endMarkStr := ";"
-	if argsLen > 1 { 
-		endMarkStr = args[1]
-	}
-
-	findSqlStr = tmpBuf.String() + endMarkStr
+	findSqlStr = tmpBuf.String() + ";"
 	if s.isPrintSqlLog {
 		sqlStrTitle := "sqlTotalStr"
-		if len(args) > 0 {
-			sqlStrTitle = args[0]
+		if len(title) > 0 {
+			sqlStrTitle = title[0]
 		}
 		log.Println("[INFO]", sqlStrTitle+":", sqlStr) // 减少第三方的依赖
 		// glog.Info(sqlStrTitle+":", findSqlStr)

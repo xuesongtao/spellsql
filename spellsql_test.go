@@ -203,6 +203,15 @@ func TestSqlStr_INSERTGetSql2(t *testing.T) {
 	s.GetSqlStr()
 }
 
+// 多个插入
+func TestSqlStr_INSERTGetSql3(t *testing.T) {
+	s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
+	for i := 0; i < 10; i++ {
+		s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
+	}
+	s.GetSqlStr()
+}
+
 func TestSqlStr_UPATEGetSql(t *testing.T) {
 	s := NewCacheSql("UPDATE sys_user SET")
 	s.SetUpdateValue("name", "xuesongtao")
