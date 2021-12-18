@@ -18,6 +18,7 @@ function updateSqlStr() {
 
 
     # 更换包名 > 注释 log > 取消 glog 注释 > 注释 log. > 取消注释 glog.
+    echo "updateSqlStr curPath: ${curPath}"
     cd $curPath && checkIsOk "cd"
     sed -e "s/package spellsql/package mysql/g" \
         -e "s/\"log\"/\/\/ \"log\"/g" \
@@ -32,6 +33,7 @@ function updateTestSqlStr() {
 
     # 更换包名
     cd $curPath && checkIsOk "cd"
+    echo "updateTestSqlStr curPath: ${curPath}"
     sed -e "s/package spellsql/package mysql/g" "${curPath}/spellsql_test.go" >$1 && checkIsOk "updateTestSqlStr"
 }
 
