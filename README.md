@@ -34,7 +34,7 @@
         => SELECT username, password FROM sys_user WHERE id IN (1,2,3)
     ```
 
-##### 2.3 占位符为: ?v,
+##### 2.3 占位符为: ?v
 - 这样会让字符串类型不加引号, 原样输出, 如: "test" => test;
     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型
     ```
