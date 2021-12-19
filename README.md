@@ -47,7 +47,7 @@
         如: NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (?v)", FmtSqlStr("SELECT id FROM user WHERE name=?", "test").GetSqlStr()
         => SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (SELECT id FROM user WHERE name="test");
     ```
-- **注: **由于这种不会进行转义处理, 所有这种不推荐用于请求输入(外部非法输入)的内容, 会出现 **SQL 注入风险**; 当我们明确知道参数是干什么的可以使用会简化我们代码, 这里就不进行演示.
+- **注:** 由于这种不会进行转义处理, 所有这种不推荐用于请求输入(外部非法输入)的内容, 会出现 **SQL 注入风险**; 当我们明确知道参数是干什么的可以使用会简化我们代码, 这里就不进行演示.
 
 
 #### 3. 使用
