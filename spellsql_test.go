@@ -2,6 +2,7 @@ package spellsql
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"testing"
@@ -107,19 +108,20 @@ func TestSqlStr_SELECT(t *testing.T) {
 // 连接 or/and
 func TestMySql_SetOrWhere(t *testing.T) {
 	s := NewCacheSql("SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id")
-	// s.SetWhere("u.gender", 1)
 	s.SetOrWhere("u.name", "xue")
 	s.SetOrWhereArgs("(r.id IN (?d))", []string{"1", "2"})
 	s.SetWhere("u.age", ">", 20)
 	s.SetWhereArgs("u.addr = ?", "南部")
+	s.GetTotalSqlStr()
+	s.SetLimit(1, 10)
 	s.GetSqlStr()
 }
 
 func TestSqlStr_InWhere(t *testing.T) {
-	s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
-	s.SetLimit(0, 10)
+	s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (?v)", FmtSqlStr("SELECT id FROM user WHERE name=?", "test"))
 	s.SetGroupByStr("u.username")
 	s.GetTotalSqlStr()
+	s.SetLimit(0, 10)
 	s.GetSqlStr()
 }
 
@@ -224,7 +226,7 @@ func TestMySql_CloneForCacheSql(t *testing.T) {
 	sqlObj := NewCacheSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
 	totalSqlStr := sqlObj.GetTotalSqlStr()
 	t.Log(totalSqlStr)
-	notifyFunc := func(obj *SqlStrObj, page, size int32) {
+	handleFn := func(obj *SqlStrObj, page, size int32) {
 		sqlStr := obj.SetOrderByStr("id ASC").SetLimit(page, size).SetPrintLog(false).GetSqlStr()
 		t.Log(sqlStr)
 	}
@@ -245,18 +247,59 @@ func TestMySql_CloneForCacheSql(t *testing.T) {
 		wg.Add(1)
 		go func(page int) {
 			tmpObj := sqlObj.Clone()
-			notifyFunc(tmpObj, int32(page), 100)
+			handleFn(tmpObj, int32(page), 100)
 			wg.Done()
 		}(page)
 	}
 	wg.Wait()
 }
 
+func TestNewCacheSqlHandle(t *testing.T) {
+	sqlObj := NewCacheSql("SELECT * FROM user_info WHERE status = 1")
+	handleFn := func(obj *SqlStrObj, page, size int32) {
+		// 业务代码
+		fmt.Println(obj.SetLimit(page, size).SetPrintLog(false).GetSqlStr())
+	}
+
+	// 每次同步大小
+	var (
+		totalNum  int32 = 30
+		page      int32 = 1
+		size      int32 = 10
+		totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
+	)
+	sqlStr := sqlObj.SetPrintLog(false).GetSqlStr("", "")
+	for page <= totalPage {
+		handleFn(NewCacheSql(sqlStr), page, size)
+		page++
+	}
+}
+
+func TestNewSqlHandle(t *testing.T) {
+	sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
+	handleFn := func(obj *SqlStrObj, page, size int32) {
+		// 业务代码
+		fmt.Println(obj.SetLimit(page, size).SetPrintLog(false).GetSqlStr())
+	}
+
+	// 每次同步大小
+	var (
+		totalNum  int32 = 30
+		page      int32 = 1
+		size      int32 = 10
+		totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
+	)
+	for page <= totalPage {
+		handleFn(sqlObj.Clone(), page, size)
+		page++
+	}
+}
+
 func TestMySql_CloneForNewSql(t *testing.T) {
 	sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
 	totalSqlStr := sqlObj.GetTotalSqlStr()
 	t.Log(totalSqlStr)
-	notifyFunc := func(obj *SqlStrObj, page, size int32) {
+	handleFn := func(obj *SqlStrObj, page, size int32) {
 		sqlStr := obj.SetOrderByStr("id ASC").SetLimit(page, size).SetPrintLog(false).GetSqlStr()
 		t.Log(sqlStr)
 	}
@@ -273,7 +316,7 @@ func TestMySql_CloneForNewSql(t *testing.T) {
 		wg.Add(1)
 		go func(page int) {
 			tmpObj := sqlObj.Clone()
-			notifyFunc(tmpObj, int32(page), 100)
+			handleFn(tmpObj, int32(page), 100)
 			wg.Done()
 		}(page)
 	}

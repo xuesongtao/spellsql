@@ -853,7 +853,7 @@ func (s *SqlStrObj) SqlStrLen() int {
 	return s.buf.Len()
 }
 
-// 默认打印 sqlStr, title 为打印 log 的标题, 对外只支持一个参数, 多传没有用
+// 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";" 
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	defer s.free(true)
@@ -928,7 +928,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 		if len(title) > 0 {
 			sqlStrTitle = title[0]
 		}
-		log.Println("[INFO]", sqlStrTitle+":", sqlStr) // 减少第三方的依赖
+		log.Println("[INFO]", sqlStrTitle+":", findSqlStr) // 减少第三方的依赖
 		// glog.Info(sqlStrTitle+":", findSqlStr)
 	}
 	return
