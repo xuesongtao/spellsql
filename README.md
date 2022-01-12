@@ -2,6 +2,10 @@
 - 通过 `sync.Pool`, `strings.Builder` 等实现的较高性能 sql 拼接工具(对比测试传统通过 `fmt` 进行拼接)
 - 自动打印 sql 最终的 log
 - 非法字符会自动转移
+- 安装:
+```
+    go get -u gitee.com/xuesongtao/spellsql
+```
 
 
 #### 2. 占位符
