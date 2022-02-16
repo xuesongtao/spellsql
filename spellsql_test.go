@@ -222,6 +222,13 @@ func TestSqlStr_UPATEGetSql(t *testing.T) {
 	s.GetSqlStr()
 }
 
+func TestSqlStr_Append(t *testing.T) {
+	s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
+	s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
+	s.Append("ON DUPLICATE KEY UPDATE username=VALUES(username)")
+	s.GetSqlStr()
+}
+
 func TestMySql_CloneForCacheSql(t *testing.T) {
 	sqlObj := NewCacheSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
 	totalSqlStr := sqlObj.GetTotalSqlStr()

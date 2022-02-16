@@ -5,7 +5,6 @@ import (
 	"log"
 	"strings"
 	"sync"
-
 	// "github.com/gogf/gf/os/glog"
 )
 
@@ -38,6 +37,7 @@ var (
 	sqlSyncPool = sync.Pool{New: func() interface{} { return new(SqlStrObj) }} // 考虑到性能问题, 这里用 pool
 )
 
+// SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
 	hasWhereStr     bool  // 标记 SELECT 是否添加已添加 WHERE
 	hasValuesStr    bool  // 标记 INSERT 是否添加已添加 VALUES
@@ -56,9 +56,10 @@ type SqlStrObj struct {
 	buf             strings.Builder // 记录最终 sqlStr
 	whereBuf        strings.Builder // 记录 WHERE 条件
 	valuesBuf       strings.Builder // 记录 INSERT/UPDATE 设置的值
+	extBuf          strings.Builder // 追加到最后, 辅助字段
 }
 
-// 初始化, 支持占位符, 此函数比 NewSql 更加高效
+// NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效
 //
 // 1. 注意:
 // 		a. sqlStr 字符长度必须大于 6
@@ -94,13 +95,14 @@ func NewCacheSql(sqlStr string, args ...interface{}) *SqlStrObj {
 	return obj
 }
 
-// 此函数与 NewCacheSql 功能一样, 此函数的使用场景: 1. 需要调用多次 GetSqlStr; 2. 需要调用 Clone
+// NewSql 此函数与 NewCacheSql 功能一样, 此函数的使用场景: 1. 需要调用多次 GetSqlStr; 2. 需要调用 Clone
 func NewSql(sqlStr string, args ...interface{}) *SqlStrObj {
 	obj := new(SqlStrObj)
 	obj.initSql(sqlStr, args...)
 	return obj
 }
 
+// initSql 初始化需要的 buf
 func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 	sqlLen := len(sqlStr)
 
@@ -201,7 +203,7 @@ func (s *SqlStrObj) toLower(str string) string {
 	return string(strByte)
 }
 
-// 初始化标记, 防止从 pool 里申请的标记已有内容
+// initFlag 初始化标记, 防止从 pool 里申请的标记已有内容
 func (s *SqlStrObj) initFlag() {
 	s.hasWhereStr = false
 	s.hasValuesStr = false
@@ -217,7 +219,7 @@ func (s *SqlStrObj) initFlag() {
 	s.isPrintSqlLog = true
 }
 
-// joinStr 为 AND/OR 连接符, 默认时 AND
+// initWhere 初始化where, joinStr 为 AND/OR 连接符, 默认时 AND
 func (s *SqlStrObj) initWhere(joinStr ...string) {
 	defaultJoinStr := " AND"
 	if len(joinStr) > 0 {
@@ -260,7 +262,7 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 	}
 }
 
-// 设置过滤条件, 连接符为 AND
+// SetWhere 设置过滤条件, 连接符为 AND
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
 func (s *SqlStrObj) SetWhere(filedName string, args ...interface{}) *SqlStrObj {
@@ -268,7 +270,7 @@ func (s *SqlStrObj) SetWhere(filedName string, args ...interface{}) *SqlStrObj {
 	return s.setWhere(filedName, args...)
 }
 
-// 设置过滤条件, 连接符为 OR
+// SetOrWhere 设置过滤条件, 连接符为 OR
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
 func (s *SqlStrObj) SetOrWhere(filedName string, args ...interface{}) *SqlStrObj {
@@ -296,28 +298,28 @@ func (s *SqlStrObj) setWhere(filedName string, args ...interface{}) *SqlStrObj {
 	return s
 }
 
-// 设置右模糊查询, 如: xxx LIKE "test%"
+// SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
 func (s *SqlStrObj) SetRightLike(filedName string, val string) {
 	s.initWhere()
 	str := s.filedName2Val(filedName, "rlk", val)
 	s.whereBuf.WriteString(str)
 }
 
-// 设置左模糊查询, 如: xxx LIKE "%test"
+// SetLiftLike 设置左模糊查询, 如: xxx LIKE "%test"
 func (s *SqlStrObj) SetLiftLike(filedName string, val string) {
 	s.initWhere()
 	str := s.filedName2Val(filedName, "llk", val)
 	s.whereBuf.WriteString(str)
 }
 
-// 设置全模糊, 如: xxx LIKE "%test%"
+// SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
 func (s *SqlStrObj) SetAllLike(filedName string, val string) {
 	s.initWhere()
 	str := s.filedName2Val(filedName, "alk", val)
 	s.whereBuf.WriteString(str)
 }
 
-// 支持占位符
+// SetWhereArgs 支持占位符
 // 如: SetWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
@@ -326,7 +328,7 @@ func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj 
 	return s
 }
 
-// 支持占位符
+// SetOrWhereArgs 支持占位符
 // 如: SetOrWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (s *SqlStrObj) SetOrWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
@@ -335,16 +337,23 @@ func (s *SqlStrObj) SetOrWhereArgs(sqlStr string, args ...interface{}) *SqlStrOb
 	return s
 }
 
+// WhereIsEmpty 判断where条件是否为空
+func (s *SqlStrObj) WhereIsEmpty() bool {
+	return s.WhereStrLen() == 0
+}
+
+// WhereStrLen where 条件内容长度
 func (s *SqlStrObj) WhereStrLen() int {
 	return s.whereBuf.Len()
 }
 
-// 设置是否打印 sqlStr log
+// SetPrintLog 设置是否打印 sqlStr log
 func (s *SqlStrObj) SetPrintLog(isPrint bool) *SqlStrObj {
 	s.isPrintSqlLog = isPrint
 	return s
 }
 
+// initValues 初始化 valueBuf
 func (s *SqlStrObj) initValues() {
 	isAddComma := true
 	if s.actionNum == INSERT && !s.hasValuesStr {
@@ -393,7 +402,7 @@ func (s *SqlStrObj) initValues() {
 	}
 }
 
-// update 语句中, 设置字段值
+// SetUpdateValue update 语句中, 设置字段值
 func (s *SqlStrObj) SetUpdateValue(filedName string, arg interface{}) *SqlStrObj {
 	s.initValues()
 	str := s.filedName2Val(filedName, "=", arg)
@@ -401,11 +410,17 @@ func (s *SqlStrObj) SetUpdateValue(filedName string, arg interface{}) *SqlStrObj
 	return s
 }
 
+// ValueIsEmpty insert/update 中 value 是否为空
+func (s *SqlStrObj) ValueIsEmpty() bool {
+	return s.ValueStrLen() == 0
+}
+
+// ValueStrLen valueBuf 长度
 func (s *SqlStrObj) ValueStrLen() int {
 	return s.valuesBuf.Len()
 }
 
-// 支持占位符
+// SetUpdateValueArgs 支持占位符
 // 如: SetUpdateValueArgs("username = ?, age = ?d", "test", "20")
 // => username = "test", age = 20
 func (s *SqlStrObj) SetUpdateValueArgs(sqlStr string, arg ...interface{}) *SqlStrObj {
@@ -414,21 +429,27 @@ func (s *SqlStrObj) SetUpdateValueArgs(sqlStr string, arg ...interface{}) *SqlSt
 	return s
 }
 
-// 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
+// SetInsertValues 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
 func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 	s.initValues()
 
 	s.valuesBuf.WriteString(" (")
 	lastIndex := len(args) - 1
+
+	// 因为 reflect 会影响性能, 所有没有用, 这样写法繁多, 只处理了常用的, 有需要再添加
 	for index, arg := range args {
 		switch v := arg.(type) {
+		case int8:
+			s.valuesBuf.WriteString(s.Int2Str(int64(v)))
+		case int:
+			s.valuesBuf.WriteString(s.Int2Str(int64(v)))
 		case int32:
 			s.valuesBuf.WriteString(s.Int2Str(int64(v)))
 		case int64:
 			s.valuesBuf.WriteString(s.Int2Str(v))
-		case int:
-			s.valuesBuf.WriteString(s.Int2Str(int64(v)))
 		case uint8:
+			s.valuesBuf.WriteString(s.UInt2Str(uint64(v)))
+		case uint:
 			s.valuesBuf.WriteString(s.UInt2Str(uint64(v)))
 		case uint32:
 			s.valuesBuf.WriteString(s.UInt2Str(uint64(v)))
@@ -441,11 +462,11 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 		case []byte:
 			s.valuesBuf.WriteString("\"" + s.toEscape(string(v), false) + "\"")
 		case float32:
-			s.valuesBuf.WriteString(fmt.Sprintf("%.2f", v))
+			s.valuesBuf.WriteString(fmt.Sprintf("%v", v))
 		case float64:
-			s.valuesBuf.WriteString(fmt.Sprintf("%.2f", v))
+			s.valuesBuf.WriteString(fmt.Sprintf("%v", v))
 		default:
-			s.valuesBuf.WriteString("NULL")
+			s.valuesBuf.WriteString("undefined")
 		}
 
 		// 多个通过逗号隔开
@@ -457,7 +478,7 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 	return s
 }
 
-// 支持占位符, 如 SetInsertValuesArg("(?, ?, ?d)", "test", "12345", "123456") 或 SetInsertValuesArg("?, ?, ?d", "test", "12345", "123456")
+// SetInsertValuesArgs 支持占位符, 如 SetInsertValuesArg("(?, ?, ?d)", "test", "12345", "123456") 或 SetInsertValuesArg("?, ?, ?d", "test", "12345", "123456")
 // => ("test", "123456", 123456)
 // 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
 func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *SqlStrObj {
@@ -476,13 +497,15 @@ func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *Sql
 	return s
 }
 
+// SetOrderByStr 设置排序
 func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 	s.orderByStr = " ORDER BY " + orderByStr
 	return s
 }
 
+// SetLimit 设置分页
 func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
-	if page == 0 {
+	if page <= 0 {
 		page = 1
 	}
 	if size == 0 {
@@ -493,17 +516,25 @@ func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
 	return s
 }
 
+// SetLimitStr 字符串来设置
 func (s *SqlStrObj) SetLimitStr(limitStr string) *SqlStrObj {
 	s.limitStr = " LIMIT " + limitStr
 	return s
 }
 
+// SetGroupByStr 设置 groupBy
 func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 	s.groupByStr = " GROUP BY " + groupByStr
 	return s
 }
 
-// 注意: 如果是 NewCacheSql 初始化将返回 nil, 需要采用 NewSql 进行初始化
+// Append 将类型追加在最后
+func (s *SqlStrObj) Append(sqlStr string) *SqlStrObj {
+	s.extBuf.WriteString(" " + sqlStr)
+	return s
+}
+
+// Clone 克隆对象. 注意: 如果是 NewCacheSql 初始化将返回 nil, 需要采用 NewSql 进行初始化
 func (s *SqlStrObj) Clone() *SqlStrObj {
 	if s.isCallCacheInit {
 		return nil
@@ -511,7 +542,7 @@ func (s *SqlStrObj) Clone() *SqlStrObj {
 	return NewSql(s.buf.String())
 }
 
-// 处理输入为 sqlStr 的
+// writeSqlStr2Buf 处理输入为 sqlStr 的
 func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ...interface{}) {
 	argLen := len(args)
 	if argLen == 0 {
@@ -534,6 +565,8 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			buf.WriteByte(v)
 			continue
 		}
+
+		// 因为 reflect 会影响性能, 所有没有用, 这样写法繁多, 只处理了常用的, 有需要再添加
 		switch val := args[argIndex].(type) {
 		case string:
 			// 如果占位符?在最后一位时, 就不往下执行了防止 panic
@@ -594,18 +627,30 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			}
 		case []byte:
 			buf.WriteString("\"" + s.toEscape(string(val), false) + "\"")
+		case int8:
+			buf.WriteString(s.Int2Str(int64(val)))
+		case int:
+			buf.WriteString(s.Int2Str(int64(val)))
 		case int32:
 			buf.WriteString(s.Int2Str(int64(val)))
 		case int64:
 			buf.WriteString(s.Int2Str(val))
-		case int:
-			buf.WriteString(s.Int2Str(int64(val)))
 		case uint8:
+			buf.WriteString(s.UInt2Str(uint64(val)))
+		case uint:
 			buf.WriteString(s.UInt2Str(uint64(val)))
 		case uint32:
 			buf.WriteString(s.UInt2Str(uint64(val)))
 		case uint64:
 			buf.WriteString(s.UInt2Str(val))
+		case []int:
+			lastIndex := len(val) - 1
+			for i1, v1 := range val {
+				buf.WriteString(s.Int2Str(int64(v1)))
+				if i1 < lastIndex {
+					buf.WriteByte(',')
+				}
+			}
 		case []int32:
 			lastIndex := len(val) - 1
 			for i1, v1 := range val {
@@ -622,25 +667,17 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 					buf.WriteByte(',')
 				}
 			}
-		case []int:
-			lastIndex := len(val) - 1
-			for i1, v1 := range val {
-				buf.WriteString(s.Int2Str(int64(v1)))
-				if i1 < lastIndex {
-					buf.WriteByte(',')
-				}
-			}
 		case float32:
-			buf.WriteString(fmt.Sprintf("%.2f", val))
+			buf.WriteString(fmt.Sprintf("%v", val))
 		case float64:
-			buf.WriteString(fmt.Sprintf("%.2f", val))
+			buf.WriteString(fmt.Sprintf("%v", val))
 		default:
-			buf.WriteString("NULL")
+			buf.WriteString("undefined")
 		}
 	}
 }
 
-// 将字段, 操作符, 值进行拼接
+// filedName2Val 将字段, 操作符, 值进行拼接
 func (s *SqlStrObj) filedName2Val(filedName, opSymbol string, arg interface{}) string {
 	var likeTypeStr string
 	switch opSymbol {
@@ -661,6 +698,7 @@ func (s *SqlStrObj) filedName2Val(filedName, opSymbol string, arg interface{}) s
 		tmpBuf.WriteByte('(')
 	}
 
+	// 因为 reflect 会影响性能, 所有没有用, 这样写法繁多, 只处理了常用的, 有需要再添加
 	switch val := arg.(type) {
 	case string:
 		if isInWhere {
@@ -693,18 +731,32 @@ func (s *SqlStrObj) filedName2Val(filedName, opSymbol string, arg interface{}) s
 		}
 	case []byte:
 		tmpBuf.WriteString("\"" + s.toEscape(string(val), false) + "\"")
+	case int8:
+		tmpBuf.WriteString(s.Int2Str(int64(val)))
+	case int:
+		tmpBuf.WriteString(s.Int2Str(int64(val)))
 	case int32:
 		tmpBuf.WriteString(s.Int2Str(int64(val)))
 	case int64:
 		tmpBuf.WriteString(s.Int2Str(val))
-	case int:
-		tmpBuf.WriteString(s.Int2Str(int64(val)))
 	case uint8:
+		tmpBuf.WriteString(s.UInt2Str(uint64(val)))
+	case uint:
 		tmpBuf.WriteString(s.UInt2Str(uint64(val)))
 	case uint32:
 		tmpBuf.WriteString(s.UInt2Str(uint64(val)))
 	case uint64:
 		tmpBuf.WriteString(s.UInt2Str(val))
+	case []int:
+		if isInWhere {
+			lastIndex := len(val) - 1
+			for i, v := range val {
+				tmpBuf.WriteString(s.Int2Str(int64(v)))
+				if i < lastIndex {
+					tmpBuf.WriteByte(',')
+				}
+			}
+		}
 	case []int32:
 		if isInWhere {
 			lastIndex := len(val) - 1
@@ -725,22 +777,12 @@ func (s *SqlStrObj) filedName2Val(filedName, opSymbol string, arg interface{}) s
 				}
 			}
 		}
-	case []int:
-		if isInWhere {
-			lastIndex := len(val) - 1
-			for i, v := range val {
-				tmpBuf.WriteString(s.Int2Str(int64(v)))
-				if i < lastIndex {
-					tmpBuf.WriteByte(',')
-				}
-			}
-		}
 	case float32:
-		tmpBuf.WriteString(fmt.Sprintf("%.2f", val))
+		tmpBuf.WriteString(fmt.Sprintf("%v", val))
 	case float64:
-		tmpBuf.WriteString(fmt.Sprintf("%.2f", val))
+		tmpBuf.WriteString(fmt.Sprintf("%v", val))
 	default:
-		tmpBuf.WriteString("NULL")
+		tmpBuf.WriteString("undefined")
 	}
 
 	// 添加右括号
@@ -751,7 +793,7 @@ func (s *SqlStrObj) filedName2Val(filedName, opSymbol string, arg interface{}) s
 	return tmpBuf.String()
 }
 
-// 转义
+// toEscape 转义
 func (s *SqlStrObj) toEscape(val string, is2Num bool) string {
 	pos := 0
 	vLen := len(val)
@@ -800,9 +842,11 @@ func (s *SqlStrObj) toEscape(val string, is2Num bool) string {
 	return string(buf[:pos])
 }
 
+// free 释放
 func (s *SqlStrObj) free(isNeedPutPool bool) {
 	s.valuesBuf.Reset()
 	s.whereBuf.Reset()
+	s.extBuf.Reset()
 	s.groupByStr = ""
 	s.orderByStr = ""
 	s.limitStr = ""
@@ -829,7 +873,10 @@ func (s *SqlStrObj) free(isNeedPutPool bool) {
 	s.isPutPooled = true
 }
 
+// mergeSql 合并 sql
 func (s *SqlStrObj) mergeSql() {
+	defer s.buf.WriteString(s.extBuf.String())
+
 	if s.actionNum == INSERT {
 		s.buf.WriteString(s.valuesBuf.String())
 		return
@@ -849,11 +896,17 @@ func (s *SqlStrObj) mergeSql() {
 	}
 }
 
+// SqlIsEmpty sql 是否为空
+func (s *SqlStrObj) SqlIsEmpty() bool {
+	return s.SqlStrLen() == 0
+}
+
+// SqlStrLen sql 的总长度
 func (s *SqlStrObj) SqlStrLen() int {
 	return s.buf.Len()
 }
 
-// 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";" 
+// GetSqlStr 获取最终 sqlStr, 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	defer s.free(true)
@@ -880,7 +933,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	return
 }
 
-// 默认打印 sqlStr, title 为打印 log 的标题, 对外只支持一个参数, 多传没有用
+// GetTotalSqlStr 将查询条件替换为 COUNT(*), 默认打印 sqlStr, title 为打印 log 的标题, 对外只支持一个参数, 多传没有用
 func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	if s.actionNum != SELECT {
 		return
@@ -934,6 +987,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	return
 }
 
+// Int2Str 数字转字符串
 func (s *SqlStrObj) Int2Str(num int64) string {
 	// 判断下是不是负数
 	isMinus := num < 0
@@ -966,6 +1020,7 @@ func (s *SqlStrObj) Int2Str(num int64) string {
 	return string(a[i:])
 }
 
+// UInt2Str
 func (s *SqlStrObj) UInt2Str(num uint64) string {
 	var a [64 + 1]byte
 	i := len(a)
@@ -988,7 +1043,7 @@ func (s *SqlStrObj) UInt2Str(num uint64) string {
 	return string(a[i:])
 }
 
-// 通过 BF 算法来获取匹配的 index
+// IndexForBF 查找, 通过 BF 算法来获取匹配的 index
 // isFont2End 是否从主串前向后遍历查找
 // 如果匹配的内容靠前建议 isFont2End=true, 反之 false
 // todo 暂时只能匹配英文
@@ -1039,7 +1094,7 @@ func IndexForBF(isFont2End bool, s, substr string) int {
 	return -1
 }
 
-// 将输入拼接 id 参数按照指定字符进行去重, 如:
+// DistinctIdsStr 将输入拼接 id 参数按照指定字符进行去重, 如:
 // DistinctIdsStr("12345,123,20,123,20,15", ",")
 // => 12345,123,20,15
 func DistinctIdsStr(s string, split string) string {
@@ -1089,17 +1144,17 @@ func DistinctIdsStr(s string, split string) string {
 
 // ========================================= 以下为常用操作的封装 ==================================
 
-// 适用直接获取 sqlStr, 每次会自动打印日志
+// GetSqlStr 适用直接获取 sqlStr, 每次会自动打印日志
 func GetSqlStr(sqlStr string, args ...interface{}) string {
 	return NewCacheSql(sqlStr, args...).GetSqlStr()
 }
 
-// 适用直接获取 sqlStr, 不会打印日志
+// FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
 func FmtSqlStr(sqlStr string, args ...interface{}) string {
 	return NewCacheSql(sqlStr, args...).SetPrintLog(false).GetSqlStr("sqlStr", "")
 }
 
-// 针对 LIKE 语句, 只有一个条件
+// GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
 // 如: obj := GetLikeSqlStr(ALK, "SELECT id, username FROM sys_user", "name", "xue")
 //     => SELECT id, username FROM sys_user WHERE name LIKE "%xue%"
 func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...bool) string {
@@ -1124,7 +1179,7 @@ func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...
 	return sqlObj.SetPrintLog(isPrintLog).GetSqlStr("sqlStr", endSymbol)
 }
 
-// 这个函数是用来生成通过 mysql 的占位符所需要的参数, 同时如果还想打印最终 sql
+// GetSqlStrAndArgs 这个函数是用来生成通过 mysql 的占位符所需要的参数, 同时如果还想打印最终 sql
 // 如: GetSqlStrAndArgs("SELECT * FROM sys_user WHERE age = ?d AND name = ?", "20", "test")
 // => 参数1: SELECT * FROM sys_user WHERE age = ?d AND name = ?
 //    参数2: []interface{}{"20", "test"}
