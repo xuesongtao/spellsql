@@ -37,11 +37,20 @@ function gitHandle() {
     # $1 项目路径
 
     projectDir=$1
-    cd $projectDir && checkIsOk "cd ${projectDir}"
-    git pull && checkIsOk "git pull"
-    git add . && checkIsOk "git add"
-    git commit -m "update getsqlstr" && checkIsOk "git commit"
-    git push && checkIsOk "git push"
+    cd $projectDir
+    checkIsOk "cd ${projectDir}"
+    
+    git pull
+    checkIsOk "git pull"
+    
+    git add .
+    checkIsOk "git add"
+
+    git commit -m "update getsqlstr"
+    checkIsOk "git commit"
+
+    git push
+    checkIsOk "git push"
 }
 
 function startHandle() {
