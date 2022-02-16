@@ -108,7 +108,18 @@
     // UPDATE sys_user SET name = "xue", age = 18, score = 90.50 WHERE id IN (1,2,3,4,5) AND name = "tao";
 ```
 
-##### 3.5 复用
+#### 3.5 追加
+```
+    s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
+	s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
+	s.Append("ON DUPLICATE KEY UPDATE username=VALUES(username)")
+	s.GetSqlStr()
+
+    // Output:
+    // INSERT INTO sys_user (username, password, age) VALUES ("xuesongtao", "123", 20) ON DUPLICATE KEY UPDATE username=VALUES(username);
+```
+
+##### 3.6 复用
 - 1. `NewCacheSql()` 获取的对象在调用 `GetSqlStr()` 后会重置并放入内存池, 是不能对结果进行再进行 `GetSqlStr()`, 当然你是可以对结果作为 `NewCacheSql()` 的入参进行使用以此达到复用, 这样代码看起来不是多优雅, 分页处理案例如下: 
 ```
     sqlObj := NewCacheSql("SELECT * FROM user_info WHERE status = 1")
