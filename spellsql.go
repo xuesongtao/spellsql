@@ -305,8 +305,8 @@ func (s *SqlStrObj) SetRightLike(filedName string, val string) {
 	s.whereBuf.WriteString(str)
 }
 
-// SetLiftLike 设置左模糊查询, 如: xxx LIKE "%test"
-func (s *SqlStrObj) SetLiftLike(filedName string, val string) {
+// SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
+func (s *SqlStrObj) SetLeftLike(filedName string, val string) {
 	s.initWhere()
 	str := s.filedName2Val(filedName, "llk", val)
 	s.whereBuf.WriteString(str)
@@ -1165,7 +1165,7 @@ func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...
 	case RLK:
 		sqlObj.SetRightLike(filedName, value)
 	case LLK:
-		sqlObj.SetLiftLike(filedName, value)
+		sqlObj.SetLeftLike(filedName, value)
 	}
 	isPrintLog := false
 	endSymbol := ""
