@@ -67,30 +67,30 @@ func TestNewCacheSql(t *testing.T) {
 	idsStr := "1,2,3,4"
 	s := NewCacheSql("SELECT kind_id, kind_name FROM item_kind WHERE kind_id IN (?d) AND id IN (?d)", kindIds, idsStr)
 	s.SetWhere("id", 1)
-	t.Log(s.GetSqlStr())
+	s.GetSqlStr()
 }
 
 func TestNewCacheSql_INSERT(t *testing.T) {
 	s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (?, ?, ?)", "test", 123456, "阿涛")
 	s.SetInsertValues("xuesongtao", "123456", "阿桃")
 	s.SetInsertValues("xuesongtao", "123456", "阿桃")
-	t.Log(s.GetSqlStr())
+	s.GetSqlStr()
 }
 
 func TestNewCacheSql_UPDATE(t *testing.T) {
 	s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456, "阿涛", 12)
-	t.Log(s.GetSqlStr())
+	s.GetSqlStr()
 }
 
 func TestNewCacheSql_DELETE(t *testing.T) {
 	s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
-	t.Log(s.GetSqlStr())
+	s.GetSqlStr()
 }
 
 // 少参数
 func TestNewCacheSql_ArgNumErr(t *testing.T) {
 	s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456)
-	t.Log(s.GetSqlStr())
+	s.GetSqlStr()
 }
 
 // 普通查询

@@ -3,6 +3,7 @@ package spellsql
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"strings"
 	"sync"
 	// "github.com/gogf/gf/os/glog"
@@ -39,17 +40,19 @@ var (
 
 // SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
-	hasWhereStr     bool  // 标记 SELECT 是否添加已添加 WHERE
-	hasValuesStr    bool  // 标记 INSERT 是否添加已添加 VALUES
-	hasSetStr       bool  // 标记 UPDATE 师范添加 SET
-	isPutPooled     bool  // 标记是否已被回收了
-	needAddJoinStr  bool  // 标记初始化后, WHERE后再新加的值时是否需要添加 AND/OR
-	needAddComma    bool  // 标记初始化后, UPDATE, INSERT 再添加的值是是否需要添加 ,
-	isPrintSqlLog   bool  // 标记是否打印 生成的 sqlStr log
-	isCallCacheInit bool  // 标记是否为 NewCacheSql 初始化生产的对象
-	needAddbracket  bool  // 标记 INSERT 时, 是否添加括号(SetInsertValuesArgs)
-	isHandled       bool  // 标记是否处理
-	actionNum       uint8 // INSERT/DELETE/SELECT/UPDATE
+	hasWhereStr     bool   // 标记 SELECT 是否添加已添加 WHERE
+	hasValuesStr    bool   // 标记 INSERT 是否添加已添加 VALUES
+	hasSetStr       bool   // 标记 UPDATE 师范添加 SET
+	isPutPooled     bool   // 标记是否已被回收了
+	needAddJoinStr  bool   // 标记初始化后, WHERE后再新加的值时是否需要添加 AND/OR
+	needAddComma    bool   // 标记初始化后, UPDATE, INSERT 再添加的值是是否需要添加 ,
+	isPrintSqlLog   bool   // 标记是否打印 生成的 sqlStr log
+	isCallCacheInit bool   // 标记是否为 NewCacheSql 初始化生产的对象
+	needAddbracket  bool   // 标记 INSERT 时, 是否添加括号(SetInsertValuesArgs)
+	isHandled       bool   // 标记是否处理
+	actionNum       uint8  // INSERT/DELETE/SELECT/UPDATE
+	callerSkip      uint8  // 跳过调用栈的数
+	systemSplit     string // 系统对应的路径分隔符
 	limitStr        string
 	orderByStr      string
 	groupByStr      string
@@ -123,7 +126,7 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		s.actionNum = UPDATE
 	}
 
-	s.initFlag()
+	s.init()
 	if sqlLen < 512 {
 		s.buf.Grow(sqlLen * 2)
 		s.whereBuf.Grow(sqlLen)
@@ -203,8 +206,8 @@ func (s *SqlStrObj) toLower(str string) string {
 	return string(strByte)
 }
 
-// initFlag 初始化标记, 防止从 pool 里申请的标记已有内容
-func (s *SqlStrObj) initFlag() {
+// init 初始化标记, 防止从 pool 里申请的标记已有内容
+func (s *SqlStrObj) init() {
 	s.hasWhereStr = false
 	s.hasValuesStr = false
 	s.hasSetStr = false
@@ -214,6 +217,11 @@ func (s *SqlStrObj) initFlag() {
 	s.isCallCacheInit = false
 	s.needAddbracket = false
 	s.isHandled = false
+	s.callerSkip = 1
+	s.systemSplit = "/"
+	if runtime.GOOS == "windows" {
+		s.systemSplit = "\\"
+	}
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
@@ -906,6 +914,21 @@ func (s *SqlStrObj) SqlStrLen() int {
 	return s.buf.Len()
 }
 
+// SetCallerSkip 设置打印调用跳过的层数
+func (s *SqlStrObj) SetCallerSkip(skip uint8) *SqlStrObj {
+	s.callerSkip = skip
+	return s
+}
+
+// parseCallFile 解析调用文件
+func (s *SqlStrObj) parseCallFile(filename string) string {
+	lastIndex := IndexForBF(false, filename, s.systemSplit)
+	if lastIndex < 0 {
+		return ""
+	}
+	return filename[lastIndex+1:]
+}
+
 // GetSqlStr 获取最终 sqlStr, 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
@@ -923,11 +946,17 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 
 	sqlStr = s.buf.String() + endMarkStr
 	if s.isPrintSqlLog {
+		var finalTitle string
+		_, file, line, ok := runtime.Caller(int(s.callerSkip))
+		if ok {
+			finalTitle += "(" + s.parseCallFile(file) + ":" + s.Int2Str(int64(line)) + ") "
+		}
 		sqlStrTitle := "sqlStr"
 		if argsLen > 0 {
 			sqlStrTitle = title[0]
 		}
-		log.Println("[INFO]", sqlStrTitle+":", sqlStr) // 减少第三方的依赖
+		finalTitle += sqlStrTitle
+		log.Println("[INFO]", finalTitle+":", sqlStr) // 减少第三方的依赖
 		// glog.Info(sqlStrTitle+":", sqlStr)
 	}
 	return
@@ -977,11 +1006,17 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	}
 	findSqlStr = tmpBuf.String() + ";"
 	if s.isPrintSqlLog {
+		var finalTitle string
+		_, file, line, ok := runtime.Caller(int(s.callerSkip))
+		if ok {
+			finalTitle += "(" + s.parseCallFile(file) + ":" + s.Int2Str(int64(line)) + ") "
+		}
 		sqlStrTitle := "sqlTotalStr"
 		if len(title) > 0 {
 			sqlStrTitle = title[0]
 		}
-		log.Println("[INFO]", sqlStrTitle+":", findSqlStr) // 减少第三方的依赖
+		finalTitle += sqlStrTitle
+		log.Println("[INFO]", finalTitle+":", findSqlStr) // 减少第三方的依赖
 		// glog.Info(sqlStrTitle+":", findSqlStr)
 	}
 	return
@@ -1146,12 +1181,12 @@ func DistinctIdsStr(s string, split string) string {
 
 // GetSqlStr 适用直接获取 sqlStr, 每次会自动打印日志
 func GetSqlStr(sqlStr string, args ...interface{}) string {
-	return NewCacheSql(sqlStr, args...).GetSqlStr()
+	return NewCacheSql(sqlStr, args...).SetCallerSkip(2).GetSqlStr()
 }
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
 func FmtSqlStr(sqlStr string, args ...interface{}) string {
-	return NewCacheSql(sqlStr, args...).SetPrintLog(false).GetSqlStr("sqlStr", "")
+	return NewCacheSql(sqlStr, args...).SetCallerSkip(2).SetPrintLog(false).GetSqlStr("sqlStr", "")
 }
 
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
@@ -1176,7 +1211,7 @@ func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...
 		endSymbol = ";"
 	}
 
-	return sqlObj.SetPrintLog(isPrintLog).GetSqlStr("sqlStr", endSymbol)
+	return sqlObj.SetPrintLog(isPrintLog).SetCallerSkip(2).GetSqlStr("sqlStr", endSymbol)
 }
 
 // GetSqlStrAndArgs 这个函数是用来生成通过 mysql 的占位符所需要的参数, 同时如果还想打印最终 sql
@@ -1185,7 +1220,7 @@ func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...
 //    参数2: []interface{}{"20", "test"}
 // 	  参数3: SELECT * FROM sys_user WHERE age = 20 AND name = "test";
 func GetSqlStrAndArgs(sqlStr string, args ...interface{}) (string, []interface{}, string) {
-	finalSqlStr := NewCacheSql(sqlStr, args...).GetSqlStr()
+	finalSqlStr := NewCacheSql(sqlStr, args...).SetCallerSkip(2).GetSqlStr()
 
 	// 判断是否包含 ?d, 需要替换 ?d 为 ?
 	isReplace := IndexForBF(false, sqlStr, "?d") > -1
