@@ -957,7 +957,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 		}
 		finalTitle += sqlStrTitle
 		log.Println("[INFO]", finalTitle+":", sqlStr) // 减少第三方的依赖
-		// glog.Info(sqlStrTitle+":", sqlStr)
+		// glog.Info(finalTitle+":", sqlStr)
 	}
 	return
 }
@@ -1017,7 +1017,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 		}
 		finalTitle += sqlStrTitle
 		log.Println("[INFO]", finalTitle+":", findSqlStr) // 减少第三方的依赖
-		// glog.Info(sqlStrTitle+":", findSqlStr)
+		// glog.Info(finalTitle+":", findSqlStr)
 	}
 	return
 }
