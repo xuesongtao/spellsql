@@ -21,7 +21,7 @@ type CommonDB interface {
 type Session struct {
 	db  *sql.DB
 	tx  *sql.Tx
-	tag string
+	tag string // 解析字段的tag
 }
 
 // NewSession
