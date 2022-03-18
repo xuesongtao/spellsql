@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	defaultTableTag = "json"
+	defaultTableTag = "db"
 )
 
 type CommonDB interface {
@@ -183,11 +183,11 @@ func (s *Session) DeleteForObj(deleteObj interface{}, tableName ...string) (sql.
 	return s.DB().Exec(delSqlObj.GetSqlStr())
 }
 
-func (s *Session) Select() error {
+func (s *Session) FindAll() error {
 	return nil
 }
 
-func (s *Session) Selects() error {
+func (s *Session) First() error {
 	return nil
 }
 
