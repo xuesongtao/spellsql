@@ -61,8 +61,8 @@ func (s *Session) parseTableName(objName string) string {
 	return res.String()
 }
 
-// parseReflectValue 解析字段
-func (s *Session) parseReflectValue(v interface{}) (table string, columns []string, values []interface{}, err error) {
+// parseTable 解析字段
+func (s *Session) parseTable(v interface{}) (table string, columns []string, values []interface{}, err error) {
 	tv, err := s.reflectValue(v)
 	if err != nil {
 		return
@@ -117,7 +117,7 @@ func (s *Session) InsertForObj(insertObj interface{}, tableName ...string) (sql.
 		inputTable = tableName[0]
 	}
 
-	table, columns, values, err := s.parseReflectValue(insertObj)
+	table, columns, values, err := s.parseTable(insertObj)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func (s *Session) InsertBatchForObj(tableName string, insertObjs ...interface{})
 	inputTable := tableName
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
-		table, columns, values, err := s.parseReflectValue(insertObj)
+		table, columns, values, err := s.parseTable(insertObj)
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func (s *Session) DeleteForObj(deleteObj interface{}, tableName ...string) (sql.
 		inputTable = tableName[0]
 	}
 
-	table, columns, values, err := s.parseReflectValue(deleteObj)
+	table, columns, values, err := s.parseTable(deleteObj)
 	if err != nil {
 		return nil, err
 	}
