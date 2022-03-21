@@ -88,7 +88,12 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestFind(t *testing.T) {
-	var name string
-	NewTable(db, "student").Select("name").Where("id=?", 2).Find(&name)
-	t.Log(name)
+	// var name string
+	// NewTable(db, "student").Select("name").Where("id=?", 2).Find(&name)
+	// t.Log(name)
+
+
+	var stu Student
+	NewTable(db, "student").Select("name").Where("id=?", 2).Find(&stu)
+	t.Log(stu)
 }

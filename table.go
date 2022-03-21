@@ -224,7 +224,7 @@ func (t *Table) Update(updateObj interface{}) *Table {
 // Select 查询内容
 // fileds 多个通过逗号隔开
 func (t *Table) Select(fileds string) *Table {
-	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fileds, t.name)
+	t.tmpSqlObj = NewSql("SELECT ?v FROM ?v", fileds, t.name)
 	return t
 }
 
@@ -279,7 +279,7 @@ func (t *Table) find(res interface{}) error {
 		if err != nil {
 			return err
 		}
-		column2Index := t.parseCol2FiledIndex(tv.Type())
+		column2Index := t.parseCol2FiledIndex(dest.Type())
 		destStruct := reflect.New(dest.Type()).Elem()
 		values := make([]interface{}, len(columns))
 		for _, column := range columns {
