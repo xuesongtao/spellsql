@@ -34,17 +34,17 @@ func init() {
 func TestGetCol(t *testing.T) {
 	tab := NewTable(db, "student")
 	tab.initFileMap()
-	t.Log(tab.filedMap)
+	t.Log(tab.col2InfoMap)
 }
 
 func TestInsert(t *testing.T) {
 	s := Student{
-		Name:  "xue",
-		Age:   18,
-		Addr:  "成都市",
+		Name: "xue",
+		Age:  18,
+		// Addr:  "成都市",
 		Hobby: []int{1, 2, 3},
 	}
-	rows, err := NewTable(db, "", "db").Insert(s)
+	rows, err := NewTable(db).Insert(s)
 	if err != nil {
 		t.Log(err)
 		return
@@ -75,25 +75,27 @@ func TestDelete1(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	s := Student{
-		Name:  "xuesongtao",
-		Age:   20,
-		Addr:  "测试",
+		Name: "xuesongtao",
+		Age:  20,
+		Addr: "测试",
 	}
 	rows, err := NewTable(db).Update(s).Where("id=?", 1).Exec()
 	if err != nil {
 		t.Log(err)
-		return 
+		return
 	}
 	t.Log(rows.LastInsertId())
 }
 
-func TestFind(t *testing.T) {
+func TestFindOne(t *testing.T) {
 	// var name string
 	// NewTable(db, "student").Select("name").Where("id=?", 2).Find(&name)
 	// t.Log(name)
 
-
 	var stu Student
-	NewTable(db, "student").Select("name").Where("id=?", 2).Find(&stu)
-	t.Log(stu)
+	err := NewTable(db, "student").Select("id,name,addr").Where("id=?", 21).FindOne(&stu)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", stu)
 }
