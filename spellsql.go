@@ -537,8 +537,8 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 }
 
 // Append 将类型追加在最后
-func (s *SqlStrObj) Append(sqlStr string) *SqlStrObj {
-	s.extBuf.WriteString(" " + sqlStr)
+func (s *SqlStrObj) Append(sqlStr string, args ...interface{}) *SqlStrObj {
+	s.writeSqlStr2Buf(&s.extBuf, " "+sqlStr, args...)
 	return s
 }
 

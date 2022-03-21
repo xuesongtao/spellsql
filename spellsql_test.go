@@ -225,7 +225,7 @@ func TestSqlStr_UPATEGetSql(t *testing.T) {
 func TestSqlStr_Append(t *testing.T) {
 	s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
 	s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
-	s.Append("ON DUPLICATE KEY UPDATE username=VALUES(username)")
+	s.Append("ON DUPLICATE KEY UPDATE username=VALUES(?v)", "username")
 	s.GetSqlStr()
 }
 
