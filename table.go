@@ -300,7 +300,7 @@ func (t *Table) find(selectType uint8, dest interface{}) error {
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
 	case reflect.Struct:
-		return t.queryScan(ty, selectType, false, dest)
+		return t.queryScanObj(ty, selectType, false, dest)
 	case reflect.Slice:
 		ty = ty.Elem()
 		isPtr := ty.Kind() == reflect.Ptr
@@ -312,7 +312,7 @@ func (t *Table) find(selectType uint8, dest interface{}) error {
 		if ty.Kind() != reflect.Struct {
 			return errors.New("it should slice struct")
 		}
-		return t.queryScan(ty, selectType, isPtr, dest)
+		return t.queryScanObj(ty, selectType, isPtr, dest)
 	default:
 		if selectType == selectForOne {
 			return errors.New("dest it should struct, or you can call QueryRowScan/Query")
@@ -321,8 +321,8 @@ func (t *Table) find(selectType uint8, dest interface{}) error {
 	}
 }
 
-// queryScan 将数据库查询的内容映射到目标对象
-func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}) error {
+// queryScanObj 将数据库查询的内容映射到目标对象
+func (t *Table) queryScanObj(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}) error {
 	rows, err := t.Query()
 	if err != nil {
 		return err
@@ -407,6 +407,11 @@ func (t *Table) setDest(dest reflect.Value, cols []string, col2IndexMap map[stri
 	return nil
 }
 
+// GetSqlObj 获取 SqlStrObj, 方便外部使用该对象的方法
+func (t *Table) GetSqlObj() *SqlStrObj {
+	return t.tmpSqlObj
+}
+
 // Where 支持占位符
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
@@ -441,9 +446,17 @@ func (t *Table) Group(groupSqlStr string) *Table {
 	return t
 }
 
-// Raw 执行原生sqlStr
-func (t *Table) Raw(sqlStr string) *Table {
-	t.tmpSqlObj = NewCacheSql(sqlStr)
+// Raw 执行原生操作
+// sql sqlStr 或 *SqlStrObj
+func (t *Table) Raw(sql interface{}) *Table {
+	switch val := sql.(type) {
+	case string:
+		t.tmpSqlObj = NewCacheSql(val)
+	case *SqlStrObj:
+		t.tmpSqlObj = val
+	default:
+		return nil
+	}
 	return t
 }
 

@@ -12,17 +12,6 @@ import (
 
 var errNilPtr = errors.New("destination pointer is nil") // embedded in descriptive error
 
-type NullData struct {
-	data interface{}
-}
-
-func (n *NullData) Scan(src interface{}) error {
-	if src != nil {
-		return convertAssign(n.data, src)
-	}
-	return nil
-}
-
 // convertAssign copies to dest the value in src, converting it if possible.
 // An error is returned if the copy would result in loss of information.
 // dest should be a pointer type. If rows is passed in, the rows will
