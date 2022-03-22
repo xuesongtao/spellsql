@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	_ "unsafe"
+	"sync"
 )
 
 const (
@@ -19,6 +19,10 @@ const (
 
 	selectForOne uint8 = 1 // 单条查询
 	selectForAll uint8 = 2 // 多条查询
+)
+
+var (
+	tableColInfoSyncMap = sync.Map{}
 )
 
 // TableColInfo 表列详情
@@ -72,11 +76,19 @@ func (t *Table) PrintSql(is bool) *Table {
 	return t
 }
 
-// initFileMap 初始化表字段map, 由于 json 应用比较多, 在后续执行insert等通过对象取值会存在取值错误现象, 所以需要预处理下
-func (t *Table) initFileMap() error {
+// initCol2InfoMap 初始化表字段map, 由于json tag应用比较多, 为了在后续执行insert等通过对象取值会存在取值错误现象, 所以需要预处理下
+func (t *Table) initCol2InfoMap() error {
 	// 已经初始化过了
 	if t.col2InfoMap != nil {
 		return nil
+	}
+
+	// 先判断下缓存中有没有
+	if info, ok := tableColInfoSyncMap.Load(t.name); ok {
+		t.col2InfoMap, ok = info.(map[string]*TableColInfo)
+		if ok {
+			return nil
+		}
 	}
 
 	sqlStr := GetSqlStr("SHOW COLUMNS FROM ?v", t.name)
@@ -87,8 +99,7 @@ func (t *Table) initFileMap() error {
 	defer rows.Close()
 
 	columns, _ := rows.Columns()
-	l := len(columns)
-	t.col2InfoMap = make(map[string]*TableColInfo, l)
+	t.col2InfoMap = make(map[string]*TableColInfo, len(columns))
 	for rows.Next() {
 		var info TableColInfo
 		err = rows.Scan(&info.Field, &info.Type, &info.Null, &info.Key, &info.Default, &info.Extra)
@@ -97,11 +108,13 @@ func (t *Table) initFileMap() error {
 		}
 		t.col2InfoMap[info.Field] = &info
 	}
+
+	tableColInfoSyncMap.Store(t.name, t.col2InfoMap)
 	return nil
 }
 
 // parseTable 解析字段
-func (t *Table) parseTable(v interface{}, tableName ...string) (columns []string, values []interface{}, err error) {
+func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string) (columns []string, values []interface{}, err error) {
 	tv, err := getStructReflectValue(v)
 	if err != nil {
 		return
@@ -111,7 +124,7 @@ func (t *Table) parseTable(v interface{}, tableName ...string) (columns []string
 	if t.name == "" {
 		t.name = parseTableName(ty.Name())
 	}
-	t.initFileMap()
+	t.initCol2InfoMap()
 	filedNum := ty.NumField()
 	columns = make([]string, 0, filedNum)
 	values = make([]interface{}, 0, filedNum)
@@ -127,13 +140,13 @@ func (t *Table) parseTable(v interface{}, tableName ...string) (columns []string
 		}
 
 		// 排除tag中包含的其他的内容
-		column = t.parseTagTableField(column)
+		column = t.parseTag2TableCol(column)
 		// 判断字段是否有效
 		if t.tag == defaultTableTag {
 			if tableFiled, ok := t.col2InfoMap[column]; !ok {
 				continue
 			} else {
-				if tableFiled.Key == "PRI" { // 主键, 防止更新
+				if isExcludePri && tableFiled.Key == "PRI" { // 主键, 防止更新
 					continue
 				}
 			}
@@ -155,8 +168,8 @@ func (t *Table) parseTable(v interface{}, tableName ...string) (columns []string
 	return
 }
 
-// parseTagTableField 解析tag中表的列名
-func (t *Table) parseTagTableField(tag string) (column string) {
+// parseTag2TableCol 解析tag中表的列名
+func (t *Table) parseTag2TableCol(tag string) (column string) {
 	tmpIndex := IndexForBF(true, tag, ",")
 	if tmpIndex > -1 {
 		column = tag[:tmpIndex]
@@ -175,7 +188,7 @@ func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
 
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
-		columns, values, err := t.parseTable(insertObj, t.name)
+		columns, values, err := t.parseTable(insertObj, true, t.name)
 		if err != nil {
 			return nil, err
 		}
@@ -184,13 +197,14 @@ func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
 		}
 		insertSql.SetInsertValues(values...)
 	}
-	return t.db.Exec(insertSql.SetPrintLog(t.isPrintSql).GetSqlStr())
+	t.tmpSqlObj = insertSql
+	return t.Exec()
 }
 
 // Delete 会以对象中有值得为条件进行删除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
-		columns, values, err := t.parseTable(deleteObj[0], t.name)
+		columns, values, err := t.parseTable(deleteObj[0], false, t.name)
 		if err != nil {
 			Error("parseTable is failed, err:", err)
 			return nil
@@ -211,7 +225,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 
 // Update 会更新输入的值
 func (t *Table) Update(updateObj interface{}) *Table {
-	columns, values, err := t.parseTable(updateObj, t.name)
+	columns, values, err := t.parseTable(updateObj, true, t.name)
 	if err != nil {
 		Error("parseTable is failed, err:", err)
 		return nil
@@ -230,6 +244,11 @@ func (t *Table) Update(updateObj interface{}) *Table {
 // Select 查询内容
 // fileds 多个通过逗号隔开
 func (t *Table) Select(fileds string) *Table {
+	if fileds == "" {
+		Error("fileds is null")
+		return nil
+	}
+
 	if t.name == "" {
 		Error("table is unknown")
 		return nil
@@ -240,7 +259,7 @@ func (t *Table) Select(fileds string) *Table {
 
 // Count 获取总数
 func (t *Table) Count(total interface{}) error {
-	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).Scan(total)
+	return t.Raw(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).QueryRowScan(total)
 }
 
 // Find 单行查询
@@ -264,7 +283,7 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 		if val == "" {
 			continue
 		}
-		column2IndexMap[t.parseTagTableField(val)] = i
+		column2IndexMap[t.parseTag2TableCol(val)] = i
 	}
 	return column2IndexMap
 }

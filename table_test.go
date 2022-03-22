@@ -33,9 +33,11 @@ func init() {
 }
 
 func TestGetCol(t *testing.T) {
-	tab := NewTable(db, "student")
-	tab.initFileMap()
-	t.Log(tab.col2InfoMap)
+	for i := 0; i < 10; i++ {
+		tab := NewTable(db, "student")
+		tab.initCol2InfoMap()
+		t.Logf("%+v", tab.col2InfoMap)
+	}
 }
 
 func TestInsert(t *testing.T) {
