@@ -404,6 +404,24 @@ func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
 	return t
 }
 
+// OrderBy
+func (t *Table) OrderBy(sqlStr string) *Table {
+	t.tmpSqlObj.SetOrderByStr(sqlStr)
+	return t
+}
+
+// Limit
+func (t *Table) Limit(page int32, size int32) *Table {
+	t.tmpSqlObj.SetLimit(page, size)
+	return t
+}
+
+// Group
+func (t *Table) Group(groupSqlStr string) *Table {
+	t.tmpSqlObj.SetGroupByStr(groupSqlStr)
+	return t
+}
+
 // Raw 执行原生sqlStr
 func (t *Table) Raw(sqlStr string) *Table {
 	t.tmpSqlObj = NewCacheSql(sqlStr)
