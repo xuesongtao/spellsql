@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	_ "unsafe"
 )
 
 const (
@@ -15,6 +16,9 @@ const (
 		"    Age  int    `json:\"age,omitempty\"`\n" +
 		"    Addr string `json:\"addr,omitempty\"`\n" +
 		"}"
+
+	selectForOne uint8 = 1 // 单条查询
+	selectForAll uint8 = 2 // 多条查询
 )
 
 // TableColInfo 表列详情
@@ -29,6 +33,7 @@ type TableColInfo struct {
 
 type Table struct {
 	db          DBer
+	isPrintSql  bool       // 是否打印sql
 	tmpSqlObj   *SqlStrObj // 暂存对象
 	tag         string     // 解析字段的tag
 	name        string
@@ -46,8 +51,9 @@ func NewTable(db DBer, args ...string) *Table {
 	}
 
 	t := &Table{
-		db:  db,
-		tag: defaultTableTag,
+		db:         db,
+		isPrintSql: true,
+		tag:        defaultTableTag,
 	}
 
 	switch len(args) {
@@ -57,14 +63,12 @@ func NewTable(db DBer, args ...string) *Table {
 		t.name = args[0]
 		t.tag = args[1]
 	}
+	return t
+}
 
-	// 由于 json 应用比较多, 在后续执行insert等通过对象取值会存在取值错误现象, 所以需要预处理下
-	// if t.tag == defaultTableTag && t.name != "" {
-	// 	if err := t.initFileMap(); err != nil {
-	// 		Error("initFileMap is failed, err:", err)
-	// 		return nil
-	// 	}
-	// }
+// PrintSql 是否打印 sql
+func (t *Table) PrintSql(is bool) *Table {
+	t.isPrintSql = is
 	return t
 }
 
@@ -180,7 +184,7 @@ func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
 		}
 		insertSql.SetInsertValues(values...)
 	}
-	return t.db.Exec(insertSql.GetSqlStr())
+	return t.db.Exec(insertSql.SetPrintLog(t.isPrintSql).GetSqlStr())
 }
 
 // Delete 会以对象中有值得为条件进行删除
@@ -236,18 +240,18 @@ func (t *Table) Select(fileds string) *Table {
 
 // Count 获取总数
 func (t *Table) Count(total interface{}) error {
-	return t.db.QueryRow(t.tmpSqlObj.GetTotalSqlStr()).Scan(total)
+	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).Scan(total)
 }
 
 // Find 单行查询
 func (t *Table) FindOne(dest interface{}) error {
 	t.tmpSqlObj.SetLimitStr("1")
-	return t.find(dest)
+	return t.find(selectForOne, dest)
 }
 
 // 多行查询
 func (t *Table) FindAll(dest interface{}) error {
-	return nil
+	return t.find(selectForAll, dest)
 }
 
 // parseCol2FiledIndex 解析列对应的结构体偏移值
@@ -265,40 +269,73 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 	return column2IndexMap
 }
 
-func (t *Table) find(dest interface{}) error {
+// find 查询
+func (t *Table) find(selectType uint8, dest interface{}) error {
 	ty := reflect.TypeOf(dest)
 	switch ty.Kind() {
-	case reflect.Ptr:
-		ty = removeTypePtr(ty)
+	case reflect.Ptr, reflect.Slice:
+	default:
+		return errors.New("dest it should ptr/slice")
+	}
+
+	ty = removeTypePtr(ty)
+	switch ty.Kind() {
+	case reflect.Struct:
+		return t.queryScan(ty, selectType, false, dest)
+	case reflect.Slice:
+		ty = ty.Elem()
+		isPtr := ty.Kind() == reflect.Ptr
+		if isPtr {
+			ty = removeTypePtr(ty) // 找到结构体
+		}
+
 		// 非结构体就为单字段查询
 		if ty.Kind() != reflect.Struct {
-			return t.QueryRowScan(dest)
+			return errors.New("it should slice struct")
 		}
+		return t.queryScan(ty, selectType, isPtr, dest)
+	default:
+		if selectType == selectForOne {
+			return errors.New("dest it should struct, or you can call QueryRowScan/Query")
+		}
+		return errors.New("dest it should slice")
+	}
+}
 
-		rows, err := t.Query()
-		if err != nil {
+// queryScan 将数据库查询的内容映射到目标对象
+func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}) error {
+	rows, err := t.Query()
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	columns, _ := rows.Columns()
+	colTypes, _ := rows.ColumnTypes()
+	column2IndexMap := t.parseCol2FiledIndex(ty)
+	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
+	for rows.Next() {
+		values := t.getScanValues(colTypes)
+		if err := rows.Scan(values...); err != nil {
+			Error("mysql scan is failed, err:", err)
+			continue
+		}
+		tmpStruct := reflect.New(ty).Elem()
+		if err := t.setDest(tmpStruct, columns, column2IndexMap, values); err != nil {
 			return err
 		}
-		defer rows.Close()
 
-		tv := reflect.Indirect(reflect.ValueOf(dest))
-		columns, _ := rows.Columns()
-		colTypes, _ := rows.ColumnTypes()
-		column2IndexMap := t.parseCol2FiledIndex(ty)
-		for rows.Next() {
-			values := t.getScanValues(colTypes)
-			if err := rows.Scan(values...); err != nil {
-				Error("mysql scan is failed, err:", err)
-				continue
+		if selectType == selectForAll { // 切片类型
+			if isPtr { // 判断下切片中是指针类型还是值类型
+				destReflectValue.Set(reflect.Append(destReflectValue, tmpStruct.Addr()))
+			} else {
+				destReflectValue.Set(reflect.Append(destReflectValue, tmpStruct))
+
 			}
-			t.setDest(tv, columns, column2IndexMap, values)
+		} else { // 结构体
+			destReflectValue.Set(tmpStruct)
 		}
-	case reflect.Slice:
-
-	default:
-		return errors.New("res it should ptr/slice")
 	}
-	// sqlStr := t.tmpSqlObj.GetSqlStr()
 	return nil
 }
 
@@ -328,21 +365,27 @@ func (t *Table) initScanValue(dbType string) interface{} {
 }
 
 // setDest 设置值
-func (t *Table) setDest(dest reflect.Value, cols []string, col2IndexMap map[string]int, scanResult []interface{}) {
+func (t *Table) setDest(dest reflect.Value, cols []string, col2IndexMap map[string]int, scanResult []interface{}) error {
 	for i, col := range cols {
 		filedIndex, ok := col2IndexMap[col]
 		if !ok {
 			continue
 		}
 		switch val := scanResult[i].(type) {
-		case *int32:
-			dest.Field(filedIndex).SetInt(int64(*val))
-		case *int64:
-			dest.Field(filedIndex).SetInt(*val)
 		case *sql.NullString:
-			dest.Field(filedIndex).SetString(val.String)
+			err := convertAssign(dest.Field(filedIndex).Addr().Interface(), val.String)
+			if err != nil {
+				return err
+			}
+		default:
+			reflectVal := reflect.ValueOf(val)
+			err := convertAssign(dest.Field(filedIndex).Addr().Interface(), reflect.Indirect(reflectVal).Interface())
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // Where 支持占位符
@@ -369,17 +412,17 @@ func (t *Table) Raw(sqlStr string) *Table {
 
 // Exec 执行
 func (t *Table) Exec() (sql.Result, error) {
-	return t.db.Exec(t.tmpSqlObj.GetSqlStr())
+	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr())
 }
 
 // QueryRowScan 单行查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
-	return t.db.QueryRow(t.tmpSqlObj.GetSqlStr()).Scan(dest...)
+	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr()).Scan(dest...)
 }
 
 // Query 多行查询
 func (t *Table) Query() (*sql.Rows, error) {
-	return t.db.Query(t.tmpSqlObj.GetSqlStr())
+	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr())
 }
 
 // removeValuePtr 移除多指针
