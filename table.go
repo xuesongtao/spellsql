@@ -23,6 +23,7 @@ const (
 
 var (
 	tableColInfoSyncMap = sync.Map{}
+	structTagSyncMap    = sync.Map{}
 )
 
 // TableColInfo 表列详情
@@ -275,6 +276,10 @@ func (t *Table) FindAll(dest interface{}) error {
 
 // parseCol2FiledIndex 解析列对应的结构体偏移值
 func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
+	if cacheVal, ok := structTagSyncMap.Load(ty.Name()); ok {
+		return cacheVal.(map[string]int)
+	}
+
 	filedNum := ty.NumField()
 	column2IndexMap := make(map[string]int, filedNum)
 	for i := 0; i < filedNum; i++ {
@@ -285,6 +290,8 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 		}
 		column2IndexMap[t.parseTag2TableCol(val)] = i
 	}
+
+	structTagSyncMap.Store(ty.Name(), column2IndexMap)
 	return column2IndexMap
 }
 
@@ -313,6 +320,11 @@ func (t *Table) find(selectType uint8, dest interface{}) error {
 			return errors.New("it should slice struct")
 		}
 		return t.queryScanObj(ty, selectType, isPtr, dest)
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return t.QueryRowScan(dest)
 	default:
 		if selectType == selectForOne {
 			return errors.New("dest it should struct, or you can call QueryRowScan/Query")
@@ -397,8 +409,8 @@ func (t *Table) setDest(dest reflect.Value, cols []string, col2IndexMap map[stri
 				return err
 			}
 		default:
-			reflectVal := reflect.ValueOf(val)
-			err := convertAssign(dest.Field(filedIndex).Addr().Interface(), reflect.Indirect(reflectVal).Interface())
+			// reflectVal := reflect.ValueOf(val)
+			err := convertAssign(dest.Field(filedIndex).Addr().Interface(), val)
 			if err != nil {
 				return err
 			}
