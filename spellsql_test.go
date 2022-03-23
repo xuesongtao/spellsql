@@ -125,6 +125,13 @@ func TestSqlStr_InWhere(t *testing.T) {
 	s.GetSqlStr()
 }
 
+func TestSetBetween(t *testing.T) {
+	s := NewCacheSql("SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id")
+	s.SetBetween("u.age", 10, 100)
+	s.SetBetween("u.birthday", "2000-01-01 00:00:00", "2001-01-01 23:59:59")
+	s.GetSqlStr()
+}
+
 func TestMySql_SetWhereArgs(t *testing.T) {
 	idsStr := []string{"1", "2", "3", "4", "5"}
 	s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")

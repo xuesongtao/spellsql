@@ -329,7 +329,7 @@ func (s *SqlStrObj) SetAllLike(filedName string, val string) {
 
 // SetBetween 设置 BETWEEN ? AND ?
 func (s *SqlStrObj) SetBetween(filedName string, leftVal, rightVal interface{}) *SqlStrObj {
-	return s.SetWhereArgs("?v BETWEEN ? AND ?", filedName, leftVal, rightVal)
+	return s.SetWhereArgs("(?v BETWEEN ? AND ?)", filedName, leftVal, rightVal)
 }
 
 // SetWhereArgs 支持占位符
