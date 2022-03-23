@@ -327,6 +327,11 @@ func (s *SqlStrObj) SetAllLike(filedName string, val string) {
 	s.whereBuf.WriteString(str)
 }
 
+// SetBetween 设置 BETWEEN ? AND ?
+func (s *SqlStrObj) SetBetween(filedName string, leftVal, rightVal interface{}) *SqlStrObj {
+	return s.SetWhereArgs("?v BETWEEN ? AND ?", filedName, leftVal, rightVal)
+}
+
 // SetWhereArgs 支持占位符
 // 如: SetWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
