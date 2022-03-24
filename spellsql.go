@@ -10,7 +10,8 @@ import (
 
 const (
 	// sql 操作数字
-	INSERT uint8 = iota
+	_ uint8 = iota
+	INSERT
 	DELETE
 	SELECT
 	UPDATE
