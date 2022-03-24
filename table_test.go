@@ -112,6 +112,13 @@ func TestFindOne(t *testing.T) {
 	t.Logf("%+v", m)
 }
 
+func TestFindForJoin(t *testing.T) {
+	var m []Man
+	sqlStr := GetSqlStr("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id")
+	NewTable(db).Raw(sqlStr).FindAll(&m)
+	t.Log(m)
+}
+
 func BenchmarkFindOne(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m Man
