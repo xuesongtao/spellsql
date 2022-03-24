@@ -10,12 +10,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type Student struct {
-	Id    int32  `json:"id,omitempty" gorm:"id"`
-	Name  string `json:"name,omitempty" gorm:"name"`
-	Age   string `json:"age,omitempty" gorm:"age"`
-	Addr  string `json:"addr,omitempty" gorm "addr"`
-	Hobby []int  `json:"hobby"`
+type Man struct {
+	Id   int32  `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+	Age  int32  `json:"age,omitempty"`
+	Addr string `json:"addr,omitempty"`
 }
 
 var (
@@ -45,21 +44,23 @@ func init() {
 }
 
 func TestGetCol(t *testing.T) {
-	for i := 0; i < 10; i++ {
-		tab := NewTable(db, "student")
+	for i := 0; i < 1; i++ {
+		tab := NewTable(db, "man")
 		tab.initCol2InfoMap()
 		t.Logf("%+v", tab.col2InfoMap)
+		for k, v := range tab.col2InfoMap {
+			fmt.Println(k, v)
+		}
 	}
 }
 
 func TestInsert(t *testing.T) {
-	s := Student{
-		Name: "xue",
-		Age:  "18",
-		// Addr:  "成都市",
-		Hobby: []int{1, 2, 3},
+	m := Man{
+		Name: "xue1234",
+		Age:  18,
+		Addr: "成都市",
 	}
-	rows, err := NewTable(db).Insert(s)
+	rows, err := NewTable(db).Insert(m)
 	if err != nil {
 		t.Log(err)
 		return
@@ -68,10 +69,10 @@ func TestInsert(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	s := Student{
+	m := Man{
 		Id: 1,
 	}
-	rows, err := NewTable(db).Delete(s).Exec()
+	rows, err := NewTable(db).Delete(m).Exec()
 	if err != nil {
 		t.Log(err)
 		return
@@ -80,7 +81,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestDelete1(t *testing.T) {
-	rows, err := NewTable(db, "student").Delete().Where("id=?", 1).Exec()
+	rows, err := NewTable(db, "man").Delete().Where("id=?", 1).Exec()
 	if err != nil {
 		t.Log(err)
 		return
@@ -89,12 +90,12 @@ func TestDelete1(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	s := Student{
+	m := Man{
 		Name: "xuesongtao",
-		Age:  "20",
+		Age:  20,
 		Addr: "测试",
 	}
-	rows, err := NewTable(db).Update(s).Where("id=?", 1).Exec()
+	rows, err := NewTable(db).Update(m).Where("id=?", 1).Exec()
 	if err != nil {
 		t.Log(err)
 		return
@@ -103,111 +104,107 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestFindOne(t *testing.T) {
-	// var name string
-	// NewTable(db, "student").Select("name").Where("id=?", 2).Find(&name)
-	// t.Log(name)
-
-	var stu Student
-	err := NewTable(db, "student").Select("*").Where("id=?", 21).FindOne(&stu)
+	var m Man
+	err := NewTable(db, "man").Select("*").Where("id=?", 1).FindOne(&m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("%+v", stu)
+	t.Logf("%+v", m)
 }
 
 func BenchmarkFindOne(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var stu Student
-		_ = NewTable(db, "student").PrintSql(false).Select("name,age,addr").Where("id=?", 2).FindOne(&stu)
+		var m Man
+		_ = NewTable(db, "man").PrintSql(false).Select("name,age,addr").Where("id=?", 1).FindOne(&m)
 	}
 
-	// BenchmarkFindOne-8   	   30301	     37021 ns/op	    1920 B/op	      51 allocs/op
-	// BenchmarkFindOne-8   	   30214	     36949 ns/op	    1760 B/op	      46 allocs/op
-	// BenchmarkFindOne-8   	   32007	     37540 ns/op	    1760 B/op	      46 allocs/op
+	// BenchmarkFindOne-8         32341             35948 ns/op            1576 B/op         39 allocs/op
+	// BenchmarkFindOne-8         32796             36229 ns/op            1576 B/op         39 allocs/op
+	// BenchmarkFindOne-8         32755             36180 ns/op            1576 B/op         39 allocs/op
 }
 
-func BenchmarkFindOn1(b *testing.B) {
-	gdb.Logger = nil
+func BenchmarkFindOne1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var stu Student
-		gdb.Find(&stu, "id=?", 2)
+		var m Man
+		gdb.Table("man").Find(&m, "id=?", 2)
 	}
-	// BenchmarkFindOn1-8   	   31210	     37937 ns/op	    9932 B/op	     157 allocs/op
-	// BenchmarkFindOn1-8   	   30067	     37005 ns/op	    9938 B/op	     157 allocs/op
-	// BenchmarkFindOn1-8   	   31622	     37696 ns/op	    9952 B/op	     157 allocs/op
+
+	// BenchmarkFindOne1-8        19682             61327 ns/op            3684 B/op         60 allocs/op
+	// BenchmarkFindOne1-8        19852             60416 ns/op            3684 B/op         60 allocs/op
+	// BenchmarkFindOne1-8        19795             60345 ns/op            3684 B/op         60 allocs/op
 }
 
 func BenchmarkFindOne2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var stu Student
-		_ = NewTable(db, "student").PrintSql(false).Select("name,age,addr").Where("id=?", 2).QueryRowScan(&stu.Id, &stu.Age, &stu.Addr)
+		var m Man
+		_ = NewTable(db, "man").PrintSql(false).Select("name,age,addr").Where("id=?", 2).QueryRowScan(&m.Id, &m.Age, &m.Addr)
 	}
 
-	// BenchmarkFindOne2-8   	   33696	     35633 ns/op	    1268 B/op	      32 allocs/op
-	// BenchmarkFindOne2-8   	   30796	     36616 ns/op	    1275 B/op	      31 allocs/op
-	// BenchmarkFindOne2-8   	   33342	     36705 ns/op	    1275 B/op	      31 allocs/op
+	// BenchmarkFindOne2-8        33466             35516 ns/op            1233 B/op         31 allocs/op
+	// BenchmarkFindOne2-8        33404             35501 ns/op            1233 B/op         31 allocs/op
+	// BenchmarkFindOne2-8        33453             35496 ns/op            1233 B/op         31 allocs/op
 }
 
 func BenchmarkFindOne3(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var stu Student
-		sqlStr := FmtSqlStr("SELECT name,age,addr FROM student WHERE id=?", 2)
-		_ = db.QueryRow(sqlStr).Scan(&stu.Id, &stu.Age, &stu.Addr)
+		var m Man
+		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id=?", 2)
+		_ = db.QueryRow(sqlStr).Scan(&m.Id, &m.Age, &m.Addr)
 	}
 
-	// BenchmarkFindOne3-8   	   32036	     36519 ns/op	    1219 B/op	      29 allocs/op
-	// BenchmarkFindOne3-8   	   31311	     35898 ns/op	    1219 B/op	      29 allocs/op
-	// BenchmarkFindOne3-8   	   31790	     35642 ns/op	    1219 B/op	      29 allocs/op
+	// BenchmarkFindOne3-8        33596             35717 ns/op            1160 B/op         29 allocs/op
+	// BenchmarkFindOne3-8        33660             35226 ns/op            1161 B/op         29 allocs/op
+	// BenchmarkFindOne3-8        33541             35269 ns/op            1160 B/op         29 allocs/op
 }
 
 func TestFindAll(t *testing.T) {
-	var stu []*Student
-	err := NewTable(db, "student").Select("*").Where("id>?", 1).FindAll(&stu)
+	var m []*Man
+	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("%+v", stu)
-	for _, v := range stu {
+	t.Logf("%+v", m)
+	for _, v := range m {
 		fmt.Println(v)
 	}
 }
 
 func BenchmarkFindAll(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var stu []*Student
-		_ = NewTable(db, "student").PrintSql(false).Select("*").Where("id>?", 1).FindAll(&stu)
+		var m []*Man
+		_ = NewTable(db, "man").PrintSql(false).Select("*").Where("id>?", 1).FindAll(&m)
 	}
 
-	// BenchmarkFindAll-8   	   16917	     62777 ns/op	    9810 B/op	     408 allocs/op
-	// BenchmarkFindAll-8   	   17708	     61489 ns/op	    9810 B/op	     408 allocs/op
-	// BenchmarkFindAll-8   	   18070	     64316 ns/op	    9811 B/op	     408 allocs/op
+	// BenchmarkFindAll-8         26055             43635 ns/op            3313 B/op         92 allocs/op
+	// BenchmarkFindAll-8         25959             44419 ns/op            3313 B/op         92 allocs/op
+	// BenchmarkFindAll-8         25070             44121 ns/op            3313 B/op         92 allocs/op
 }
 
 func BenchmarkFindAll1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var s []*Student
-		sqlStr := FmtSqlStr("SELECT * FROM student WHERE id>?", 1)
-		gdb.Find(&s, sqlStr)
-		// b.Log(s)
+		var m []Man
+		// sqlStr := FmtSqlStr("SELECT * FROM man WHERE id>?", 1)
+		gdb.Table("man").Find(&m, "id>?", 1)
+		// b.Log(m)
 	}
 
-	// BenchmarkFindAll1-8        29202             39324 ns/op           10924 B/op        166 allocs/op
-	// BenchmarkFindAll1-8        30070             39198 ns/op           10926 B/op        166 allocs/op
-	// BenchmarkFindAll1-8        28444             38813 ns/op           10908 B/op        166 allocs/op
+	// BenchmarkFindAll1-8        16104             77294 ns/op            5366 B/op         94 allocs/op
+	// BenchmarkFindAll1-8        16206             72038 ns/op            5365 B/op         94 allocs/op
+	// BenchmarkFindAll1-8        15954             71622 ns/op            5366 B/op         94 allocs/op
 }
 
 func BenchmarkFindAll2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sqlStr := FmtSqlStr("SELECT name,age,addr FROM student WHERE id>?", 1)
+		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>?", 1)
 		rows, err := db.Query(sqlStr)
 		if err != nil {
 			return
 		}
 		defer rows.Close()
 
-		res := make([]*Student, 0, 10)
+		res := make([]*Man, 0, 10)
 		for rows.Next() {
-			var info Student
+			var info Man
 			var addr sql.NullString
 			err = rows.Scan(&info.Name, &info.Age, &addr)
 			if err != nil {
@@ -218,7 +215,7 @@ func BenchmarkFindAll2(b *testing.B) {
 		}
 	}
 
-	// BenchmarkFindAll2-8   	   23088	     50797 ns/op	    5129 B/op	     178 allocs/op
-	// BenchmarkFindAll2-8   	   22690	     51807 ns/op	    5129 B/op	     178 allocs/op
-	// BenchmarkFindAll2-8   	   23044	     51137 ns/op	    5129 B/op	     178 allocs/op
+	// BenchmarkFindAll2-8        27165             42027 ns/op            1448 B/op         50 allocs/op
+	// BenchmarkFindAll2-8        27633             43206 ns/op            1448 B/op         50 allocs/op
+	// BenchmarkFindAll2-8        26761             43401 ns/op            1448 B/op         50 allocs/op
 }

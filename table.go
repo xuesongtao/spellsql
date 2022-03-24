@@ -341,18 +341,17 @@ func (t *Table) queryScanObj(ty reflect.Type, selectType uint8, isPtr bool, dest
 	}
 	defer rows.Close()
 
-	columns, _ := rows.Columns()
 	colTypes, _ := rows.ColumnTypes()
 	column2IndexMap := t.parseCol2FiledIndex(ty)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
-		values := t.getScanValues(colTypes)
+		tmpStruct := reflect.New(ty).Elem()
+		values, filedIndex2NullIndexMap := t.getScanValues(tmpStruct, column2IndexMap, colTypes)
 		if err := rows.Scan(values...); err != nil {
 			Error("mysql scan is failed, err:", err)
 			continue
 		}
-		tmpStruct := reflect.New(ty).Elem()
-		if err := t.setDest(tmpStruct, columns, column2IndexMap, values); err != nil {
+		if err := t.setDest(tmpStruct, filedIndex2NullIndexMap, values); err != nil {
 			return err
 		}
 
@@ -371,49 +370,35 @@ func (t *Table) queryScanObj(ty reflect.Type, selectType uint8, isPtr bool, dest
 }
 
 // getScanValues 获取待 Scan 的内容
-func (t *Table) getScanValues(colTypes []*sql.ColumnType) (values []interface{}) {
-	values = make([]interface{}, len(colTypes))
+func (t *Table) getScanValues(tmpDest reflect.Value, column2IndexMap map[string]int, colTypes []*sql.ColumnType) (values []interface{}, filedIndex2NullIndexMap map[int]int) {
+	l := len(colTypes)
+	values = make([]interface{}, l)
+	filedIndex2NullIndexMap = make(map[int]int, l) // 用于后面 null 值 set 到struct.
 	for i, colType := range colTypes {
-		values[i] = t.initScanValue(colType.DatabaseTypeName())
+		filedIndex, ok := column2IndexMap[colType.Name()]
+		if !ok {
+			continue
+		}
+
+		// 如果允许为空需要 scan 其他值, 否则就直接 scan 到 struct 字段值
+		isCanNull, _ := colType.Nullable()
+		if isCanNull {
+			values[i] = new(sql.NullString)
+			filedIndex2NullIndexMap[filedIndex] = i
+			continue
+		}
+		values[i] = tmpDest.Field(filedIndex).Addr().Interface()
 	}
 	return
 }
 
-// initScanValue 这里也是仅列出了常用的类型，如需扩展再进行类型添加
-func (t *Table) initScanValue(dbType string) interface{} {
-	switch dbType {
-	case "TINYINT", "SMALLINT", "INT", "MEDIUMINT":
-		return new(int32)
-	case "BIGINT":
-		return new(int64)
-	case "FLOAT":
-		return new(float32)
-	case "DOUBLE":
-		return new(float64)
-	default:
-		return new(sql.NullString)
-	}
-}
-
 // setDest 设置值
-func (t *Table) setDest(dest reflect.Value, cols []string, col2IndexMap map[string]int, scanResult []interface{}) error {
-	for i, col := range cols {
-		filedIndex, ok := col2IndexMap[col]
-		if !ok {
-			continue
-		}
-		switch val := scanResult[i].(type) {
-		case *sql.NullString:
-			err := convertAssign(dest.Field(filedIndex).Addr().Interface(), val.String)
-			if err != nil {
-				return err
-			}
-		default:
-			// reflectVal := reflect.ValueOf(val)
-			err := convertAssign(dest.Field(filedIndex).Addr().Interface(), val)
-			if err != nil {
-				return err
-			}
+func (t *Table) setDest(dest reflect.Value, filedIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
+	for filedIndex, nullIndex := range filedIndex2NullIndexMap {
+		val := scanResult[nullIndex].(*sql.NullString)
+		err := convertAssign(dest.Field(filedIndex).Addr().Interface(), val.String)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
