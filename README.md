@@ -34,7 +34,7 @@
 
 ##### 2.2 占位符 ?d
 
-* 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 0, 如: `"123" => 123`;        `[]string{"1", "2", "3"} => 1,2,3`, 如下:
+* 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 0, 如: `"123" => 123`;              `[]string{"1", "2", "3"} => 1,2,3`, 如下:
     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个
     
 
@@ -202,6 +202,15 @@
 ```
 
 #### 4 支持简易的 orm
+* 支持自定义 `tag`, 默认 `json`
+```
+    type Man struct {
+        Id   int32  `json:"id,omitempty"`
+        Name string `json:"name,omitempty"`
+        Age  int32  `json:"age,omitempty"`
+        Addr string `json:"addr,omitempty"`
+    }
+```
 
 ##### 4.1 新增
 
