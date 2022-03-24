@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	_ "github.com/go-sql-driver/mysql"
-	gmysql "gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	// _ "github.com/go-sql-driver/mysql"
+	// gmysql "gorm.io/driver/mysql"
+	// "gorm.io/gorm"
 )
 
 type Man struct {
@@ -20,7 +20,7 @@ type Man struct {
 var (
 	db    *sql.DB
 	dbErr error
-	gdb   *gorm.DB
+	// gdb   *gorm.DB
 )
 
 func init() {
@@ -36,12 +36,12 @@ func init() {
 	db.SetMaxIdleConns(1)
 }
 
-func init() {
-	gdb, dbErr = gorm.Open(gmysql.Open("root:12345678@tcp(127.0.0.1:3306)/mystudy"), &gorm.Config{})
-	if dbErr != nil {
-		panic(dbErr)
-	}
-}
+// func init() {
+// 	gdb, dbErr = gorm.Open(gmysql.Open("root:12345678@tcp(127.0.0.1:3306)/mystudy"), &gorm.Config{})
+// 	if dbErr != nil {
+// 		panic(dbErr)
+// 	}
+// }
 
 func TestGetCol(t *testing.T) {
 	for i := 0; i < 1; i++ {
@@ -130,16 +130,16 @@ func BenchmarkFindOne(b *testing.B) {
 	// BenchmarkFindOne-8         32755             36180 ns/op            1576 B/op         39 allocs/op
 }
 
-func BenchmarkFindOne1(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var m Man
-		gdb.Table("man").Find(&m, "id=?", 2)
-	}
+// func BenchmarkFindOne1(b *testing.B) {
+// 	for i := 0; i < b.N; i++ {
+// 		var m Man
+// 		gdb.Table("man").Find(&m, "id=?", 2)
+// 	}
 
-	// BenchmarkFindOne1-8        19682             61327 ns/op            3684 B/op         60 allocs/op
-	// BenchmarkFindOne1-8        19852             60416 ns/op            3684 B/op         60 allocs/op
-	// BenchmarkFindOne1-8        19795             60345 ns/op            3684 B/op         60 allocs/op
-}
+// 	// BenchmarkFindOne1-8        19682             61327 ns/op            3684 B/op         60 allocs/op
+// 	// BenchmarkFindOne1-8        19852             60416 ns/op            3684 B/op         60 allocs/op
+// 	// BenchmarkFindOne1-8        19795             60345 ns/op            3684 B/op         60 allocs/op
+// }
 
 func BenchmarkFindOne2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -187,18 +187,18 @@ func BenchmarkFindAll(b *testing.B) {
 	// BenchmarkFindAll-8         25070             44121 ns/op            3313 B/op         92 allocs/op
 }
 
-func BenchmarkFindAll1(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var m []Man
-		// sqlStr := FmtSqlStr("SELECT * FROM man WHERE id>?", 1)
-		gdb.Table("man").Find(&m, "id>?", 1)
-		// b.Log(m)
-	}
+// func BenchmarkFindAll1(b *testing.B) {
+// 	for i := 0; i < b.N; i++ {
+// 		var m []Man
+// 		// sqlStr := FmtSqlStr("SELECT * FROM man WHERE id>?", 1)
+// 		gdb.Table("man").Find(&m, "id>?", 1)
+// 		// b.Log(m)
+// 	}
 
-	// BenchmarkFindAll1-8        16104             77294 ns/op            5366 B/op         94 allocs/op
-	// BenchmarkFindAll1-8        16206             72038 ns/op            5365 B/op         94 allocs/op
-	// BenchmarkFindAll1-8        15954             71622 ns/op            5366 B/op         94 allocs/op
-}
+// 	// BenchmarkFindAll1-8        16104             77294 ns/op            5366 B/op         94 allocs/op
+// 	// BenchmarkFindAll1-8        16206             72038 ns/op            5365 B/op         94 allocs/op
+// 	// BenchmarkFindAll1-8        15954             71622 ns/op            5366 B/op         94 allocs/op
+// }
 
 func BenchmarkFindAll2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
