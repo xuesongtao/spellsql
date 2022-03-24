@@ -2,7 +2,6 @@ package spellsql
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"strings"
 	"sync"
@@ -961,7 +960,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 			sqlStrTitle = title[0]
 		}
 		finalTitle += sqlStrTitle
-		log.Println("[INFO]", finalTitle+":", sqlStr) // 减少第三方的依赖
+		cjLog.Info(finalTitle+":", sqlStr)
 		// glog.Info(finalTitle+":", sqlStr)
 	}
 	return
@@ -1021,7 +1020,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 			sqlStrTitle = title[0]
 		}
 		finalTitle += sqlStrTitle
-		log.Println("[INFO]", finalTitle+":", findSqlStr) // 减少第三方的依赖
+		cjLog.Info(finalTitle+":", findSqlStr)
 		// glog.Info(finalTitle+":", findSqlStr)
 	}
 	return

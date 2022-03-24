@@ -16,21 +16,34 @@ function checkIsOk() {
 function updateCjGoFile() {
     # $1 getsqlstr.go
     # $2 getsqlstr_test.go
+    # $3 orm.go
+    # $4 orm_test.go
 
-    # 更换包名 > 注释 log > 取消 glog 注释 > 注释 log. > 取消注释 glog.
-    cd $curPath && checkIsOk "cd ${curPath}"
+    # 更换包名 > 取消 glog 包注释 > 注释 cjLog. > 取消注释 glog.
+    cd $curPath
+    checkIsOk "cd ${curPath}"
 
     # 处理 getsqlstr.go
-
     sed -e "s/package spellsql/package mysql/g" \
-        -e "s/\"log\"/\/\/ \"log\"/g" \
         -e "s/\/\/ \"github.com/\"github.com/g" \
-        -e "s/log.P/\/\/ log.P/g" \
-        -e "s/\/\/ glog.I/glog.I/g" \
-        spellsql.go >$1 && checkIsOk "update getsqlstr.go"
-
+        -e "s/cjLog./\/\/ cjLog./g" \
+        -e "s/\/\/ glog./glog./g" \
+        spellsql.go >$1
+    checkIsOk "update getsqlstr.go"
     # 处理 getsqlstr_test.go
-    sed -e "s/package spellsql/package mysql/g" spellsql_test.go >$2 && checkIsOk "update getsqlstr_test.go"
+    sed -e "s/package spellsql/package mysql/g" spellsql_test.go >$2
+    checkIsOk "update getsqlstr_test.go"
+
+    # 处理 orm.go
+    sed -e "s/package spellsql/package mysql/g" \
+        -e "s/\/\/ \"github.com/\"github.com/g" \
+        -e "s/cjLog./\/\/ cjLog./g" \
+        -e "s/\/\/ glog./glog./g" \
+        orm.go >$3
+    checkIsOk "update orm.go"
+    # 处理 orm_test.go
+    sed -e "s/package spellsql/package mysql/g" orm_test.go >$4
+    checkIsOk "update orm_test.go"
 }
 
 function gitHandle() {
@@ -39,10 +52,10 @@ function gitHandle() {
     projectDir=$1
     cd $projectDir
     checkIsOk "cd ${projectDir}"
-    
+
     git pull
     checkIsOk "git pull"
-    
+
     git add .
     checkIsOk "git add"
 
@@ -67,7 +80,12 @@ function startHandle() {
 
     projectDir=${goFile:0:$projectDirIndex}
     printf "======= 开始处理: %s ===========\n" $projectDir
-    updateCjGoFile "${projectDir}/${goFilePathDir}/getsqlstr.go" "${projectDir}/${goFilePathDir}/getsqlstr_test.go"
+    goFilePathDir="${projectDir}/${goFilePathDir}"
+    updateCjGoFile \
+        "${goFilePathDir}/getsqlstr.go" \
+        "${goFilePathDir}/getsqlstr_test.go" \
+        "${goFilePathDir}/orm.go" \
+        "${goFilePathDir}/orm_test.go"
     gitHandle $projectDir
     printf "======= 处理成功: %s ===========\n" $projectDir
 }
@@ -86,6 +104,8 @@ function main() {
     done
 }
 
-main
+# main
 # main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr.go"
 # main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr_test.go"
+main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/orm.go"
+# main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/orm_test.go"

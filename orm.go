@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	// "github.com/gogf/gf/os/glog"
 )
 
 const (
@@ -207,7 +208,8 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
 		columns, values, err := t.parseTable(deleteObj[0], false, t.name)
 		if err != nil {
-			Error("parseTable is failed, err:", err)
+			cjLog.Error("parseTable is failed, err:", err)
+			// glog.Error("parseTable is failed, err:", err)
 			return nil
 		}
 
@@ -228,7 +230,8 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 func (t *Table) Update(updateObj interface{}) *Table {
 	columns, values, err := t.parseTable(updateObj, true, t.name)
 	if err != nil {
-		Error("parseTable is failed, err:", err)
+		cjLog.Error("parseTable is failed, err:", err)
+		// glog.Error("parseTable is failed, err:", err)
 		return nil
 	}
 
@@ -246,12 +249,14 @@ func (t *Table) Update(updateObj interface{}) *Table {
 // fileds 多个通过逗号隔开
 func (t *Table) Select(fileds string) *Table {
 	if fileds == "" {
-		Error("fileds is null")
+		cjLog.Error("fileds is null")
+		// glog.Error("fileds is null")
 		return nil
 	}
 
 	if t.name == "" {
-		Error("table is unknown")
+		cjLog.Error("table is unknown")
+		// glog.Error("table is unknown")
 		return nil
 	}
 	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fileds, t.name)
@@ -348,7 +353,8 @@ func (t *Table) queryScanObj(ty reflect.Type, selectType uint8, isPtr bool, dest
 		tmpStruct := reflect.New(ty).Elem()
 		values, filedIndex2NullIndexMap := t.getScanValues(tmpStruct, column2IndexMap, colTypes)
 		if err := rows.Scan(values...); err != nil {
-			Error("mysql scan is failed, err:", err)
+			cjLog.Error("mysql scan is failed, err:", err)
+			// glog.Error("mysql scan is failed, err:", err)
 			continue
 		}
 		if err := t.setDest(tmpStruct, filedIndex2NullIndexMap, values); err != nil {

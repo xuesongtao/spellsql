@@ -4,14 +4,29 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 )
 
 var (
-	CjLog *defaultLogger
+	cjLog Logger
+	once  sync.Once
 )
 
+type Logger interface {
+	Info(v ...interface{})
+	Infof(format string, v ...interface{})
+	Error(v ...interface{})
+	Errorf(format string, v ...interface{})
+}
+
 func init() {
-	CjLog = NewCjLogger()
+	cjLog = NewCjLogger()
+}
+
+func SetLogger(logger Logger) {
+	once.Do(func() {
+		cjLog = logger
+	})
 }
 
 type defaultLogger struct {
@@ -59,38 +74,3 @@ func (d *defaultLogger) Panicf(format string, v ...interface{}) {
 	d.Errorf(format, v...)
 	panic(fmt.Sprintf(format, v...))
 }
-
-// ============================= 常用方法封装 ===============================
-
-func Info(v ...interface{}) {
-	CjLog.Info(v...)
-}
-
-func Infof(format string, v ...interface{}) {
-	CjLog.Infof(format, v...)
-}
-
-func Error(v ...interface{}) {
-	CjLog.Error(v...)
-}
-
-func Errorf(format string, v ...interface{}) {
-	CjLog.Errorf(format, v...)
-}
-
-func Fatal(v ...interface{}) {
-	CjLog.Fatal(v...)
-}
-
-func Fatalf(format string, v ...interface{}) {
-	CjLog.Fatalf(format, v...)
-}
-
-func Panic(v ...interface{}) {
-	CjLog.Panic(v...)
-}
-
-func Panicf(format string, v ...interface{}) {
-	CjLog.Panicf(format, v...)
-}
-
