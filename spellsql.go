@@ -1218,19 +1218,3 @@ func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...
 
 	return sqlObj.SetPrintLog(isPrintLog).SetCallerSkip(2).GetSqlStr("sqlStr", endSymbol)
 }
-
-// GetSqlStrAndArgs 这个函数是用来生成通过 mysql 的占位符所需要的参数, 同时如果还想打印最终 sql
-// 如: GetSqlStrAndArgs("SELECT * FROM sys_user WHERE age = ?d AND name = ?", "20", "test")
-// => 参数1: SELECT * FROM sys_user WHERE age = ?d AND name = ?
-//    参数2: []interface{}{"20", "test"}
-// 	  参数3: SELECT * FROM sys_user WHERE age = 20 AND name = "test";
-func GetSqlStrAndArgs(sqlStr string, args ...interface{}) (string, []interface{}, string) {
-	finalSqlStr := NewCacheSql(sqlStr, args...).SetCallerSkip(2).GetSqlStr()
-
-	// 判断是否包含 ?d, 需要替换 ?d 为 ?
-	isReplace := IndexForBF(false, sqlStr, "?d") > -1
-	if !isReplace {
-		return sqlStr, args, finalSqlStr
-	}
-	return strings.ReplaceAll(sqlStr, "?d", "?"), args, finalSqlStr
-}

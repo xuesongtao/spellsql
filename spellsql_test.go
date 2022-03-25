@@ -337,13 +337,6 @@ func TestMySql_CloneForNewSql(t *testing.T) {
 	wg.Wait()
 }
 
-func TestGetSqlStrAndArgs(t *testing.T) {
-	sqlStr, args, sql := GetSqlStrAndArgs("SELECT * FROM sys_user WHERE age = ?d AND name = ?", "20", "test")
-	t.Log("sqlStr: ", sqlStr)
-	t.Log("args: ", args)
-	t.Log("sql: ", sql)
-}
-
 func TestIndexForBF(t *testing.T) {
 	str := "SELECT kind_id, kind_name FROM item_kind WHERE"
 	i := IndexForBF(true, str, "WHEREb")
