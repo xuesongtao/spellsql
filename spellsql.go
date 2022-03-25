@@ -1215,6 +1215,5 @@ func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...
 		isPrintLog = true
 		endSymbol = ";"
 	}
-
 	return sqlObj.SetPrintLog(isPrintLog).SetCallerSkip(2).GetSqlStr("sqlStr", endSymbol)
 }
