@@ -43,6 +43,7 @@ function updateCjGoFile() {
     checkIsOk "update orm.go"
     # 处理 orm_test.go
     sed -e "s/package spellsql/package mysql/g" \
+        -e "s/_ \"github.com/\/\/ _ \"github.com" \
         -e "s/\/\/ db=Db/db = Db/g" \
         -e "s/InitMyDb(1)/\/\/ InitMyDb(1)/g" \
         orm_test.go >$4

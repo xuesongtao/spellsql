@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	// _ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 	// gmysql "gorm.io/driver/mysql"
 	// "gorm.io/gorm"
 )
@@ -28,7 +28,7 @@ func init() {
 	InitMyDb(1)
 }
 
-func InitMyDb(...uint8)  {
+func InitMyDb(...uint8) {
 	db, dbErr = sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/mystudy")
 	if dbErr != nil {
 		panic(dbErr)

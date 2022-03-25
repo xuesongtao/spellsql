@@ -40,6 +40,7 @@ type TableColInfo struct {
 type Table struct {
 	db          DBer
 	isPrintSql  bool       // 是否打印sql
+	isSelectAll bool       // 是否查询条件为 *
 	tmpSqlObj   *SqlStrObj // 暂存对象
 	tag         string     // 解析字段的tag
 	name        string
@@ -258,6 +259,11 @@ func (t *Table) Select(fileds string) *Table {
 		cjLog.Error("table is unknown")
 		// glog.Error("table is unknown")
 		return nil
+	}
+
+	if fileds == "*" {
+		t.isSelectAll = true
+		return t
 	}
 	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fileds, t.name)
 	return t
