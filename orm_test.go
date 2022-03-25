@@ -24,6 +24,11 @@ var (
 )
 
 func init() {
+	// db=Db
+	InitMyDb(1)
+}
+
+func InitMyDb(...uint8)  {
 	db, dbErr = sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/mystudy")
 	if dbErr != nil {
 		panic(dbErr)

@@ -42,7 +42,10 @@ function updateCjGoFile() {
         orm.go >$3
     checkIsOk "update orm.go"
     # 处理 orm_test.go
-    sed -e "s/package spellsql/package mysql/g" orm_test.go >$4
+    sed -e "s/package spellsql/package mysql/g" \
+        -e "s/\/\/ db=Db/db = Db/g" \
+        -e "s/InitMyDb(1)/\/\/ InitMyDb(1)/g" \
+        orm_test.go >$4
     checkIsOk "update orm_test.go"
 }
 
