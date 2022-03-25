@@ -1,8 +1,8 @@
 package spellsql
 
 import (
-	"fmt"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	// "github.com/gogf/gf/os/glog"
@@ -475,9 +475,9 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 		case []byte:
 			s.valuesBuf.WriteString("\"" + s.toEscape(string(v), false) + "\"")
 		case float32:
-			s.valuesBuf.WriteString(fmt.Sprintf("%v", v))
+			s.valuesBuf.WriteString(strconv.FormatFloat(float64(v), 'g', -1, 32))
 		case float64:
-			s.valuesBuf.WriteString(fmt.Sprintf("%v", v))
+			s.valuesBuf.WriteString(strconv.FormatFloat(v, 'g', -1, 64))
 		default:
 			s.valuesBuf.WriteString("undefined")
 		}
@@ -681,9 +681,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 			}
 		case float32:
-			buf.WriteString(fmt.Sprintf("%v", val))
+			buf.WriteString(strconv.FormatFloat(float64(val), 'g', -1, 32))
 		case float64:
-			buf.WriteString(fmt.Sprintf("%v", val))
+			buf.WriteString(strconv.FormatFloat(val, 'g', -1, 64))
 		default:
 			buf.WriteString("undefined")
 		}
@@ -791,9 +791,9 @@ func (s *SqlStrObj) filedName2Val(filedName, opSymbol string, arg interface{}) s
 			}
 		}
 	case float32:
-		tmpBuf.WriteString(fmt.Sprintf("%v", val))
+		tmpBuf.WriteString(strconv.FormatFloat(float64(val), 'g', -1, 32))
 	case float64:
-		tmpBuf.WriteString(fmt.Sprintf("%v", val))
+		tmpBuf.WriteString(strconv.FormatFloat(val, 'g', -1, 64))
 	default:
 		tmpBuf.WriteString("undefined")
 	}
