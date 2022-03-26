@@ -38,13 +38,13 @@ type TableColInfo struct {
 }
 
 type Table struct {
-	db          DBer
-	isPrintSql  bool       // 是否打印sql
-	isSelectAll bool       // 是否查询条件为 *
-	tmpSqlObj   *SqlStrObj // 暂存对象
-	tag         string     // 解析字段的tag
-	name        string
-	col2InfoMap map[string]*TableColInfo // 记录该表的所有字段名
+	db               DBer
+	isPrintSql       bool       // 是否打印sql
+	isAddSelectFiled bool       // 是否有查询指定查询字段, 即是否调用 Select 方法
+	tmpSqlObj        *SqlStrObj // 暂存对象
+	tag              string     // 解析字段的tag
+	name             string
+	col2InfoMap      map[string]*TableColInfo // 记录该表的所有字段名
 }
 
 // NewTable 初始化
@@ -261,12 +261,14 @@ func (t *Table) Select(fileds string) *Table {
 		return nil
 	}
 
-	if fileds == "*" {
-		t.isSelectAll = true
-		return t
-	}
 	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fileds, t.name)
+	t.isAddSelectFiled = true
 	return t
+}
+
+//  SelectAll() 查询所有字段
+func (t *Table) SelectAll() *Table {
+	return t.Select("*")
 }
 
 // Count 获取总数
@@ -276,12 +278,18 @@ func (t *Table) Count(total interface{}) error {
 
 // Find 单行查询
 func (t *Table) FindOne(dest interface{}) error {
+	if !t.isAddSelectFiled {
+		t.SelectAll()
+	}
 	t.tmpSqlObj.SetLimitStr("1")
 	return t.find(selectForOne, dest)
 }
 
 // 多行查询
 func (t *Table) FindAll(dest interface{}) error {
+	if !t.isAddSelectFiled {
+		t.SelectAll()
+	}
 	return t.find(selectForAll, dest)
 }
 
@@ -388,15 +396,14 @@ func (t *Table) getScanValues(tmpDest reflect.Value, column2IndexMap map[string]
 	filedIndex2NullIndexMap = make(map[int]int, l) // 用于后面 null 值 set 到struct.
 	for i, colType := range colTypes {
 		filedIndex, ok := column2IndexMap[colType.Name()]
-		if !ok {
-			continue
-		}
 
 		// 如果允许为空需要 scan 其他值, 否则就直接 scan 到 struct 字段值
 		isCanNull, _ := colType.Nullable()
-		if isCanNull {
+		if isCanNull || !ok {
 			values[i] = new(sql.NullString)
-			filedIndex2NullIndexMap[filedIndex] = i
+			if ok { // 如果不存在的, 就说明该结构体没有映射的内容
+				filedIndex2NullIndexMap[filedIndex] = i
+			}
 			continue
 		}
 		values[i] = tmpDest.Field(filedIndex).Addr().Interface()
