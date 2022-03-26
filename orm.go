@@ -17,6 +17,7 @@ const (
 		"    Age  int    `json:\"age,omitempty\"`\n" +
 		"    Addr string `json:\"addr,omitempty\"`\n" +
 		"}"
+	sqlObjErr = "tmpSqlObj is null"
 
 	selectForOne uint8 = 1 // 单条查询
 	selectForAll uint8 = 2 // 多条查询
@@ -273,6 +274,9 @@ func (t *Table) SelectAll() *Table {
 
 // Count 获取总数
 func (t *Table) Count(total interface{}) error {
+	if !t.isAddSelectFiled {
+		t.SelectAll()
+	}
 	return t.Raw(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).QueryRowScan(total)
 }
 
@@ -302,8 +306,11 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 	filedNum := ty.NumField()
 	column2IndexMap := make(map[string]int, filedNum)
 	for i := 0; i < filedNum; i++ {
-		structFiled := ty.Field(i)
-		val := structFiled.Tag.Get(t.tag)
+		structField := ty.Field(i)
+		if structField.Anonymous || !isExported(structField.Name) {
+			continue
+		}
+		val := structField.Tag.Get(t.tag)
 		if val == "" {
 			continue
 		}
@@ -428,10 +435,19 @@ func (t *Table) GetSqlObj() *SqlStrObj {
 	return t.tmpSqlObj
 }
 
+func (t *Table) sqlObjIsNil() bool {
+	return t.tmpSqlObj == nil
+}
+
 // Where 支持占位符
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	}
 	t.tmpSqlObj.SetWhereArgs(sqlStr, args...)
 	return t
 }
@@ -440,24 +456,44 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	}
 	t.tmpSqlObj.SetOrWhereArgs(sqlStr, args...)
 	return t
 }
 
 // OrderBy
 func (t *Table) OrderBy(sqlStr string) *Table {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	}
 	t.tmpSqlObj.SetOrderByStr(sqlStr)
 	return t
 }
 
 // Limit
 func (t *Table) Limit(page int32, size int32) *Table {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	}
 	t.tmpSqlObj.SetLimit(page, size)
 	return t
 }
 
 // Group
 func (t *Table) Group(groupSqlStr string) *Table {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	}
 	t.tmpSqlObj.SetGroupByStr(groupSqlStr)
 	return t
 }
@@ -478,16 +514,31 @@ func (t *Table) Raw(sql interface{}) *Table {
 
 // Exec 执行
 func (t *Table) Exec() (sql.Result, error) {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil, nil
+	}
 	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr())
 }
 
 // QueryRowScan 单行查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	}
 	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr()).Scan(dest...)
 }
 
 // Query 多行查询
 func (t *Table) Query() (*sql.Rows, error) {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil, nil
+	}
 	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr())
 }
 
