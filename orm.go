@@ -407,11 +407,14 @@ func (t *Table) getScanValues(tmpDest reflect.Value, column2IndexMap map[string]
 		// 如果允许为空需要 scan 其他值, 否则就直接 scan 到 struct 字段值
 		isCanNull, _ := colType.Nullable()
 		if isCanNull || !ok {
+			// fmt.Println(colType.Name(), colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
 				values[i] = new(sql.NullInt64)
 			case "NullFloat64":
 				values[i] = new(sql.NullFloat64)
+			// case "NullTime":
+			// 	values[i] = new(sql.NullTime)
 			default:
 				values[i] = new(sql.NullString)
 			}
@@ -436,6 +439,10 @@ func (t *Table) setDest(dest reflect.Value, filedIndex2NullIndexMap map[int]int,
 			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Int64)
 		case *sql.NullFloat64:
 			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Float64)
+		// case *sql.NullTime:
+		// 	err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Time)
+		default:
+			err = errors.New("unknown null type")
 		}
 		if err != nil {
 			return err
