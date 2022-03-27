@@ -434,11 +434,11 @@ func (t *Table) setDest(dest reflect.Value, filedIndex2NullIndexMap map[int]int,
 		var err error
 		switch val := scanResult[nullIndex].(type) {
 		case *sql.NullString:
-			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.String)
+			val.Scan(dest.Field(filedIndex).Addr().Interface())
 		case *sql.NullInt64:
-			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Int64)
+			val.Scan(dest.Field(filedIndex).Addr().Interface())
 		case *sql.NullFloat64:
-			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Float64)
+			val.Scan(dest.Field(filedIndex).Addr().Interface())
 		// case *sql.NullTime:
 		// 	err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Time)
 		default:
