@@ -24,8 +24,8 @@ const (
 )
 
 var (
-	tableColInfoSyncMap = sync.Map{}
-	structTagSyncMap    = sync.Map{}
+	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
+	cacheStructTag2FiledIndexMap = sync.Map{} // 缓存结构体 tag 对应的 filed index
 )
 
 // TableColInfo 表列详情
@@ -45,7 +45,7 @@ type Table struct {
 	tmpSqlObj        *SqlStrObj // 暂存对象
 	tag              string     // 解析字段的tag
 	name             string
-	col2InfoMap      map[string]*TableColInfo // 记录该表的所有字段名
+	cacheCol2InfoMap map[string]*TableColInfo // 记录该表的所有字段名
 }
 
 // NewTable 初始化
@@ -74,28 +74,28 @@ func NewTable(db DBer, args ...string) *Table {
 	return t
 }
 
-// PrintSql 是否打印 sql
-func (t *Table) PrintSql(is bool) *Table {
+// IsPrintSql 是否打印 sql
+func (t *Table) IsPrintSql(is bool) *Table {
 	t.isPrintSql = is
 	return t
 }
 
-// initCol2InfoMap 初始化表字段map, 由于json tag应用比较多, 为了在后续执行insert等通过对象取值会存在取值错误现象, 所以需要预处理下
-func (t *Table) initCol2InfoMap() error {
+// initCacheCol2InfoMap 初始化表字段map, 由于json tag应用比较多, 为了在后续执行insert等通过对象取值会存在取值错误现象, 所以需要预处理下
+func (t *Table) initCacheCol2InfoMap() error {
 	// 已经初始化过了
-	if t.col2InfoMap != nil {
+	if t.cacheCol2InfoMap != nil {
 		return nil
 	}
 
 	// 先判断下缓存中有没有
-	if info, ok := tableColInfoSyncMap.Load(t.name); ok {
-		t.col2InfoMap, ok = info.(map[string]*TableColInfo)
+	if info, ok := cacheTableName2ColInfoMap.Load(t.name); ok {
+		t.cacheCol2InfoMap, ok = info.(map[string]*TableColInfo)
 		if ok {
 			return nil
 		}
 	}
 
-	sqlStr := GetSqlStr("SHOW COLUMNS FROM ?v", t.name)
+	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", t.name).SetPrintLog(t.isPrintSql).GetSqlStr()
 	rows, err := t.db.Query(sqlStr)
 	if err != nil {
 		return fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
@@ -103,21 +103,31 @@ func (t *Table) initCol2InfoMap() error {
 	defer rows.Close()
 
 	columns, _ := rows.Columns()
-	t.col2InfoMap = make(map[string]*TableColInfo, len(columns))
+	t.cacheCol2InfoMap = make(map[string]*TableColInfo, len(columns))
 	for rows.Next() {
 		var info TableColInfo
 		err = rows.Scan(&info.Field, &info.Type, &info.Null, &info.Key, &info.Default, &info.Extra)
 		if err != nil {
 			return fmt.Errorf("mysql scan is failed, err: %v", err)
 		}
-		t.col2InfoMap[info.Field] = &info
+		t.cacheCol2InfoMap[info.Field] = &info
 	}
 
-	tableColInfoSyncMap.Store(t.name, t.col2InfoMap)
+	cacheTableName2ColInfoMap.Store(t.name, t.cacheCol2InfoMap)
 	return nil
 }
 
-// parseTable 解析字段
+// skip 跳过嵌套, 包含: 对象, 指针对象, 切片
+func (t *Table) skipNest(filedInfo reflect.StructField) bool {
+	switch filedInfo.Type.Kind() {
+	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Struct:
+		return true
+	}
+
+	return !isExported(filedInfo.Name)
+}
+
+// parseTable 用于新增/删除/修改时, 解析结构体中对应列名和值
 func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string) (columns []string, values []interface{}, err error) {
 	tv, err := getStructReflectValue(v)
 	if err != nil {
@@ -128,13 +138,13 @@ func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string
 	if t.name == "" {
 		t.name = parseTableName(ty.Name())
 	}
-	t.initCol2InfoMap()
+	t.initCacheCol2InfoMap()
 	filedNum := ty.NumField()
 	columns = make([]string, 0, filedNum)
 	values = make([]interface{}, 0, filedNum)
 	for i := 0; i < filedNum; i++ {
 		structField := ty.Field(i)
-		if structField.Anonymous || !isExported(structField.Name) {
+		if t.skipNest(structField) {
 			continue
 		}
 
@@ -147,7 +157,7 @@ func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string
 		column = t.parseTag2TableCol(column)
 		// 判断字段是否有效
 		if t.tag == defaultTableTag {
-			if tableFiled, ok := t.col2InfoMap[column]; !ok {
+			if tableFiled, ok := t.cacheCol2InfoMap[column]; !ok {
 				continue
 			} else {
 				if isExcludePri && tableFiled.Key == "PRI" { // 主键, 防止更新
@@ -286,81 +296,113 @@ func (t *Table) FindOne(dest interface{}) error {
 		t.SelectAll()
 	}
 	t.tmpSqlObj.SetLimitStr("1")
-	return t.find(selectForOne, dest)
+	return t.find(dest)
 }
 
-// 多行查询
+// FindAll 多行查询
 func (t *Table) FindAll(dest interface{}) error {
 	if !t.isAddSelectFiled {
 		t.SelectAll()
 	}
-	return t.find(selectForAll, dest)
+	return t.find(dest)
+}
+
+// FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询
+func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
+	tv := removeValuePtr(reflect.ValueOf(dest))
+	if t.tmpSqlObj == nil {
+		t.isAddSelectFiled = false
+		selectFileds := make([]string, 0, 5)
+		switch tv.Kind() {
+		case reflect.Struct, reflect.Slice:
+			ty := tv.Type()
+			if ty.Kind() == reflect.Slice {
+				ty = ty.Elem()
+				if ty.Kind() == reflect.Ptr {
+					ty = removeTypePtr(ty)
+				}
+			}
+			if t.name == "" {
+				t.name = ty.Name()
+			}
+			t.initCacheCol2InfoMap()
+			col2FiledIndexMap := t.parseCol2FiledIndex(ty)
+			for col := range col2FiledIndexMap {
+				// 排除结构体中的字段, 数据库没有
+				if _, ok := t.cacheCol2InfoMap[col]; !ok {
+					continue
+				}
+				selectFileds = append(selectFileds, col)
+			}
+			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFileds, ","), t.name)
+		default:
+			return errors.New("dest must struct/slice ptr")
+		}
+	}
+	t.tmpSqlObj.SetWhereArgs(where, args...)
+	return t.find(dest)
 }
 
 // parseCol2FiledIndex 解析列对应的结构体偏移值
 func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
-	if cacheVal, ok := structTagSyncMap.Load(ty.Name()); ok {
+	// 非结构体就返回空
+	if ty.Kind() != reflect.Struct {
+		return nil
+	}
+
+	if cacheVal, ok := cacheStructTag2FiledIndexMap.Load(ty.Name()); ok {
 		return cacheVal.(map[string]int)
 	}
 
 	filedNum := ty.NumField()
-	column2IndexMap := make(map[string]int, filedNum)
+	col2FiledIndexMap := make(map[string]int, filedNum)
 	for i := 0; i < filedNum; i++ {
 		structField := ty.Field(i)
-		if structField.Anonymous || !isExported(structField.Name) {
+		if t.skipNest(structField) {
 			continue
 		}
 		val := structField.Tag.Get(t.tag)
 		if val == "" {
 			continue
 		}
-		column2IndexMap[t.parseTag2TableCol(val)] = i
+		col2FiledIndexMap[t.parseTag2TableCol(val)] = i
 	}
 
-	structTagSyncMap.Store(ty.Name(), column2IndexMap)
-	return column2IndexMap
+	cacheStructTag2FiledIndexMap.Store(ty.Name(), col2FiledIndexMap)
+	return col2FiledIndexMap
 }
 
 // find 查询
-func (t *Table) find(selectType uint8, dest interface{}) error {
+func (t *Table) find(dest interface{}) error {
 	ty := reflect.TypeOf(dest)
 	switch ty.Kind() {
 	case reflect.Ptr, reflect.Slice:
 	default:
 		return errors.New("dest it should ptr/slice")
 	}
-
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
 	case reflect.Struct:
-		return t.queryScanObj(ty, selectType, false, dest)
+		return t.queryScan(ty, selectForOne, false, dest)
 	case reflect.Slice:
 		ty = ty.Elem()
 		isPtr := ty.Kind() == reflect.Ptr
 		if isPtr {
 			ty = removeTypePtr(ty) // 找到结构体
 		}
-
-		// 非结构体就为单字段查询
-		if ty.Kind() != reflect.Struct {
-			return errors.New("it should slice struct")
-		}
-		return t.queryScanObj(ty, selectType, isPtr, dest)
+		return t.queryScan(ty, selectForAll, isPtr, dest)
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64:
-		return t.QueryRowScan(dest)
+		reflect.Float32, reflect.Float64, reflect.String:
+		return t.queryScan(ty, selectForOne, false, dest)
 	default:
-		if selectType == selectForOne {
-			return errors.New("dest it should struct, or you can call QueryRowScan/Query")
-		}
-		return errors.New("dest it should slice")
+		return errors.New("dest kind not found")
 	}
 }
 
-// queryScanObj 将数据库查询的内容映射到目标对象
-func (t *Table) queryScanObj(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}) error {
+// queryScan 将数据库查询的内容映射到目标对象
+func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}) error {
 	rows, err := t.Query()
 	if err != nil {
 		return err
@@ -368,82 +410,114 @@ func (t *Table) queryScanObj(ty reflect.Type, selectType uint8, isPtr bool, dest
 	defer rows.Close()
 
 	colTypes, _ := rows.ColumnTypes()
-	column2IndexMap := t.parseCol2FiledIndex(ty)
+	col2FiledIndexMap := t.parseCol2FiledIndex(ty)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
-		tmpStruct := reflect.New(ty).Elem()
-		values, filedIndex2NullIndexMap := t.getScanValues(tmpStruct, column2IndexMap, colTypes)
-		if err := rows.Scan(values...); err != nil {
-			cjLog.Error("mysql scan is failed, err:", err)
-			// glog.Error("mysql scan is failed, err:", err)
-			continue
+		tmp := reflect.New(ty).Elem()
+		filedIndex2NullIndexMap, isStruct, values := t.getScanValues(tmp, col2FiledIndexMap, colTypes)
+		if !isStruct && len(values) > 1 {
+			return errors.New("check scan is failed, your dest is not ok")
 		}
-		if err := t.setDest(tmpStruct, filedIndex2NullIndexMap, values); err != nil {
+
+		if err := rows.Scan(values...); err != nil {
+			return fmt.Errorf("mysql scan is failed, err: %v", err)
+		}
+
+		if err := t.setDest(tmp, filedIndex2NullIndexMap, values); err != nil {
 			return err
 		}
 
 		if selectType == selectForAll { // 切片类型
 			if isPtr { // 判断下切片中是指针类型还是值类型
-				destReflectValue.Set(reflect.Append(destReflectValue, tmpStruct.Addr()))
+				destReflectValue.Set(reflect.Append(destReflectValue, tmp.Addr()))
 			} else {
-				destReflectValue.Set(reflect.Append(destReflectValue, tmpStruct))
-
+				destReflectValue.Set(reflect.Append(destReflectValue, tmp))
 			}
 		} else { // 结构体
-			destReflectValue.Set(tmpStruct)
+			destReflectValue.Set(tmp)
 		}
 	}
 	return nil
 }
 
 // getScanValues 获取待 Scan 的内容
-func (t *Table) getScanValues(tmpDest reflect.Value, column2IndexMap map[string]int, colTypes []*sql.ColumnType) (values []interface{}, filedIndex2NullIndexMap map[int]int) {
+func (t *Table) getScanValues(dest reflect.Value, col2FiledIndexMap map[string]int, colTypes []*sql.ColumnType) (filedIndex2NullIndexMap map[int]int, isStruct bool, values []interface{}) {
 	l := len(colTypes)
 	values = make([]interface{}, l)
-	filedIndex2NullIndexMap = make(map[int]int, l) // 用于后面 null 值 set 到struct.
-	for i, colType := range colTypes {
-		filedIndex, ok := column2IndexMap[colType.Name()]
 
-		// 如果允许为空需要 scan 其他值, 否则就直接 scan 到 struct 字段值
-		isCanNull, _ := colType.Nullable()
-		if isCanNull || !ok {
+	// 判断下是否为结构体, 结构体才给结构体里的值进行处理
+	isStruct = dest.Kind() == reflect.Struct
+	filedIndex2NullIndexMap = make(map[int]int, l)
+	for i, colType := range colTypes {
+		var (
+			filedIndex       int
+			structFiledExist bool = true
+		)
+
+		if isStruct {
+			filedIndex, structFiledExist = col2FiledIndexMap[colType.Name()]
+		}
+
+		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
+		canNull, _ := colType.Nullable()
+		if canNull || !structFiledExist {
 			// fmt.Println(colType.Name(), colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
 				values[i] = new(sql.NullInt64)
 			case "NullFloat64":
 				values[i] = new(sql.NullFloat64)
-			// case "NullTime":
-			// 	values[i] = new(sql.NullTime)
 			default:
 				values[i] = new(sql.NullString)
 			}
-			if ok { // 如果不存在的, 就说明该结构体没有映射的内容
+
+			// 结构体, 这里记录 struct 那个字段需要映射 NULL 值
+			if isStruct && structFiledExist {
 				filedIndex2NullIndexMap[filedIndex] = i
+			}
+
+			// 单字段, 为了减少创建标记, 借助 filedIndex2NullIndexMap 用于标识单字段是否包含空值
+			if !isStruct {
+				filedIndex2NullIndexMap[-1] = i // 在 setDest 使用
 			}
 			continue
 		}
-		values[i] = tmpDest.Field(filedIndex).Addr().Interface()
+
+		// 处理数据库字段非 NULL 部分
+		if isStruct { // 结构体
+			values[i] = dest.Field(filedIndex).Addr().Interface()
+		} else { // 单字段
+			values[i] = dest.Addr().Interface()
+		}
+	}
+	return
+}
+
+// nullScan 空值scan
+func (t *Table) nullScan(dest, src interface{}) (err error) {
+	switch val := src.(type) {
+	case *sql.NullString:
+		err = convertAssign(dest, val.String)
+	case *sql.NullInt64:
+		err = convertAssign(dest, val.Int64)
+	case *sql.NullFloat64:
+		err = convertAssign(dest, val.Float64)
+	default:
+		err = errors.New("unknown null type")
 	}
 	return
 }
 
 // setDest 设置值
 func (t *Table) setDest(dest reflect.Value, filedIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
+	// 非结构体
+	if _, ok := filedIndex2NullIndexMap[-1]; ok {
+		return t.nullScan(dest.Addr().Interface(), scanResult[0])
+	}
+
+	// 结构体
 	for filedIndex, nullIndex := range filedIndex2NullIndexMap {
-		var err error
-		switch val := scanResult[nullIndex].(type) {
-		case *sql.NullString:
-			val.Scan(dest.Field(filedIndex).Addr().Interface())
-		case *sql.NullInt64:
-			val.Scan(dest.Field(filedIndex).Addr().Interface())
-		case *sql.NullFloat64:
-			val.Scan(dest.Field(filedIndex).Addr().Interface())
-		// case *sql.NullTime:
-		// 	err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Time)
-		default:
-			err = errors.New("unknown null type")
-		}
+		err := t.nullScan(dest.Field(filedIndex).Addr().Interface(), scanResult[nullIndex])
 		if err != nil {
 			return err
 		}

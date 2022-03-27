@@ -15,6 +15,12 @@ type Man struct {
 	Name string `json:"name,omitempty"`
 	Age  int32  `json:"age,omitempty"`
 	Addr string `json:"addr,omitempty"`
+	Tmp  *Tmp   `json:"tmp"`
+	Tmps []*Tmp `json:"tmps"`
+}
+
+type Tmp struct {
+	Name string
 }
 
 var (
@@ -48,12 +54,18 @@ func InitMyDb(...uint8) {
 // 	}
 // }
 
+func TestParseTable(t *testing.T) {
+	var m Man
+	c, v, e := NewTable(db).parseTable(m, false, "man")
+	t.Log(c, v, e)
+}
+
 func TestGetCol(t *testing.T) {
 	for i := 0; i < 1; i++ {
 		tab := NewTable(db, "man")
-		tab.initCol2InfoMap()
-		t.Logf("%+v", tab.col2InfoMap)
-		for k, v := range tab.col2InfoMap {
+		tab.initCacheCol2InfoMap()
+		t.Logf("%+v", tab.cacheCol2InfoMap)
+		for k, v := range tab.cacheCol2InfoMap {
 			fmt.Println(k, v)
 		}
 	}
@@ -117,18 +129,13 @@ func TestFindOne(t *testing.T) {
 	t.Logf("%+v", m)
 }
 
-func TestName(t *testing.T) {
-	type TestInfo struct {
-		Id     int32  `json:"id,omitempty"`
-		FStr   string `json:"f_str,omitempty"`
-		FInt   int32  `json:"f_int,omitempty"`
-		FBool  int8   `json:"f_bool,omitempty"`
-		FTxt   string `json:"f_txt,omitempty"`
-		FFloat string `json:"f_float,omitempty"`
+func TestFindOne1(t *testing.T) {
+	var name string
+	err := NewTable(db, "man").Select("name").Where("id=?", 1).FindOne(&name)
+	if err != nil {
+		t.Fatal(err)
 	}
-	var test TestInfo
-	NewTable(db, "test").SelectAll().Where("id=?", 1).FindOne(&test)
-	t.Log(test)
+	t.Logf("%+v", name)
 }
 
 func TestFindForJoin(t *testing.T) {
@@ -138,49 +145,52 @@ func TestFindForJoin(t *testing.T) {
 	t.Log(m)
 }
 
-func BenchmarkFindOne(b *testing.B) {
+// FindOne 性能对比
+//  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=3
+
+func BenchmarkFindOneOrm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m Man
-		_ = NewTable(db, "man").PrintSql(false).Select("name,age,addr").Where("id=?", 1).FindOne(&m)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 1).FindOne(&m)
 	}
 
-	// BenchmarkFindOne-8         32341             35948 ns/op            1576 B/op         39 allocs/op
-	// BenchmarkFindOne-8         32796             36229 ns/op            1576 B/op         39 allocs/op
-	// BenchmarkFindOne-8         32755             36180 ns/op            1576 B/op         39 allocs/op
+	// BenchmarkFindOneOrm-8                      31897             37022 ns/op            1633 B/op         39 allocs/op
+	// BenchmarkFindOneOrm-8                      32440             36693 ns/op            1633 B/op         39 allocs/op
+	// BenchmarkFindOneOrm-8                      32326             36890 ns/op            1633 B/op         39 allocs/op
 }
 
-// func BenchmarkFindOne1(b *testing.B) {
+// func BenchmarkFindOneGorm(b *testing.B) {
 // 	for i := 0; i < b.N; i++ {
 // 		var m Man
 // 		gdb.Table("man").Find(&m, "id=?", 2)
 // 	}
 
-// 	// BenchmarkFindOne1-8        19682             61327 ns/op            3684 B/op         60 allocs/op
-// 	// BenchmarkFindOne1-8        19852             60416 ns/op            3684 B/op         60 allocs/op
-// 	// BenchmarkFindOne1-8        19795             60345 ns/op            3684 B/op         60 allocs/op
+// 	// BenchmarkFindOneGorm-8        19682             61327 ns/op            3684 B/op         60 allocs/op
+// 	// BenchmarkFindOneGorm-8        19852             60416 ns/op            3684 B/op         60 allocs/op
+// 	// BenchmarkFindOneGorm-8        19795             60345 ns/op            3684 B/op         60 allocs/op
 // }
 
-func BenchmarkFindOne2(b *testing.B) {
+func BenchmarkFindOneOrmQueryRowScan(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m Man
-		_ = NewTable(db, "man").PrintSql(false).Select("name,age,addr").Where("id=?", 2).QueryRowScan(&m.Id, &m.Age, &m.Addr)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 2).QueryRowScan(&m.Id, &m.Age, &m.Addr)
 	}
 
-	// BenchmarkFindOne2-8        33466             35516 ns/op            1233 B/op         31 allocs/op
-	// BenchmarkFindOne2-8        33404             35501 ns/op            1233 B/op         31 allocs/op
-	// BenchmarkFindOne2-8        33453             35496 ns/op            1233 B/op         31 allocs/op
+	// BenchmarkFindOneOrmQueryRowScan-8          33057             35859 ns/op            1232 B/op         31 allocs/op
+	// BenchmarkFindOneOrmQueryRowScan-8          33205             35904 ns/op            1232 B/op         31 allocs/op
+	// BenchmarkFindOneOrmQueryRowScan-8          33292             35981 ns/op            1232 B/op         31 allocs/op
 }
 
-func BenchmarkFindOne3(b *testing.B) {
+func BenchmarkFindOneQueryRowScan(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m Man
 		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id=?", 2)
 		_ = db.QueryRow(sqlStr).Scan(&m.Id, &m.Age, &m.Addr)
 	}
 
-	// BenchmarkFindOne3-8        33596             35717 ns/op            1160 B/op         29 allocs/op
-	// BenchmarkFindOne3-8        33660             35226 ns/op            1161 B/op         29 allocs/op
-	// BenchmarkFindOne3-8        33541             35269 ns/op            1160 B/op         29 allocs/op
+	// BenchmarkFindOneQueryRowScan-8             33396             35710 ns/op            1160 B/op         29 allocs/op
+	// BenchmarkFindOneQueryRowScan-8             33398             36411 ns/op            1160 B/op         29 allocs/op
+	// BenchmarkFindOneQueryRowScan-8             32521             36563 ns/op            1160 B/op         29 allocs/op
 }
 
 func TestFindAll(t *testing.T) {
@@ -195,10 +205,19 @@ func TestFindAll(t *testing.T) {
 	}
 }
 
-func BenchmarkFindAll(b *testing.B) {
+func TestFindAll1(t *testing.T) {
+	var names []string
+	err := NewTable(db, "man").Select("addr").Where("id>?", 1).FindAll(&names)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(len(names), names)
+}
+
+func BenchmarkFindAllOrm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m []*Man
-		_ = NewTable(db, "man").PrintSql(false).Select("*").Where("id>?", 1).FindAll(&m)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("*").Where("id>?", 1).FindAll(&m)
 	}
 
 	// BenchmarkFindAll-8         26055             43635 ns/op            3313 B/op         92 allocs/op
@@ -206,7 +225,7 @@ func BenchmarkFindAll(b *testing.B) {
 	// BenchmarkFindAll-8         25070             44121 ns/op            3313 B/op         92 allocs/op
 }
 
-// func BenchmarkFindAll1(b *testing.B) {
+// func BenchmarkFindAllGorm(b *testing.B) {
 // 	for i := 0; i < b.N; i++ {
 // 		var m []Man
 // 		// sqlStr := FmtSqlStr("SELECT * FROM man WHERE id>?", 1)
@@ -214,12 +233,12 @@ func BenchmarkFindAll(b *testing.B) {
 // 		// b.Log(m)
 // 	}
 
-// 	// BenchmarkFindAll1-8        16104             77294 ns/op            5366 B/op         94 allocs/op
-// 	// BenchmarkFindAll1-8        16206             72038 ns/op            5365 B/op         94 allocs/op
-// 	// BenchmarkFindAll1-8        15954             71622 ns/op            5366 B/op         94 allocs/op
+// 	// BenchmarkFindAllGorm-8             15712             75883 ns/op            6118 B/op        127 allocs/op
+// 	// BenchmarkFindAllGorm-8             15595             77351 ns/op            6118 B/op        127 allocs/op
+// 	// BenchmarkFindAllGorm-8             15823             75588 ns/op            6118 B/op        127 allocs/op
 // }
 
-func BenchmarkFindAll2(b *testing.B) {
+func BenchmarkFindAllQuery(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>?", 1)
 		rows, err := db.Query(sqlStr)
@@ -244,4 +263,42 @@ func BenchmarkFindAll2(b *testing.B) {
 	// BenchmarkFindAll2-8        27165             42027 ns/op            1448 B/op         50 allocs/op
 	// BenchmarkFindAll2-8        27633             43206 ns/op            1448 B/op         50 allocs/op
 	// BenchmarkFindAll2-8        26761             43401 ns/op            1448 B/op         50 allocs/op
+}
+
+func TestFindWhereForOneFiled(t *testing.T) {
+	var name string
+	err := NewTable(db, "man").Select("name").FindWhere(&name, "id=?", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", name)
+}
+
+func TestFindWhereForStruct(t *testing.T) {
+	var m Man
+	err := NewTable(db).FindWhere(&m, "id=?", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", m)
+}
+
+func TestFindWhereForSliceStruct(t *testing.T) {
+	var m []Man
+	err := NewTable(db).FindWhere(&m, "id>?", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", m)
+
+
+	var m1 []*Man
+	err = NewTable(db).FindWhere(&m1, "id>?", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", m1)
+	for _, v := range m1 {
+		t.Logf("%+v", v)
+	}
 }
