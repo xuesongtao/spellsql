@@ -407,7 +407,14 @@ func (t *Table) getScanValues(tmpDest reflect.Value, column2IndexMap map[string]
 		// 如果允许为空需要 scan 其他值, 否则就直接 scan 到 struct 字段值
 		isCanNull, _ := colType.Nullable()
 		if isCanNull || !ok {
-			values[i] = new(sql.NullString)
+			switch colType.ScanType().Name() {
+			case "NullInt64":
+				values[i] = new(sql.NullInt64)
+			case "NullFloat64":
+				values[i] = new(sql.NullFloat64)
+			default:
+				values[i] = new(sql.NullString)
+			}
 			if ok { // 如果不存在的, 就说明该结构体没有映射的内容
 				filedIndex2NullIndexMap[filedIndex] = i
 			}
@@ -421,8 +428,15 @@ func (t *Table) getScanValues(tmpDest reflect.Value, column2IndexMap map[string]
 // setDest 设置值
 func (t *Table) setDest(dest reflect.Value, filedIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
 	for filedIndex, nullIndex := range filedIndex2NullIndexMap {
-		val := scanResult[nullIndex].(*sql.NullString)
-		err := convertAssign(dest.Field(filedIndex).Addr().Interface(), val.String)
+		var err error
+		switch val := scanResult[nullIndex].(type) {
+		case *sql.NullString:
+			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.String)
+		case *sql.NullInt64:
+			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Int64)
+		case *sql.NullFloat64:
+			err = convertAssign(dest.Field(filedIndex).Addr().Interface(), val.Float64)
+		}
 		if err != nil {
 			return err
 		}

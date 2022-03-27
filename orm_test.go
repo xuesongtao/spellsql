@@ -117,6 +117,20 @@ func TestFindOne(t *testing.T) {
 	t.Logf("%+v", m)
 }
 
+func TestName(t *testing.T) {
+	type TestInfo struct {
+		Id     int32  `json:"id,omitempty"`
+		FStr   string `json:"f_str,omitempty"`
+		FInt   int32  `json:"f_int,omitempty"`
+		FBool  int8   `json:"f_bool,omitempty"`
+		FTxt   string `json:"f_txt,omitempty"`
+		FFloat string `json:"f_float,omitempty"`
+	}
+	var test TestInfo
+	NewTable(db, "test").SelectAll().Where("id=?", 1).FindOne(&test)
+	t.Log(test)
+}
+
 func TestFindForJoin(t *testing.T) {
 	var m []Man
 	sqlStr := GetSqlStr("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id")
