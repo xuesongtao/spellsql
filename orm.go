@@ -417,11 +417,7 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 		return err
 	}
 	defer rows.Close()
-	
-	var handleFn HandleSelectRowFn
-	if len(fn) > 0 {
-		handleFn = fn[0]
-	}
+
 	colTypes, _ := rows.ColumnTypes()
 	col2FiledIndexMap := t.parseCol2FiledIndex(ty)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
@@ -440,8 +436,8 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 			return err
 		}
 
-		if handleFn != nil { // 外部需要处理行内容
-			handleFn(tmp.Interface())
+		if len(fn) == 1 { // 用于将查询结果暴露出去
+			fn[0](tmp.Interface())
 		}
 
 		if selectType == selectForAll { // 切片类型(结构体/单字段)
@@ -527,6 +523,11 @@ func (t *Table) nullScan(dest, src interface{}) (err error) {
 
 // setDest 设置值
 func (t *Table) setDest(dest reflect.Value, filedIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
+	// 说明直接映射到里 dest
+	if len(filedIndex2NullIndexMap) == 0 {
+		return nil
+	}
+
 	// 非结构体
 	if _, ok := filedIndex2NullIndexMap[-1]; ok {
 		return t.nullScan(dest.Addr().Interface(), scanResult[0])
