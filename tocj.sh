@@ -90,7 +90,7 @@ function startHandle() {
         "${goFilePathDir}/getsqlstr_test.go" \
         "${goFilePathDir}/orm.go" \
         "${goFilePathDir}/orm_test.go"
-    # gitHandle $projectDir
+    gitHandle $projectDir
     printf "======= 处理成功: %s ===========\n" $projectDir
 }
 
