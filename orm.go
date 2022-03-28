@@ -303,12 +303,17 @@ func (t *Table) Count(total interface{}) error {
 }
 
 // Find 单行查询
-func (t *Table) FindOne(dest interface{}) error {
+// dest 长度 > 1 时, 支持多个字段查询
+// dest 长度 == 1 时, 支持 struct/单字段
+func (t *Table) FindOne(dest ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
 	t.tmpSqlObj.SetLimitStr("1")
-	return t.find(dest)
+	if len(dest) > 1 {
+		return t.find(dest)
+	}
+	return t.QueryRowScan(dest...)
 }
 
 // FindAll 多行查询
