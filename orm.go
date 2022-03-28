@@ -340,7 +340,7 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 				}
 			}
 			if t.name == "" {
-				t.name = ty.Name()
+				t.name = parseTableName(ty.Name())
 			}
 			t.initCacheCol2InfoMap()
 			col2FiledIndexMap := t.parseCol2FiledIndex(ty)
@@ -367,10 +367,10 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 		return nil
 	}
 
-	if cacheVal, ok := cacheStructTag2FiledIndexMap.Load(ty.Name()); ok {
+	// 通过地址来取, 防止出现重复
+	if cacheVal, ok := cacheStructTag2FiledIndexMap.Load(ty); ok {
 		return cacheVal.(map[string]int)
 	}
-
 	filedNum := ty.NumField()
 	col2FiledIndexMap := make(map[string]int, filedNum)
 	for i := 0; i < filedNum; i++ {
@@ -385,7 +385,7 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 		col2FiledIndexMap[t.parseTag2Col(val)] = i
 	}
 
-	cacheStructTag2FiledIndexMap.Store(ty.Name(), col2FiledIndexMap)
+	cacheStructTag2FiledIndexMap.Store(ty, col2FiledIndexMap)
 	return col2FiledIndexMap
 }
 

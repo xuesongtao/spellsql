@@ -207,7 +207,7 @@ func TestFindAll(t *testing.T) {
 
 func TestFindAll1(t *testing.T) {
 	var names []string
-	fn := func (_rowModel interface{}) error {
+	fn := func(_rowModel interface{}) error {
 		n := _rowModel.(string)
 		fmt.Println(n)
 		return nil
@@ -279,13 +279,32 @@ func TestFindWhereForOneFiled(t *testing.T) {
 	t.Logf("%+v", name)
 }
 
+var m Man
+
 func TestFindWhereForStruct(t *testing.T) {
-	var m Man
 	err := NewTable(db).FindWhere(&m, "id=?", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%+v", m)
+}
+
+func TestName(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		err := NewTable(db).FindWhere(&m, "id=?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("%+v", m)
+		if i == 6 || i == 7 {
+			var s Man
+			err := NewTable(db).FindWhere(&s, "id=?", 1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("%+v", m)
+		}
+	}
 }
 
 func TestFindWhereForSliceStruct(t *testing.T) {
