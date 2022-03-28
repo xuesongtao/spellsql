@@ -302,7 +302,7 @@ func (t *Table) Count(total interface{}) error {
 	return t.Raw(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).QueryRowScan(total)
 }
 
-// Find 单行查询
+// FindOne 单行查询
 // dest 长度 > 1 时, 支持多个字段查询
 // dest 长度 == 1 时, 支持 struct/单字段
 func (t *Table) FindOne(dest ...interface{}) error {
