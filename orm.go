@@ -13,9 +13,9 @@ import (
 const (
 	defaultTableTag = "json"
 	structErr       = "type User struct {\n" +
-		"    Name string `json:\"name,omitempty\"`\n" +
-		"    Age  int    `json:\"age,omitempty\"`\n" +
-		"    Addr string `json:\"addr,omitempty\"`\n" +
+		"    Name string `json:\"name\"`\n" +
+		"    Age  int    `json:\"age\"`\n" +
+		"    Addr string `json:\"addr\"`\n" +
 		"}"
 	sqlObjErr = "tmpSqlObj is null"
 
@@ -32,9 +32,9 @@ type SelectCallBackFn func(_rowModel interface{}) error // 对每行查询结果
 
 // TableColInfo 表列详情
 type TableColInfo struct {
-	Field   string
-	Type    string
-	Null    string
+	Field   string // 字段名
+	Type    string // 数据库类型
+	Null    string // 是否为 NULL
 	Key     string
 	Default sql.NullString
 	Extra   string
@@ -163,15 +163,15 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 
 		// 排除tag中包含的其他的内容
 		column = t.parseTag2Col(column)
-		// 判断字段是否有效, 由于 json tag 使用比较多, 所有需要与数据库字段取交, 避免查询报错
-		if t.tag == defaultTableTag {
-			if tablefield, ok := t.cacheCol2InfoMap[column]; !ok {
-				continue
-			} else {
-				if isExcludePri && tablefield.Key == "PRI" { // 主键, 防止更新
-					continue
-				}
-			}
+
+		// 判断下数据库字段是否存在
+		tableField, ok := t.cacheCol2InfoMap[column]
+		if !ok {
+			continue
+		}
+
+		if isExcludePri && tableField.Key == "PRI" { // 主键, 防止更新
+			continue
 		}
 
 		// 值为空也跳过
@@ -184,7 +184,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	}
 
 	if len(columns) == 0 || len(values) == 0 {
-		err = fmt.Errorf("you should sure struct is ok, eg:%s", structErr)
+		err = fmt.Errorf("you should sure struct is ok, eg: %s", structErr)
 		return
 	}
 	return
@@ -310,8 +310,8 @@ func (t *Table) FindOne(dest ...interface{}) error {
 		t.SelectAll()
 	}
 	t.tmpSqlObj.SetLimitStr("1")
-	if len(dest) > 1 {
-		return t.find(dest)
+	if len(dest) == 1 {
+		return t.find(dest[0])
 	}
 	return t.QueryRowScan(dest...)
 }
@@ -327,12 +327,11 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 // FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询
 // dest 支持 struct, slice, 单字段
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
-	tv := removeValuePtr(reflect.ValueOf(dest))
 	if t.sqlObjIsNil() {
+		ty := removeTypePtr(reflect.TypeOf(dest))
 		selectFields := make([]string, 0, 5)
-		switch tv.Kind() {
+		switch ty.Kind() {
 		case reflect.Struct, reflect.Slice:
-			ty := tv.Type()
 			if ty.Kind() == reflect.Slice {
 				ty = ty.Elem()
 				if ty.Kind() == reflect.Ptr {
@@ -351,7 +350,7 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 				}
 				selectFields = append(selectFields, col)
 			}
-			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ","), t.name)
+			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ", "), t.name)
 		default:
 			return errors.New("dest must struct/slice ptr")
 		}
@@ -403,11 +402,11 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 		return t.queryScan(ty, selectForOne, false, dest, fn...)
 	case reflect.Slice:
 		ty = ty.Elem()
-		isPtr := ty.Kind() == reflect.Ptr
-		if isPtr {
+		sliceValIsPtr := ty.Kind() == reflect.Ptr
+		if sliceValIsPtr {
 			ty = removeTypePtr(ty) // 找到结构体
 		}
-		return t.queryScan(ty, selectForAll, isPtr, dest, fn...)
+		return t.queryScan(ty, selectForAll, sliceValIsPtr, dest, fn...)
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
@@ -419,7 +418,7 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 }
 
 // queryScan 将数据库查询的内容映射到目标对象
-func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool, dest interface{}, fn ...SelectCallBackFn) error {
 	rows, err := t.Query()
 	if err != nil {
 		return err
@@ -432,8 +431,8 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 	for rows.Next() {
 		tmp := reflect.New(ty).Elem()
 		fieldIndex2NullIndexMap, isStruct, values := t.getScanValues(tmp, col2FieldIndexMap, colTypes)
-		if !isStruct && len(values) > 1 {
-			return errors.New("check scan is failed, your dest is not ok")
+		if !isStruct && len(values) > 1 { // 单字段查询 values len 应该等于 1
+			return errors.New("check scan is failed, select result len more than dest")
 		}
 
 		if err := rows.Scan(values...); err != nil {
@@ -444,12 +443,12 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 			return err
 		}
 
-		if len(fn) == 1 { // 用于将查询结果暴露出去
+		if len(fn) == 1 { // 回调方法
 			fn[0](tmp.Interface())
 		}
 
 		if selectType == selectForAll { // 切片类型(结构体/单字段)
-			if isPtr { // 判断下切片中是指针类型还是值类型
+			if sliceValIsPtr { // 判断下切片中是指针类型还是值类型
 				destReflectValue.Set(reflect.Append(destReflectValue, tmp.Addr()))
 			} else {
 				destReflectValue.Set(reflect.Append(destReflectValue, tmp))
@@ -531,7 +530,7 @@ func (t *Table) nullScan(dest, src interface{}) (err error) {
 
 // setDest 设置值
 func (t *Table) setDest(dest reflect.Value, fieldIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
-	// 说明直接映射到里 dest
+	// 说明已经映射到 dest, 不需要再处理
 	if len(fieldIndex2NullIndexMap) == 0 {
 		return nil
 	}

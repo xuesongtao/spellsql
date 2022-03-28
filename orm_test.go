@@ -11,12 +11,13 @@ import (
 )
 
 type Man struct {
-	Id   int32  `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
-	Age  int32  `json:"age,omitempty"`
-	Addr string `json:"addr,omitempty"`
-	Tmp  *Tmp   `json:"tmp"`
-	Tmps []*Tmp `json:"tmps"`
+	Id       int32  `json:"id,omitempty"`
+	Name     string `json:"name,omitempty"`
+	Age      int32  `json:"age,omitempty"`
+	Addr     string `json:"addr,omitempty"`
+	NickName string `json:"nickname"`
+	Tmp      *Tmp   `json:"tmp"`
+	Tmps     []*Tmp `json:"tmps"`
 }
 
 type Tmp struct {
@@ -87,7 +88,7 @@ func TestInsert(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	m := Man{
-		Id: 1,
+		Id: 9,
 	}
 	rows, err := NewTable(db).Delete(m).Exec()
 	if err != nil {
@@ -98,7 +99,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestDelete1(t *testing.T) {
-	rows, err := NewTable(db, "man").Delete().Where("id=?", 1).Exec()
+	rows, err := NewTable(db, "man").Delete().Where("id=?", 11).Exec()
 	if err != nil {
 		t.Log(err)
 		return
@@ -112,7 +113,7 @@ func TestUpdate(t *testing.T) {
 		Age:  20,
 		Addr: "测试",
 	}
-	rows, err := NewTable(db).Update(m).Where("id=?", 1).Exec()
+	rows, err := NewTable(db).Update(m).Where("id=?", 7).Exec()
 	if err != nil {
 		t.Log(err)
 		return
@@ -130,17 +131,20 @@ func TestFindOne(t *testing.T) {
 }
 
 func TestFindOne1(t *testing.T) {
-	var name string
-	err := NewTable(db, "man").Select("name").Where("id=?", 1).FindOne(&name)
+	var (
+		name string
+		age  int
+	)
+	err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&name)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("%+v", name)
+	t.Logf("%+v %d", name, age)
 }
 
 func TestFindForJoin(t *testing.T) {
 	var m []Man
-	sqlStr := GetSqlStr("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id")
+	sqlStr := GetSqlStr("SELECT m.name,m.age,s.nickname FROM man m JOIN student s ON m.id=s.u_id")
 	NewTable(db).Raw(sqlStr).FindAll(&m)
 	t.Log(m)
 }
@@ -194,7 +198,7 @@ func BenchmarkFindOneQueryRowScan(b *testing.B) {
 }
 
 func TestFindAll(t *testing.T) {
-	var m []*Man
+	var m []Man
 	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m)
 	if err != nil {
 		t.Fatal(err)
@@ -222,7 +226,7 @@ func TestFindAll1(t *testing.T) {
 func BenchmarkFindAllOrm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m []*Man
-		_ = NewTable(db, "man").IsPrintSql(false).Select("*").Where("id>?", 1).FindAll(&m)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("*").Where("id>?", 1).Limit(0, 10).FindAll(&m)
 	}
 
 	// BenchmarkFindAll-8         26055             43635 ns/op            3313 B/op         92 allocs/op
@@ -245,7 +249,7 @@ func BenchmarkFindAllOrm(b *testing.B) {
 
 func BenchmarkFindAllQuery(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>?", 1)
+		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)
 		rows, err := db.Query(sqlStr)
 		if err != nil {
 			return
@@ -282,7 +286,7 @@ func TestFindWhereForOneFiled(t *testing.T) {
 var m Man
 
 func TestFindWhereForStruct(t *testing.T) {
-	err := NewTable(db).FindWhere(&m, "id=?", 1)
+	err := NewTable(db).FindWhere(&m, "id=?", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
