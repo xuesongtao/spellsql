@@ -56,7 +56,7 @@ func InitMyDb(...uint8) {
 
 func TestParseTable(t *testing.T) {
 	var m Man
-	c, v, e := NewTable(db).parseTable(m, false, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, false, "man")
 	t.Log(c, v, e)
 }
 
@@ -207,7 +207,12 @@ func TestFindAll(t *testing.T) {
 
 func TestFindAll1(t *testing.T) {
 	var names []string
-	err := NewTable(db, "man").Select("addr").Where("id>?", 1).FindAll(&names)
+	fn := func (_rowModel interface{}) error {
+		n := _rowModel.(string)
+		fmt.Println(n)
+		return nil
+	}
+	err := NewTable(db, "man").Select("addr").Where("id>?", 1).FindAll(&names, fn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +295,6 @@ func TestFindWhereForSliceStruct(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("%+v", m)
-
 
 	var m1 []*Man
 	err = NewTable(db).FindWhere(&m1, "id>?", 1)

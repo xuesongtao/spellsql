@@ -28,6 +28,8 @@ var (
 	cacheStructTag2FiledIndexMap = sync.Map{} // 缓存结构体 tag 对应的 filed index
 )
 
+type HandleSelectRowFn func(_rowModel interface{}) error // 对每行查询结果进行取出处理
+
 // TableColInfo 表列详情
 type TableColInfo struct {
 	Field   string
@@ -80,6 +82,12 @@ func (t *Table) IsPrintSql(is bool) *Table {
 	return t
 }
 
+// SetName 设置表名
+func (t *Table) SetName(tableName string) *Table {
+	t.name = tableName
+	return t
+}
+
 // initCacheCol2InfoMap 初始化表字段map, 由于json tag应用比较多, 为了在后续执行insert等通过对象取值会存在取值错误现象, 所以需要预处理下
 func (t *Table) initCacheCol2InfoMap() error {
 	// 已经初始化过了
@@ -117,8 +125,8 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
-// skip 跳过嵌套, 包含: 对象, 指针对象, 切片
-func (t *Table) skipNest(filedInfo reflect.StructField) bool {
+// skip 跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
+func (t *Table) skip(filedInfo reflect.StructField) bool {
 	switch filedInfo.Type.Kind() {
 	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Struct:
 		return true
@@ -127,8 +135,8 @@ func (t *Table) skipNest(filedInfo reflect.StructField) bool {
 	return !isExported(filedInfo.Name)
 }
 
-// parseTable 用于新增/删除/修改时, 解析结构体中对应列名和值
-func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string) (columns []string, values []interface{}, err error) {
+// getHandleTableCol2Val 用于新增/删除/修改时, 解析结构体中对应列名和值
+func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableName ...string) (columns []string, values []interface{}, err error) {
 	tv, err := getStructReflectValue(v)
 	if err != nil {
 		return
@@ -144,7 +152,7 @@ func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string
 	values = make([]interface{}, 0, filedNum)
 	for i := 0; i < filedNum; i++ {
 		structField := ty.Field(i)
-		if t.skipNest(structField) {
+		if t.skip(structField) {
 			continue
 		}
 
@@ -154,8 +162,8 @@ func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string
 		}
 
 		// 排除tag中包含的其他的内容
-		column = t.parseTag2TableCol(column)
-		// 判断字段是否有效
+		column = t.parseTag2Col(column)
+		// 判断字段是否有效, 由于 json tag 使用比较多, 所有需要与数据库字段取交, 避免查询报错
 		if t.tag == defaultTableTag {
 			if tableFiled, ok := t.cacheCol2InfoMap[column]; !ok {
 				continue
@@ -182,8 +190,9 @@ func (t *Table) parseTable(v interface{}, isExcludePri bool, tableName ...string
 	return
 }
 
-// parseTag2TableCol 解析tag中表的列名
-func (t *Table) parseTag2TableCol(tag string) (column string) {
+// parseTag2Col 解析 tag 中表的列名
+func (t *Table) parseTag2Col(tag string) (column string) {
+	// 因为 tag 中有可能出现多个值, 需要处理下
 	tmpIndex := IndexForBF(true, tag, ",")
 	if tmpIndex > -1 {
 		column = tag[:tmpIndex]
@@ -194,7 +203,6 @@ func (t *Table) parseTag2TableCol(tag string) (column string) {
 }
 
 // Insert 提交, 支持批量提交
-// tableName 如果有值会以此为准, 反之会通过输入对象按驼峰转为表面
 func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
 	if len(insertObjs) == 0 {
 		return nil, errors.New("insertObjs is empty")
@@ -202,7 +210,7 @@ func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
 
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
-		columns, values, err := t.parseTable(insertObj, true, t.name)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 		if err != nil {
 			return nil, err
 		}
@@ -218,10 +226,10 @@ func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
 // Delete 会以对象中有值得为条件进行删除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
-		columns, values, err := t.parseTable(deleteObj[0], false, t.name)
+		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], false, t.name)
 		if err != nil {
-			cjLog.Error("parseTable is failed, err:", err)
-			// glog.Error("parseTable is failed, err:", err)
+			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
+			// glog.Error("getHandleTableCol2Val is failed, err:", err)
 			return nil
 		}
 
@@ -240,10 +248,10 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 
 // Update 会更新输入的值
 func (t *Table) Update(updateObj interface{}) *Table {
-	columns, values, err := t.parseTable(updateObj, true, t.name)
+	columns, values, err := t.getHandleTableCol2Val(updateObj, true, t.name)
 	if err != nil {
-		cjLog.Error("parseTable is failed, err:", err)
-		// glog.Error("parseTable is failed, err:", err)
+		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
+		// glog.Error("getHandleTableCol2Val is failed, err:", err)
 		return nil
 	}
 
@@ -300,14 +308,15 @@ func (t *Table) FindOne(dest interface{}) error {
 }
 
 // FindAll 多行查询
-func (t *Table) FindAll(dest interface{}) error {
+func (t *Table) FindAll(dest interface{}, fn ...HandleSelectRowFn) error {
 	if !t.isAddSelectFiled {
 		t.SelectAll()
 	}
-	return t.find(dest)
+	return t.find(dest, fn...)
 }
 
 // FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询
+// dest 支持 struct, slice, 单字段
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
 	tv := removeValuePtr(reflect.ValueOf(dest))
 	if t.tmpSqlObj == nil {
@@ -358,14 +367,14 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 	col2FiledIndexMap := make(map[string]int, filedNum)
 	for i := 0; i < filedNum; i++ {
 		structField := ty.Field(i)
-		if t.skipNest(structField) {
+		if t.skip(structField) {
 			continue
 		}
 		val := structField.Tag.Get(t.tag)
 		if val == "" {
 			continue
 		}
-		col2FiledIndexMap[t.parseTag2TableCol(val)] = i
+		col2FiledIndexMap[t.parseTag2Col(val)] = i
 	}
 
 	cacheStructTag2FiledIndexMap.Store(ty.Name(), col2FiledIndexMap)
@@ -373,7 +382,7 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 }
 
 // find 查询
-func (t *Table) find(dest interface{}) error {
+func (t *Table) find(dest interface{}, fn ...HandleSelectRowFn) error {
 	ty := reflect.TypeOf(dest)
 	switch ty.Kind() {
 	case reflect.Ptr, reflect.Slice:
@@ -383,32 +392,36 @@ func (t *Table) find(dest interface{}) error {
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
 	case reflect.Struct:
-		return t.queryScan(ty, selectForOne, false, dest)
+		return t.queryScan(ty, selectForOne, false, dest, fn...)
 	case reflect.Slice:
 		ty = ty.Elem()
 		isPtr := ty.Kind() == reflect.Ptr
 		if isPtr {
 			ty = removeTypePtr(ty) // 找到结构体
 		}
-		return t.queryScan(ty, selectForAll, isPtr, dest)
+		return t.queryScan(ty, selectForAll, isPtr, dest, fn...)
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64, reflect.String:
-		return t.queryScan(ty, selectForOne, false, dest)
+		return t.queryScan(ty, selectForOne, false, dest, fn...)
 	default:
 		return errors.New("dest kind not found")
 	}
 }
 
 // queryScan 将数据库查询的内容映射到目标对象
-func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}) error {
+func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}, fn ...HandleSelectRowFn) error {
 	rows, err := t.Query()
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
-
+	
+	var handleFn HandleSelectRowFn
+	if len(fn) > 0 {
+		handleFn = fn[0]
+	}
 	colTypes, _ := rows.ColumnTypes()
 	col2FiledIndexMap := t.parseCol2FiledIndex(ty)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
@@ -427,7 +440,11 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 			return err
 		}
 
-		if selectType == selectForAll { // 切片类型
+		if handleFn != nil { // 外部需要处理行内容
+			handleFn(tmp.Interface())
+		}
+
+		if selectType == selectForAll { // 切片类型(结构体/单字段)
 			if isPtr { // 判断下切片中是指针类型还是值类型
 				destReflectValue.Set(reflect.Append(destReflectValue, tmp.Addr()))
 			} else {
