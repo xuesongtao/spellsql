@@ -25,10 +25,10 @@ const (
 
 var (
 	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
-	cacheStructTag2FiledIndexMap = sync.Map{} // 缓存结构体 tag 对应的 filed index
+	cacheStructTag2FieldIndexMap = sync.Map{} // 缓存结构体 tag 对应的 field index
 )
 
-type HandleSelectRowFn func(_rowModel interface{}) error // 对每行查询结果进行取出处理
+type SelectCallBackFn func(_rowModel interface{}) error // 对每行查询结果进行取出处理
 
 // TableColInfo 表列详情
 type TableColInfo struct {
@@ -125,13 +125,13 @@ func (t *Table) initCacheCol2InfoMap() error {
 }
 
 // skip 跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
-func (t *Table) skip(filedInfo reflect.StructField) bool {
-	switch filedInfo.Type.Kind() {
+func (t *Table) skip(fieldInfo reflect.StructField) bool {
+	switch fieldInfo.Type.Kind() {
 	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Struct:
 		return true
 	}
 
-	return !isExported(filedInfo.Name)
+	return !isExported(fieldInfo.Name)
 }
 
 // getHandleTableCol2Val 用于新增/删除/修改时, 解析结构体中对应列名和值
@@ -147,10 +147,10 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 		t.name = parseTableName(ty.Name())
 	}
 	t.initCacheCol2InfoMap()
-	filedNum := ty.NumField()
-	columns = make([]string, 0, filedNum)
-	values = make([]interface{}, 0, filedNum)
-	for i := 0; i < filedNum; i++ {
+	fieldNum := ty.NumField()
+	columns = make([]string, 0, fieldNum)
+	values = make([]interface{}, 0, fieldNum)
+	for i := 0; i < fieldNum; i++ {
 		structField := ty.Field(i)
 		if t.skip(structField) {
 			continue
@@ -165,10 +165,10 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 		column = t.parseTag2Col(column)
 		// 判断字段是否有效, 由于 json tag 使用比较多, 所有需要与数据库字段取交, 避免查询报错
 		if t.tag == defaultTableTag {
-			if tableFiled, ok := t.cacheCol2InfoMap[column]; !ok {
+			if tablefield, ok := t.cacheCol2InfoMap[column]; !ok {
 				continue
 			} else {
-				if isExcludePri && tableFiled.Key == "PRI" { // 主键, 防止更新
+				if isExcludePri && tablefield.Key == "PRI" { // 主键, 防止更新
 					continue
 				}
 			}
@@ -271,21 +271,21 @@ func (t *Table) Update(updateObj interface{}) *Table {
 }
 
 // Select 查询内容
-// fileds 多个通过逗号隔开
-func (t *Table) Select(fileds string) *Table {
-	if fileds == "" {
-		cjLog.Error("fileds is null")
-		// glog.Error("fileds is null")
+// fields 多个通过逗号隔开
+func (t *Table) Select(fields string) *Table {
+	if fields == "" {
+		cjLog.Error("fields is null")
+		// glog.Error("fields is null")
 		return nil
 	}
 
 	if t.name == "" {
-		cjLog.Error("table is unknown")
+		cjLog.Error("table name is unknown")
 		// glog.Error("table is unknown")
 		return nil
 	}
 
-	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fileds, t.name)
+	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fields, t.name)
 	return t
 }
 
@@ -317,7 +317,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 }
 
 // FindAll 多行查询
-func (t *Table) FindAll(dest interface{}, fn ...HandleSelectRowFn) error {
+func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
@@ -329,7 +329,7 @@ func (t *Table) FindAll(dest interface{}, fn ...HandleSelectRowFn) error {
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
 	tv := removeValuePtr(reflect.ValueOf(dest))
 	if t.sqlObjIsNil() {
-		selectFileds := make([]string, 0, 5)
+		selectFields := make([]string, 0, 5)
 		switch tv.Kind() {
 		case reflect.Struct, reflect.Slice:
 			ty := tv.Type()
@@ -343,15 +343,15 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 				t.name = parseTableName(ty.Name())
 			}
 			t.initCacheCol2InfoMap()
-			col2FiledIndexMap := t.parseCol2FiledIndex(ty)
-			for col := range col2FiledIndexMap {
+			col2FieldIndexMap := t.parseCol2FieldIndex(ty)
+			for col := range col2FieldIndexMap {
 				// 排除结构体中的字段, 数据库没有
 				if _, ok := t.cacheCol2InfoMap[col]; !ok {
 					continue
 				}
-				selectFileds = append(selectFileds, col)
+				selectFields = append(selectFields, col)
 			}
-			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFileds, ","), t.name)
+			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ","), t.name)
 		default:
 			return errors.New("dest must struct/slice ptr")
 		}
@@ -360,20 +360,20 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 	return t.find(dest)
 }
 
-// parseCol2FiledIndex 解析列对应的结构体偏移值
-func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
+// parseCol2FieldIndex 解析列对应的结构体偏移值
+func (t *Table) parseCol2FieldIndex(ty reflect.Type) map[string]int {
 	// 非结构体就返回空
 	if ty.Kind() != reflect.Struct {
 		return nil
 	}
 
 	// 通过地址来取, 防止出现重复
-	if cacheVal, ok := cacheStructTag2FiledIndexMap.Load(ty); ok {
+	if cacheVal, ok := cacheStructTag2FieldIndexMap.Load(ty); ok {
 		return cacheVal.(map[string]int)
 	}
-	filedNum := ty.NumField()
-	col2FiledIndexMap := make(map[string]int, filedNum)
-	for i := 0; i < filedNum; i++ {
+	fieldNum := ty.NumField()
+	col2FieldIndexMap := make(map[string]int, fieldNum)
+	for i := 0; i < fieldNum; i++ {
 		structField := ty.Field(i)
 		if t.skip(structField) {
 			continue
@@ -382,15 +382,15 @@ func (t *Table) parseCol2FiledIndex(ty reflect.Type) map[string]int {
 		if val == "" {
 			continue
 		}
-		col2FiledIndexMap[t.parseTag2Col(val)] = i
+		col2FieldIndexMap[t.parseTag2Col(val)] = i
 	}
 
-	cacheStructTag2FiledIndexMap.Store(ty, col2FiledIndexMap)
-	return col2FiledIndexMap
+	cacheStructTag2FieldIndexMap.Store(ty, col2FieldIndexMap)
+	return col2FieldIndexMap
 }
 
 // find 查询
-func (t *Table) find(dest interface{}, fn ...HandleSelectRowFn) error {
+func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 	ty := reflect.TypeOf(dest)
 	switch ty.Kind() {
 	case reflect.Ptr, reflect.Slice:
@@ -419,7 +419,7 @@ func (t *Table) find(dest interface{}, fn ...HandleSelectRowFn) error {
 }
 
 // queryScan 将数据库查询的内容映射到目标对象
-func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}, fn ...HandleSelectRowFn) error {
+func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest interface{}, fn ...SelectCallBackFn) error {
 	rows, err := t.Query()
 	if err != nil {
 		return err
@@ -427,11 +427,11 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 	defer rows.Close()
 
 	colTypes, _ := rows.ColumnTypes()
-	col2FiledIndexMap := t.parseCol2FiledIndex(ty)
+	col2FieldIndexMap := t.parseCol2FieldIndex(ty)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
 		tmp := reflect.New(ty).Elem()
-		filedIndex2NullIndexMap, isStruct, values := t.getScanValues(tmp, col2FiledIndexMap, colTypes)
+		fieldIndex2NullIndexMap, isStruct, values := t.getScanValues(tmp, col2FieldIndexMap, colTypes)
 		if !isStruct && len(values) > 1 {
 			return errors.New("check scan is failed, your dest is not ok")
 		}
@@ -440,7 +440,7 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 			return fmt.Errorf("mysql scan is failed, err: %v", err)
 		}
 
-		if err := t.setDest(tmp, filedIndex2NullIndexMap, values); err != nil {
+		if err := t.setDest(tmp, fieldIndex2NullIndexMap, values); err != nil {
 			return err
 		}
 
@@ -462,26 +462,26 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, isPtr bool, dest in
 }
 
 // getScanValues 获取待 Scan 的内容
-func (t *Table) getScanValues(dest reflect.Value, col2FiledIndexMap map[string]int, colTypes []*sql.ColumnType) (filedIndex2NullIndexMap map[int]int, isStruct bool, values []interface{}) {
+func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]int, colTypes []*sql.ColumnType) (fieldIndex2NullIndexMap map[int]int, isStruct bool, values []interface{}) {
 	l := len(colTypes)
 	values = make([]interface{}, l)
 
 	// 判断下是否为结构体, 结构体才给结构体里的值进行处理
 	isStruct = dest.Kind() == reflect.Struct
-	filedIndex2NullIndexMap = make(map[int]int, l)
+	fieldIndex2NullIndexMap = make(map[int]int, l)
 	for i, colType := range colTypes {
 		var (
-			filedIndex       int
-			structFiledExist bool = true
+			fieldIndex       int
+			structFieldExist bool = true
 		)
 
 		if isStruct {
-			filedIndex, structFiledExist = col2FiledIndexMap[colType.Name()]
+			fieldIndex, structFieldExist = col2FieldIndexMap[colType.Name()]
 		}
 
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
 		canNull, _ := colType.Nullable()
-		if canNull || !structFiledExist {
+		if canNull || !structFieldExist {
 			// fmt.Println(colType.Name(), colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
@@ -493,20 +493,20 @@ func (t *Table) getScanValues(dest reflect.Value, col2FiledIndexMap map[string]i
 			}
 
 			// 结构体, 这里记录 struct 那个字段需要映射 NULL 值
-			if isStruct && structFiledExist {
-				filedIndex2NullIndexMap[filedIndex] = i
+			if isStruct && structFieldExist {
+				fieldIndex2NullIndexMap[fieldIndex] = i
 			}
 
-			// 单字段, 为了减少创建标记, 借助 filedIndex2NullIndexMap 用于标识单字段是否包含空值
+			// 单字段, 为了减少创建标记, 借助 fieldIndex2NullIndexMap 用于标识单字段是否包含空值
 			if !isStruct {
-				filedIndex2NullIndexMap[-1] = i // 在 setDest 使用
+				fieldIndex2NullIndexMap[-1] = i // 在 setDest 使用
 			}
 			continue
 		}
 
 		// 处理数据库字段非 NULL 部分
 		if isStruct { // 结构体
-			values[i] = dest.Field(filedIndex).Addr().Interface()
+			values[i] = dest.Field(fieldIndex).Addr().Interface()
 		} else { // 单字段
 			values[i] = dest.Addr().Interface()
 		}
@@ -530,20 +530,20 @@ func (t *Table) nullScan(dest, src interface{}) (err error) {
 }
 
 // setDest 设置值
-func (t *Table) setDest(dest reflect.Value, filedIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
+func (t *Table) setDest(dest reflect.Value, fieldIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
 	// 说明直接映射到里 dest
-	if len(filedIndex2NullIndexMap) == 0 {
+	if len(fieldIndex2NullIndexMap) == 0 {
 		return nil
 	}
 
 	// 非结构体
-	if _, ok := filedIndex2NullIndexMap[-1]; ok {
+	if _, ok := fieldIndex2NullIndexMap[-1]; ok {
 		return t.nullScan(dest.Addr().Interface(), scanResult[0])
 	}
 
 	// 结构体
-	for filedIndex, nullIndex := range filedIndex2NullIndexMap {
-		err := t.nullScan(dest.Field(filedIndex).Addr().Interface(), scanResult[nullIndex])
+	for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
+		err := t.nullScan(dest.Field(fieldIndex).Addr().Interface(), scanResult[nullIndex])
 		if err != nil {
 			return err
 		}
@@ -682,11 +682,11 @@ func removeTypePtr(t reflect.Type) reflect.Type {
 }
 
 // isExported 是可导出
-func isExported(filedName string) bool {
-	if filedName == "" {
+func isExported(fieldName string) bool {
+	if fieldName == "" {
 		return false
 	}
-	first := filedName[0]
+	first := fieldName[0]
 	return first >= 'A' && first <= 'Z'
 }
 
