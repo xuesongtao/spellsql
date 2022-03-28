@@ -43,7 +43,6 @@ type TableColInfo struct {
 type Table struct {
 	db               DBer
 	isPrintSql       bool       // 是否打印sql
-	isAddSelectFiled bool       // 是否有查询指定查询字段, 即是否调用 Select 方法
 	tmpSqlObj        *SqlStrObj // 暂存对象
 	tag              string     // 解析字段的tag
 	name             string
@@ -137,8 +136,9 @@ func (t *Table) skip(filedInfo reflect.StructField) bool {
 
 // getHandleTableCol2Val 用于新增/删除/修改时, 解析结构体中对应列名和值
 func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableName ...string) (columns []string, values []interface{}, err error) {
-	tv, err := getStructReflectValue(v)
-	if err != nil {
+	tv := removeValuePtr(reflect.ValueOf(v))
+	if tv.Kind() != reflect.Struct {
+		err = errors.New("it must is struct")
 		return
 	}
 
@@ -241,6 +241,11 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 			t.tmpSqlObj.SetWhereArgs("?v=?", k, v)
 		}
 	} else {
+		if t.name == "" {
+			cjLog.Error("table name is null")
+			// glog.Error("table name is null")
+			return nil
+		}
 		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
 	}
 	return t
@@ -281,7 +286,6 @@ func (t *Table) Select(fileds string) *Table {
 	}
 
 	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fileds, t.name)
-	t.isAddSelectFiled = true
 	return t
 }
 
@@ -292,7 +296,7 @@ func (t *Table) SelectAll() *Table {
 
 // Count 获取总数
 func (t *Table) Count(total interface{}) error {
-	if !t.isAddSelectFiled {
+	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
 	return t.Raw(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).QueryRowScan(total)
@@ -300,7 +304,7 @@ func (t *Table) Count(total interface{}) error {
 
 // Find 单行查询
 func (t *Table) FindOne(dest interface{}) error {
-	if !t.isAddSelectFiled {
+	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
 	t.tmpSqlObj.SetLimitStr("1")
@@ -309,7 +313,7 @@ func (t *Table) FindOne(dest interface{}) error {
 
 // FindAll 多行查询
 func (t *Table) FindAll(dest interface{}, fn ...HandleSelectRowFn) error {
-	if !t.isAddSelectFiled {
+	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
 	return t.find(dest, fn...)
@@ -319,8 +323,7 @@ func (t *Table) FindAll(dest interface{}, fn ...HandleSelectRowFn) error {
 // dest 支持 struct, slice, 单字段
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
 	tv := removeValuePtr(reflect.ValueOf(dest))
-	if t.tmpSqlObj == nil {
-		t.isAddSelectFiled = false
+	if t.sqlObjIsNil() {
 		selectFileds := make([]string, 0, 5)
 		switch tv.Kind() {
 		case reflect.Struct, reflect.Slice:
@@ -620,6 +623,8 @@ func (t *Table) Raw(sql interface{}) *Table {
 	case *SqlStrObj:
 		t.tmpSqlObj = val
 	default:
+		cjLog.Error("sql only support string/SqlStrObjPtr")
+		// glog.Error("sql only support string/SqlStrObjPtr")
 		return nil
 	}
 	return t
@@ -694,13 +699,4 @@ func parseTableName(objName string) string {
 		res.WriteRune(v)
 	}
 	return res.String()
-}
-
-// getStructReflectValue
-func getStructReflectValue(v interface{}) (reflect.Value, error) {
-	tv := removeValuePtr(reflect.ValueOf(v))
-	if tv.Kind() != reflect.Struct {
-		return tv, errors.New("it must is struct")
-	}
-	return tv, nil
 }
