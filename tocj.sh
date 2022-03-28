@@ -108,8 +108,8 @@ function main() {
     done
 }
 
-# main
+main
 # main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr.go"
 # main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr_test.go"
-main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/orm.go"
+# main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/orm.go"
 # main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/orm_test.go"
