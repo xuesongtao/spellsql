@@ -651,7 +651,14 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		// glog.Error(sqlObjErr)
 		return nil
 	}
-	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr()).Scan(dest...)
+
+	err := t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr()).Scan(dest...)
+	if err == sql.ErrNoRows {
+		cjLog.Error(err.Error())
+		// glog.Error(err.Error())
+		return nil
+	}
+	return err
 }
 
 // Query 多行查询
