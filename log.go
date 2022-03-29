@@ -17,6 +17,8 @@ type Logger interface {
 	Infof(format string, v ...interface{})
 	Error(v ...interface{})
 	Errorf(format string, v ...interface{})
+	Warning(v ...interface{})
+	Warningf(format string, v ...interface{})
 }
 
 func init() {
@@ -53,6 +55,14 @@ func (d *defaultLogger) Error(v ...interface{}) {
 
 func (d *defaultLogger) Errorf(format string, v ...interface{}) {
 	d.log.Printf("[ERRO] "+format, v...)
+}
+
+func (d *defaultLogger) Warning(v ...interface{})  {
+	d.log.Println(append([]interface{}{"[WARN]"}, v...)...)
+}
+
+func (d *defaultLogger) Warningf(format string, v ...interface{})  {
+	d.log.Printf("[WARN] "+format, v...)
 }
 
 func (d *defaultLogger) Fatal(v ...interface{}) {
