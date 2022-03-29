@@ -299,7 +299,7 @@ func (t *Table) Count(total interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
-	return t.Raw(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).queryRowScan(total)
+	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).Scan(total)
 }
 
 // FindOne 单行查询
@@ -313,7 +313,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 	if len(dest) == 1 {
 		return t.find(dest[0])
 	}
-	return t.queryRowScan(dest...)
+	return t.QueryRowScan(dest...)
 }
 
 // FindAll 多行查询
@@ -419,7 +419,7 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 
 // queryScan 将数据库查询的内容映射到目标对象
 func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool, dest interface{}, fn ...SelectCallBackFn) error {
-	rows, err := t.query()
+	rows, err := t.Query()
 	if err != nil {
 		return err
 	}
@@ -644,8 +644,8 @@ func (t *Table) Exec() (sql.Result, error) {
 	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr())
 }
 
-// queryRowScan 单行查询
-func (t *Table) queryRowScan(dest ...interface{}) error {
+// QueryRowScan 单行查询
+func (t *Table) QueryRowScan(dest ...interface{}) error {
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
@@ -661,8 +661,8 @@ func (t *Table) queryRowScan(dest ...interface{}) error {
 	return err
 }
 
-// query 多行查询
-func (t *Table) query() (*sql.Rows, error) {
+// Query 多行查询, 返回的 sql.Rows 需要调用 Close
+func (t *Table) Query() (*sql.Rows, error) {
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
