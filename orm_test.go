@@ -123,7 +123,7 @@ func TestUpdate(t *testing.T) {
 
 func TestFindOne(t *testing.T) {
 	var m Man
-	err := NewTable(db, "man").Select("*").Where("id=?", 1).FindOne(&m)
+	err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestFindOne1(t *testing.T) {
 		name string
 		age  int
 	)
-	err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&name)
+	err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&name, &age)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +226,7 @@ func TestFindAll1(t *testing.T) {
 func BenchmarkFindAllOrm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m []*Man
-		_ = NewTable(db, "man").IsPrintSql(false).Select("*").Where("id>?", 1).Limit(0, 10).FindAll(&m)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 10).FindAll(&m)
 	}
 
 	// BenchmarkFindAll-8         26055             43635 ns/op            3313 B/op         92 allocs/op

@@ -17,7 +17,7 @@ const (
 		"    Age  int    `json:\"age\"`\n" +
 		"    Addr string `json:\"addr\"`\n" +
 		"}"
-	sqlObjErr = "tmpSqlObj is null"
+	sqlObjErr = "tmpSqlObj is nil"
 
 	selectForOne uint8 = 1 // 单条查询
 	selectForAll uint8 = 2 // 多条查询
@@ -81,8 +81,8 @@ func (t *Table) IsPrintSql(is bool) *Table {
 	return t
 }
 
-// SetName 设置表名
-func (t *Table) SetName(tableName string) *Table {
+// Name 设置表名
+func (t *Table) Name(tableName string) *Table {
 	t.name = tableName
 	return t
 }
@@ -359,7 +359,7 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 	return t.find(dest)
 }
 
-// parseCol2FieldIndex 解析列对应的结构体偏移值
+// parseCol2FieldIndex 通过解析输入结构体, 返回 map[tag 名]字段偏移量, 同时缓存起来
 func (t *Table) parseCol2FieldIndex(ty reflect.Type) map[string]int {
 	// 非结构体就返回空
 	if ty.Kind() != reflect.Struct {
@@ -426,13 +426,14 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool,
 	defer rows.Close()
 
 	colTypes, _ := rows.ColumnTypes()
+	colLen := len(colTypes)
 	col2FieldIndexMap := t.parseCol2FieldIndex(ty)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
 		tmp := reflect.New(ty).Elem()
-		fieldIndex2NullIndexMap, isStruct, values := t.getScanValues(tmp, col2FieldIndexMap, colTypes)
-		if !isStruct && len(values) > 1 { // 单字段查询 values len 应该等于 1
-			return errors.New("check scan is failed, select result len more than dest")
+		fieldIndex2NullIndexMap, canScanValueNum, values := t.getScanValues(tmp, col2FieldIndexMap, colTypes)
+		if colLen != canScanValueNum {
+			return fmt.Errorf("check scan is failed, select result len %d, dest len %d", colLen, canScanValueNum)
 		}
 
 		if err := rows.Scan(values...); err != nil {
@@ -461,12 +462,12 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool,
 }
 
 // getScanValues 获取待 Scan 的内容
-func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]int, colTypes []*sql.ColumnType) (fieldIndex2NullIndexMap map[int]int, isStruct bool, values []interface{}) {
+func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]int, colTypes []*sql.ColumnType) (fieldIndex2NullIndexMap map[int]int, canScanValueNum int, values []interface{}) {
 	l := len(colTypes)
 	values = make([]interface{}, l)
 
 	// 判断下是否为结构体, 结构体才给结构体里的值进行处理
-	isStruct = dest.Kind() == reflect.Struct
+	isStruct := dest.Kind() == reflect.Struct
 	fieldIndex2NullIndexMap = make(map[int]int, l)
 	for i, colType := range colTypes {
 		var (
@@ -478,9 +479,17 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			fieldIndex, structFieldExist = col2FieldIndexMap[colType.Name()]
 		}
 
+		if !structFieldExist {
+			// 说明结构里查询的值不存在
+			cjLog.Errorf("col %q no found struct dest", colType.Name())
+			// glog.Errorf("col: %s no found struct dest", colType.Name())
+			continue
+		}
+
+		canScanValueNum++
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
 		canNull, _ := colType.Nullable()
-		if canNull || !structFieldExist {
+		if canNull {
 			// fmt.Println(colType.Name(), colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
@@ -492,13 +501,14 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			}
 
 			// 结构体, 这里记录 struct 那个字段需要映射 NULL 值
-			if isStruct && structFieldExist {
+			if structFieldExist {
 				fieldIndex2NullIndexMap[fieldIndex] = i
 			}
 
 			// 单字段, 为了减少创建标记, 借助 fieldIndex2NullIndexMap 用于标识单字段是否包含空值
 			if !isStruct {
 				fieldIndex2NullIndexMap[-1] = i // 在 setDest 使用
+				break
 			}
 			continue
 		}
@@ -508,6 +518,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			values[i] = dest.Field(fieldIndex).Addr().Interface()
 		} else { // 单字段
 			values[i] = dest.Addr().Interface()
+			break
 		}
 	}
 	return
@@ -535,7 +546,7 @@ func (t *Table) setDest(dest reflect.Value, fieldIndex2NullIndexMap map[int]int,
 		return nil
 	}
 
-	// 非结构体
+	// 非结构体, 只会出现单值
 	if _, ok := fieldIndex2NullIndexMap[-1]; ok {
 		return t.nullScan(dest.Addr().Interface(), scanResult[0])
 	}
