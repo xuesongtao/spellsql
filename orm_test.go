@@ -177,7 +177,7 @@ func BenchmarkFindOneOrm(b *testing.B) {
 func BenchmarkFindOneOrmQueryRowScan(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m Man
-		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 2).QueryRowScan(&m.Id, &m.Age, &m.Addr)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 2).queryRowScan(&m.Id, &m.Age, &m.Addr)
 	}
 
 	// BenchmarkFindOneOrmQueryRowScan-8          33057             35859 ns/op            1232 B/op         31 allocs/op
