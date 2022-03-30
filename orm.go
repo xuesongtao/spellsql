@@ -24,8 +24,9 @@ const (
 )
 
 var (
-	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
-	cacheStructTag2FieldIndexMap = sync.Map{} // 缓存结构体 tag 对应的 field index
+	cacheTableName2ColInfoMap    = sync.Map{}                   // 缓存表的字段元信息
+	cacheStructTag2FieldIndexMap = sync.Map{}                   // 缓存结构体 tag 对应的 field index
+	NoDataErr                    = errors.New("result is null") // 查询结果为空
 )
 
 type SelectCallBackFn func(_rowModel interface{}) error // 对每行查询结果进行取出处理
@@ -667,7 +668,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	if err == sql.ErrNoRows {
 		cjLog.Error(err.Error())
 		// glog.Error(err.Error())
-		return nil
+		return NoDataErr
 	}
 	return err
 }
@@ -741,7 +742,6 @@ func DeleteForObj(db DBer, tableName string, obj interface{}) (sql.Result, error
 func UpdateForObj(db DBer, tableName string, obj interface{}) (sql.Result, error) {
 	return NewTable(db, tableName).Update(obj).Exec()
 }
-
 
 // ================= 原生操作 ================
 
