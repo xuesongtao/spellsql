@@ -572,6 +572,7 @@ func (t *Table) GetSqlObj() *SqlStrObj {
 	return t.tmpSqlObj
 }
 
+// sqlObjIsNil 判断 sqlObj 是否为空
 func (t *Table) sqlObjIsNil() bool {
 	return t.tmpSqlObj == nil
 }
