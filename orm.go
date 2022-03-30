@@ -722,3 +722,55 @@ func parseTableName(objName string) string {
 	}
 	return res.String()
 }
+
+// ========================================= 以下为常用操作的封装 ==================================
+
+// ================= 对象操作 ================
+
+// 根据对象新增
+func InsertForObj(db DBer, tableName string, obj ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Insert(obj...)
+}
+
+// 根据对象删除
+func DeleteForObj(db DBer, tableName string, obj interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Delete(obj).Exec()
+}
+
+// 根据对象更新
+func UpdateForObj(db DBer, tableName string, obj interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Update(obj).Exec()
+}
+
+
+// ================= 原生操作 ================
+
+// 根据 sql 新增
+// sql sqlStr 或 *SqlStrObj
+func InsertForSql(db DBer, sql interface{}) (sql.Result, error) {
+	return NewTable(db).Raw(sql).Exec()
+}
+
+// 根据 sql 删除
+// sql sqlStr 或 *SqlStrObj
+func DeleteForSql(db DBer, sql interface{}) (sql.Result, error) {
+	return NewTable(db).Raw(sql).Exec()
+}
+
+// 根据 sql 更新
+// sql sqlStr 或 *SqlStrObj
+func UpdateForSql(db DBer, sql interface{}) (sql.Result, error) {
+	return NewTable(db).Raw(sql).Exec()
+}
+
+// 单查询
+// sql sqlStr 或 *SqlStrObj
+func FindOne(db DBer, sql interface{}, dest ...interface{}) error {
+	return NewTable(db).Raw(sql).FindOne(dest...)
+}
+
+// 多查询
+// sql sqlStr 或 *SqlStrObj
+func FindAll(db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
+	return NewTable(db).Raw(sql).FindAll(dest, fn...)
+}
