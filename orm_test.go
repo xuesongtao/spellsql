@@ -283,32 +283,13 @@ func TestFindWhereForOneFiled(t *testing.T) {
 	t.Logf("%+v", name)
 }
 
-var m Man
-
 func TestFindWhereForStruct(t *testing.T) {
+	var m Man
 	err := NewTable(db).FindWhere(&m, "id=?", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("%+v", m)
-}
-
-func TestName(t *testing.T) {
-	for i := 0; i < 10; i++ {
-		err := NewTable(db).FindWhere(&m, "id=?", 1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("%+v", m)
-		if i == 6 || i == 7 {
-			var s Man
-			err := NewTable(db).FindWhere(&s, "id=?", 1)
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Logf("%+v", m)
-		}
-	}
 }
 
 func TestFindWhereForSliceStruct(t *testing.T) {
@@ -328,4 +309,13 @@ func TestFindWhereForSliceStruct(t *testing.T) {
 	for _, v := range m1 {
 		t.Logf("%+v", v)
 	}
+}
+
+func TestFindWhereCount(t *testing.T) {
+	var total int32
+	NewTable(db, "man").SelectCount().FindWhere(&total, "id>?", 1)
+	t.Log(total)
+
+	Count(db, "man", &total, "id>1")
+	t.Log(total)
 }
