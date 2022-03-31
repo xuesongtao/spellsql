@@ -451,8 +451,14 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool,
 		}
 
 		if len(fn) == 1 { // 回调方法
-			if err := fn[0](tmp.Interface()); err != nil {
-				return err
+			if sliceValIsPtr { // 指针类型
+				if err := fn[0](tmp.Addr().Interface()); err != nil {
+					return err
+				}
+			} else { // 值类型
+				if err := fn[0](tmp.Interface()); err != nil {
+					return err
+				}
 			}
 		}
 
