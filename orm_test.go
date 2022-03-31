@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	_ "github.com/go-sql-driver/mysql"
+	// _ "github.com/go-sql-driver/mysql"
 	// gmysql "gorm.io/driver/mysql"
 	// "gorm.io/gorm"
 )
