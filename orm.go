@@ -496,7 +496,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		if !structFieldExist {
 			// 说明结构里查询的值不存在
 			cjLog.Errorf("col %q no found struct dest", colType.Name())
-			// glog.Errorf("col: %s no found struct dest", colType.Name())
+			// glog.Errorf("col %q no found struct dest", colType.Name())
 			continue
 		}
 

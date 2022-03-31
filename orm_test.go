@@ -211,8 +211,11 @@ func TestFindAll(t *testing.T) {
 
 func TestFindAll1(t *testing.T) {
 	var m []*Man
-	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 20).FindAll(&m, func(_row interface{}) error {
+	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m, func(_row interface{}) error {
 		v := _row.(*Man)
+		if v.Id == 5 {
+			v.Name = "test"
+		}
 		fmt.Println(v.Id, v.Name, v.Age)
 		return nil
 	})
