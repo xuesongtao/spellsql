@@ -29,7 +29,7 @@ var (
 	NoDataErr                    = errors.New("result is null") // 查询结果为空
 )
 
-type SelectCallBackFn func(_rowModel interface{}) error // 对每行查询结果进行取出处理
+type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
 
 // TableColInfo 表列详情
 type TableColInfo struct {
@@ -451,7 +451,9 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool,
 		}
 
 		if len(fn) == 1 { // 回调方法
-			fn[0](tmp.Interface())
+			if err := fn[0](tmp.Interface()); err != nil {
+				return err
+			}
 		}
 
 		if selectType == selectForAll { // 切片类型(结构体/单字段)

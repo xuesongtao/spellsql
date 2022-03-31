@@ -2,6 +2,7 @@ package spellsql
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -210,9 +211,25 @@ func TestFindAll(t *testing.T) {
 }
 
 func TestFindAll1(t *testing.T) {
+	var m []Man
+	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 20).FindAll(&m, func(_row interface{}) error {
+		v, ok := _row.(Man)
+		if !ok {
+			return errors.New("is no ok")
+		}
+		fmt.Println(v.Id, v.Name, v.Age)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", m)
+}
+
+func TestFindAll2(t *testing.T) {
 	var names []string
-	fn := func(_rowModel interface{}) error {
-		n := _rowModel.(string)
+	fn := func(_row interface{}) error {
+		n := _row.(string)
 		fmt.Println(n)
 		return nil
 	}
