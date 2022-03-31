@@ -398,9 +398,9 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type) map[string]int {
 func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 	ty := reflect.TypeOf(dest)
 	switch ty.Kind() {
-	case reflect.Ptr, reflect.Slice:
+	case reflect.Ptr:
 	default:
-		return errors.New("dest it should ptr/slice")
+		return errors.New("dest it should ptr")
 	}
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
