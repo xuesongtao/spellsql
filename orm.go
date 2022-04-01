@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	// "github.com/gogf/gf/os/glog"
@@ -348,8 +349,8 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 				t.name = parseTableName(ty.Name())
 			}
 			t.initCacheCol2InfoMap()
-			col2FieldIndexMap := t.parseCol2FieldIndex(ty)
-			for col := range col2FieldIndexMap {
+			_, sortCol := t.parseCol2FieldIndex(ty, true)
+			for _, col := range sortCol {
 				// 排除结构体中的字段, 数据库没有
 				if _, ok := t.cacheCol2InfoMap[col]; !ok {
 					continue
@@ -366,18 +367,35 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 }
 
 // parseCol2FieldIndex 通过解析输入结构体, 返回 map[tag 名]字段偏移量, 同时缓存起来
-func (t *Table) parseCol2FieldIndex(ty reflect.Type) map[string]int {
+func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2FieldIndexMap map[string]int, sortCol []string) {
 	// 非结构体就返回空
 	if ty.Kind() != reflect.Struct {
-		return nil
+		return nil, nil
 	}
 
 	// 通过地址来取, 防止出现重复
 	if cacheVal, ok := cacheStructTag2FieldIndexMap.Load(ty); ok {
-		return cacheVal.(map[string]int)
+		col2FieldIndexMap = cacheVal.(map[string]int)
+		if isNeedSort {
+			l := len(col2FieldIndexMap)
+			tmpMap := make(map[int]string, l)
+			tmpSortVal := make([]int, 0, l)
+			for col, fieldIndex := range col2FieldIndexMap {
+				tmpMap[fieldIndex] = col
+				tmpSortVal = append(tmpSortVal, fieldIndex)
+			}
+			sort.Ints(tmpSortVal)
+			sortCol = make([]string, 0, l)
+			for _, fieldIndex := range tmpSortVal {
+				sortCol = append(sortCol, tmpMap[fieldIndex])
+			}
+		}
+		return
 	}
+
 	fieldNum := ty.NumField()
-	col2FieldIndexMap := make(map[string]int, fieldNum)
+	col2FieldIndexMap = make(map[string]int, fieldNum)
+	sortCol = make([]string, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		structField := ty.Field(i)
 		if t.skip(structField) {
@@ -387,11 +405,13 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type) map[string]int {
 		if val == "" {
 			continue
 		}
-		col2FieldIndexMap[t.parseTag2Col(val)] = i
+		col := t.parseTag2Col(val)
+		col2FieldIndexMap[col] = i
+		sortCol = append(sortCol, col)
 	}
 
 	cacheStructTag2FieldIndexMap.Store(ty, col2FieldIndexMap)
-	return col2FieldIndexMap
+	return
 }
 
 // find 查询
@@ -433,7 +453,7 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool,
 
 	colTypes, _ := rows.ColumnTypes()
 	colLen := len(colTypes)
-	col2FieldIndexMap := t.parseCol2FieldIndex(ty)
+	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
 		tmp := reflect.New(ty).Elem()
