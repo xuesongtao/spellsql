@@ -376,7 +376,7 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2Field
 	// 通过地址来取, 防止出现重复
 	if cacheVal, ok := cacheStructTag2FieldIndexMap.Load(ty); ok {
 		col2FieldIndexMap = cacheVal.(map[string]int)
-		if isNeedSort {
+		if isNeedSort { // 按照col2FieldIndexMap的value进行排序
 			l := len(col2FieldIndexMap)
 			tmpMap := make(map[int]string, l)
 			tmpSortVal := make([]int, 0, l)
