@@ -330,6 +330,15 @@ func TestFindWhereForSliceStruct(t *testing.T) {
 	}
 }
 
+func TestFindWhere(t *testing.T) {
+	var m []Man
+	err := FindWhere(db, "man", &m, "id>1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", m)
+}
+
 func TestFindWhereCount(t *testing.T) {
 	var total int32
 	NewTable(db, "man").SelectCount().FindWhere(&total, "id>?", 1)

@@ -760,6 +760,11 @@ func UpdateForObj(db DBer, tableName string, obj interface{}) (sql.Result, error
 	return NewTable(db, tableName).Update(obj).Exec()
 }
 
+// FindWhere 查询对象中的字段内容
+func FindWhere(db DBer, tableName string, obj interface{}, where string, args ...interface{}) error {
+	return NewTable(db, tableName).FindWhere(obj, where, args...)
+}
+
 // InsertForSql 根据 sql 新增
 // sql sqlStr 或 *SqlStrObj
 func InsertForSql(db DBer, sql interface{}) (sql.Result, error) {
