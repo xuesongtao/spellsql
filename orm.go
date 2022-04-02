@@ -18,16 +18,16 @@ const (
 		"    Age  int    `json:\"age\"`\n" +
 		"    Addr string `json:\"addr\"`\n" +
 		"}"
-	sqlObjErr = "tmpSqlObj is nil"
+	sqlObjErr          = "tmpSqlObj is nil"
+	tableNameIsUnknown = "table name is unknown"
 
 	selectForOne uint8 = 1 // 单条查询
 	selectForAll uint8 = 2 // 多条查询
 )
 
 var (
-	cacheTableName2ColInfoMap    = sync.Map{}                   // 缓存表的字段元信息
-	cacheStructTag2FieldIndexMap = sync.Map{}                   // 缓存结构体 tag 对应的 field index
-	NoDataErr                    = errors.New("result is null") // 查询结果为空
+	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
+	cacheStructTag2FieldIndexMap = sync.Map{} // 缓存结构体 tag 对应的 field index
 )
 
 type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
@@ -96,6 +96,10 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return nil
 	}
 
+	if t.name == "" {
+		return errors.New(tableNameIsUnknown)
+	}
+
 	// 先判断下缓存中有没有
 	if info, ok := cacheTableName2ColInfoMap.Load(t.name); ok {
 		t.cacheCol2InfoMap, ok = info.(map[string]*TableColInfo)
@@ -148,7 +152,11 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	if t.name == "" {
 		t.name = parseTableName(ty.Name())
 	}
-	t.initCacheCol2InfoMap()
+
+	if err := t.initCacheCol2InfoMap(); err != nil {
+		return nil, nil, err
+	}
+
 	fieldNum := ty.NumField()
 	columns = make([]string, 0, fieldNum)
 	values = make([]interface{}, 0, fieldNum)
@@ -244,8 +252,8 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 	} else {
 		if t.name == "" {
-			cjLog.Error("table name is null")
-			// glog.Error("table name is null")
+			cjLog.Error(tableNameIsUnknown)
+			// glog.Error(tableNameIsUnknown)
 			return nil
 		}
 		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
@@ -282,8 +290,8 @@ func (t *Table) Select(fields string) *Table {
 	}
 
 	if t.name == "" {
-		cjLog.Error("table name is unknown")
-		// glog.Error("table is unknown")
+		cjLog.Error(tableNameIsUnknown)
+		// glog.Error(tableNameIsUnknown)
 		return nil
 	}
 
@@ -417,10 +425,8 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2Field
 // find 查询
 func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 	ty := reflect.TypeOf(dest)
-	switch ty.Kind() {
-	case reflect.Ptr:
-	default:
-		return errors.New("dest it should ptr")
+	if ty.Kind() != reflect.Ptr {
+		return errors.New("dest should is ptr")
 	}
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
@@ -454,7 +460,7 @@ func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool,
 	colTypes, _ := rows.ColumnTypes()
 	colLen := len(colTypes)
 	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
-	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
+	destReflectValue := removeValuePtr(reflect.ValueOf(dest))
 	for rows.Next() {
 		tmp := reflect.New(ty).Elem()
 		fieldIndex2NullIndexMap, canScanValueNum, values := t.getScanValues(tmp, col2FieldIndexMap, colTypes)
@@ -524,7 +530,6 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
 		canNull, _ := colType.Nullable()
 		if canNull {
-			// fmt.Println(colType.Name(), colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
 				values[i] = new(sql.NullInt64)
@@ -702,7 +707,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	if err == sql.ErrNoRows {
 		cjLog.Error(err.Error())
 		// glog.Error(err.Error())
-		return NoDataErr
+		return nil
 	}
 	return err
 }
