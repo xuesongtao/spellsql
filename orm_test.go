@@ -293,6 +293,17 @@ func BenchmarkFindAllOrm(b *testing.B) {
 	// BenchmarkFindAll-8         25070             44121 ns/op            3313 B/op         92 allocs/op
 }
 
+func BenchmarkFindAllOrm1(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var m []*Man
+		NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Limit(0, 10).FindWhere(&m, "id>1", 1)
+	}
+
+	// BenchmarkFindAll-8         26055             43635 ns/op            3313 B/op         92 allocs/op
+	// BenchmarkFindAll-8         25959             44419 ns/op            3313 B/op         92 allocs/op
+	// BenchmarkFindAll-8         25070             44121 ns/op            3313 B/op         92 allocs/op
+}
+
 func TestFindWhereForOneFiled(t *testing.T) {
 	var name string
 	err := NewTable(db, "man").Select("name").FindWhere(&name, "id=?", 1)
