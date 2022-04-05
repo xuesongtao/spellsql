@@ -329,6 +329,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 }
 
 // FindAll 多行查询
+// dest 支持 strut/单字段 slice
 func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -431,18 +432,12 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 		return err
 	}
 	defer rows.Close()
-
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
 	case reflect.Struct:
 		return t.scanOne(rows, ty, dest)
 	case reflect.Slice:
-		ty = ty.Elem()
-		isPtr := ty.Kind() == reflect.Ptr
-		if isPtr {
-			ty = removeTypePtr(ty) // 找到结构体
-		}
-		return t.scanAll(rows, isPtr, ty, dest, fn...)
+		return t.scanAll(rows, ty.Elem(), dest, fn...)
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
@@ -454,13 +449,18 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 }
 
 // scanAll 处理多个结果集
-func (t *Table) scanAll(rows *sql.Rows, isPtr bool, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
+	isPtr := ty.Kind() == reflect.Ptr
+	if isPtr {
+		ty = removeTypePtr(ty) // 去指针
+	}
+
 	colTypes, _ := rows.ColumnTypes()
 	colLen := len(colTypes)
 	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
-	destReflectValue := removeValuePtr(reflect.ValueOf(dest))
 	values := make([]interface{}, colLen)
+	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
 	for rows.Next() {
 		base := reflect.New(ty).Elem()
 		if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
