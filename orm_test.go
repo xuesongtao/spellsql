@@ -10,7 +10,6 @@ import (
 	// "gorm.io/gorm"
 )
 
-
 // CREATE TABLE `man` (
 // 	`id` int NOT NULL AUTO_INCREMENT,
 // 	`name` varchar(10) NOT NULL,
@@ -20,16 +19,22 @@ import (
 // 	`ext` text,
 // 	`nickname` varchar(30) DEFAULT '',
 // 	PRIMARY KEY (`id`)
-// ) 
+// )
 
 type Man struct {
-	Id       int32  `json:"id,omitempty" gorm:"id"`
-	Name     string `json:"name,omitempty" gorm:"name"`
-	Age      int32  `json:"age,omitempty" gorm:"age"`
-	Addr     string `json:"addr,omitempty" gorm:"addr"`
-	NickName string `json:"nickname" gorm:"nickname"`
-	// Tmp      *Tmp   `json:"tmp"`
-	// Tmps     []*Tmp `json:"tmps"`
+	Id       int32   `json:"id,omitempty" gorm:"id" db:"id"`
+	Name     string  `json:"name,omitempty" gorm:"name" db:"name"`
+	Age      int32   `json:"age,omitempty" gorm:"age" db:"age"`
+	Addr     string  `json:"addr,omitempty" gorm:"addr" db:"addr"`
+	NickName string  `json:"nickname" gorm:"nickname" db:"nickname"`
+}
+
+type Student struct {
+	Id        int32  `json:"id,omitempty" gorm:"id" db:"id"`
+	UId       int32  `json:"u_id,omitempty" gorm:"u_id" db:"u_id"`
+	ClassName string `json:"class_name,omitempty" gorm:"class_name" db:"class_name"`
+	Nickname  string `json:"nickname,omitempty" gorm:"nickname" db:"nickname"`
+	Name      string `json:"name,omitempty" gorm:"name" db:"name"`
 }
 
 type Tmp struct {
@@ -269,7 +274,7 @@ func TestFindAll2(t *testing.T) {
 
 func BenchmarkFindAllQuery(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 5)
+		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)
 		rows, err := db.Query(sqlStr)
 		if err != nil {
 			return
@@ -296,8 +301,8 @@ func BenchmarkFindAllQuery(b *testing.B) {
 
 func BenchmarkFindAllOrm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		var m []*Man
-		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 5).FindAll(&m)
+		m := make([]*Man, 0, 10)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 10).FindAll(&m)
 	}
 
 	// BenchmarkFindAllOrm-8              26319             45615 ns/op            2288 B/op         74 allocs/op
