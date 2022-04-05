@@ -10,6 +10,18 @@ import (
 	// "gorm.io/gorm"
 )
 
+
+// CREATE TABLE `man` (
+// 	`id` int NOT NULL AUTO_INCREMENT,
+// 	`name` varchar(10) NOT NULL,
+// 	`age` int NOT NULL,
+// 	`addr` varchar(50) DEFAULT NULL,
+// 	`hobby` varchar(255) DEFAULT '',
+// 	`ext` text,
+// 	`nickname` varchar(30) DEFAULT '',
+// 	PRIMARY KEY (`id`)
+// ) 
+
 type Man struct {
 	Id       int32  `json:"id,omitempty" gorm:"id"`
 	Name     string `json:"name,omitempty" gorm:"name"`
@@ -198,7 +210,7 @@ func BenchmarkFindOneOrm(b *testing.B) {
 }
 
 func TestFindAll(t *testing.T) {
-	var m []Man
+	var m []*Man
 	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m)
 	if err != nil {
 		t.Fatal(err)
@@ -212,7 +224,7 @@ func TestFindAll(t *testing.T) {
 func TestFindAll1(t *testing.T) {
 	var m []*Man
 	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m, func(_row interface{}) error {
-		v := _row.(Man)
+		v := _row.(*Man)
 		if v.Id == 5 {
 			v.Name = "test"
 		}
@@ -257,7 +269,7 @@ func TestFindAll2(t *testing.T) {
 
 func BenchmarkFindAllQuery(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)
+		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 5)
 		rows, err := db.Query(sqlStr)
 		if err != nil {
 			return
@@ -285,23 +297,12 @@ func BenchmarkFindAllQuery(b *testing.B) {
 func BenchmarkFindAllOrm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var m []*Man
-		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 10).FindAll(&m)
+		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 5).FindAll(&m)
 	}
 
-	// BenchmarkFindAll-8         26055             43635 ns/op            3313 B/op         92 allocs/op
-	// BenchmarkFindAll-8         25959             44419 ns/op            3313 B/op         92 allocs/op
-	// BenchmarkFindAll-8         25070             44121 ns/op            3313 B/op         92 allocs/op
-}
-
-func BenchmarkFindAllOrm1(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var m []*Man
-		NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Limit(0, 10).FindWhere(&m, "id>1", 1)
-	}
-
-	// BenchmarkFindAll-8         26055             43635 ns/op            3313 B/op         92 allocs/op
-	// BenchmarkFindAll-8         25959             44419 ns/op            3313 B/op         92 allocs/op
-	// BenchmarkFindAll-8         25070             44121 ns/op            3313 B/op         92 allocs/op
+	// BenchmarkFindAllOrm-8              26319             45615 ns/op            2288 B/op         74 allocs/op
+	// BenchmarkFindAllOrm-8              26319             45538 ns/op            2288 B/op         74 allocs/op
+	// BenchmarkFindAllOrm-8              26275             45809 ns/op            2288 B/op         74 allocs/op
 }
 
 func TestFindWhereForOneFiled(t *testing.T) {
@@ -315,7 +316,7 @@ func TestFindWhereForOneFiled(t *testing.T) {
 
 func TestFindWhereForStruct(t *testing.T) {
 	var m Man
-	err := NewTable(db).FindWhere(&m, "id=?", 10)
+	err := NewTable(db).FindWhere(&m, "id=?", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
