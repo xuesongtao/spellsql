@@ -20,9 +20,6 @@ const (
 		"}"
 	sqlObjErr          = "tmpSqlObj is nil"
 	tableNameIsUnknown = "table name is unknown"
-
-	selectForOne uint8 = 1 // 单条查询
-	selectForAll uint8 = 2 // 多条查询
 )
 
 var (
@@ -428,87 +425,112 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 	if ty.Kind() != reflect.Ptr {
 		return errors.New("dest should is ptr")
 	}
-	ty = removeTypePtr(ty)
-	switch ty.Kind() {
-	case reflect.Struct:
-		return t.queryScan(ty, selectForOne, false, dest, fn...)
-	case reflect.Slice:
-		ty = ty.Elem()
-		sliceValIsPtr := ty.Kind() == reflect.Ptr
-		if sliceValIsPtr {
-			ty = removeTypePtr(ty) // 找到结构体
-		}
-		return t.queryScan(ty, selectForAll, sliceValIsPtr, dest, fn...)
-	case reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64, reflect.String:
-		return t.queryScan(ty, selectForOne, false, dest, fn...)
-	default:
-		return errors.New("dest kind not found")
-	}
-}
 
-// queryScan 将数据库查询的内容映射到目标对象
-func (t *Table) queryScan(ty reflect.Type, selectType uint8, sliceValIsPtr bool, dest interface{}, fn ...SelectCallBackFn) error {
 	rows, err := t.Query()
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
+	ty = removeTypePtr(ty)
+	switch ty.Kind() {
+	case reflect.Struct:
+		return t.scanOne(rows, ty, dest)
+	case reflect.Slice:
+		ty = ty.Elem()
+		isPtr := ty.Kind() == reflect.Ptr
+		if isPtr {
+			ty = removeTypePtr(ty) // 找到结构体
+		}
+		return t.scanAll(rows, isPtr, ty, dest, fn...)
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64, reflect.String:
+		return t.scanOne(rows, ty, dest)
+	default:
+		return errors.New("dest kind not found")
+	}
+}
+
+// scanAll 处理多个结果集
+func (t *Table) scanAll(rows *sql.Rows, isPtr bool, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
 	colTypes, _ := rows.ColumnTypes()
 	colLen := len(colTypes)
 	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
+	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	destReflectValue := removeValuePtr(reflect.ValueOf(dest))
+	values := make([]interface{}, colLen)
 	for rows.Next() {
-		tmp := reflect.New(ty).Elem()
-		fieldIndex2NullIndexMap, canScanValueNum, values := t.getScanValues(tmp, col2FieldIndexMap, colTypes)
-		if colLen != canScanValueNum {
-			return fmt.Errorf("check scan is failed, select result len %d, dest len %d", colLen, canScanValueNum)
+		base := reflect.New(ty).Elem()
+		if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+			return err
 		}
 
 		if err := rows.Scan(values...); err != nil {
 			return fmt.Errorf("mysql scan is failed, err: %v", err)
 		}
 
-		if err := t.setDest(tmp, fieldIndex2NullIndexMap, values); err != nil {
+		if err := t.setDest(base, fieldIndex2NullIndexMap, values); err != nil {
 			return err
 		}
 
 		if len(fn) == 1 { // 回调方法
-			if sliceValIsPtr { // 指针类型
-				if err := fn[0](tmp.Addr().Interface()); err != nil {
+			if isPtr { // 指针类型
+				if err := fn[0](base.Addr().Interface()); err != nil {
 					return err
 				}
 			} else { // 值类型
-				if err := fn[0](tmp.Interface()); err != nil {
+				if err := fn[0](base.Interface()); err != nil {
 					return err
 				}
 			}
 		}
 
-		if selectType == selectForAll { // 切片类型(结构体/单字段)
-			if sliceValIsPtr { // 判断下切片中是指针类型还是值类型
-				destReflectValue.Set(reflect.Append(destReflectValue, tmp.Addr()))
-			} else {
-				destReflectValue.Set(reflect.Append(destReflectValue, tmp))
-			}
-		} else { // 结构体
-			destReflectValue.Set(tmp)
+		if isPtr { // 判断下切片中是指针类型还是值类型
+			destReflectValue.Set(reflect.Append(destReflectValue, base.Addr()))
+		} else {
+			destReflectValue.Set(reflect.Append(destReflectValue, base))
 		}
 	}
 	return nil
 }
 
-// getScanValues 获取待 Scan 的内容
-func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]int, colTypes []*sql.ColumnType) (fieldIndex2NullIndexMap map[int]int, canScanValueNum int, values []interface{}) {
-	l := len(colTypes)
-	values = make([]interface{}, l)
+// scanOne 处理单个结果集
+func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}) error {
+	colTypes, _ := rows.ColumnTypes()
+	colLen := len(colTypes)
+	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
+	values := make([]interface{}, colLen)
+	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
+	destReflectValue := removeValuePtr(reflect.ValueOf(dest))
+	base := reflect.New(ty).Elem()
+	if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+		return err
+	}
 
+	if !rows.Next() { // 没有数据
+		cjLog.Warning(sql.ErrNoRows)
+		// glog.Warning(sql.ErrNoRows)
+		return nil
+	}
+
+	if err := rows.Scan(values...); err != nil {
+		return err
+	}
+
+	if err := t.setDest(base, fieldIndex2NullIndexMap, values); err != nil {
+		return err
+	}
+	destReflectValue.Set(base)
+	return nil
+}
+
+// getScanValues 获取待 Scan 的内容
+func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]int, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
 	// 判断下是否为结构体, 结构体才给结构体里的值进行处理
 	isStruct := dest.Kind() == reflect.Struct
-	fieldIndex2NullIndexMap = make(map[int]int, l)
+	var canScanValueNum int
 	for i, colType := range colTypes {
 		var (
 			fieldIndex       int
@@ -560,7 +582,11 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			break
 		}
 	}
-	return
+
+	if len(colTypes) != canScanValueNum {
+		return fmt.Errorf("check scan is failed, select result len %d, dest len %d", len(colTypes), canScanValueNum)
+	}
+	return nil
 }
 
 // nullScan 空值scan
@@ -705,8 +731,8 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 
 	err := t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr()).Scan(dest...)
 	if err == sql.ErrNoRows {
-		cjLog.Error(err.Error())
-		// glog.Error(err.Error())
+		cjLog.Warning(err)
+		// glog.Warning(err)
 		return nil
 	}
 	return err
