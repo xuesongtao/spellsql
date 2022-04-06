@@ -25,6 +25,10 @@ const (
 var (
 	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
 	cacheStructTag2FieldIndexMap = sync.Map{} // 缓存结构体 tag 对应的 field index
+	
+	// 常用就缓存下
+	cacheNullString              = sync.Pool{New: func() interface{} { return new(sql.NullString) }} 
+	cacheNullInt64               = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
 )
 
 type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
@@ -536,7 +540,6 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			fieldIndex       int
 			structFieldExist bool = true
 		)
-
 		if isStruct {
 			fieldIndex, structFieldExist = col2FieldIndexMap[colType.Name()]
 		}
@@ -552,13 +555,14 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
 		canNull, _ := colType.Nullable()
 		if canNull {
+			// fmt.Println(colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
-				values[i] = new(sql.NullInt64)
+				values[i] = cacheNullInt64.Get().(*sql.NullInt64)
 			case "NullFloat64":
 				values[i] = new(sql.NullFloat64)
 			default:
-				values[i] = new(sql.NullString)
+				values[i] = cacheNullString.Get().(*sql.NullString) 
 			}
 
 			// 结构体, 这里记录 struct 那个字段需要映射 NULL 值
@@ -594,8 +598,12 @@ func (t *Table) nullScan(dest, src interface{}) (err error) {
 	switch val := src.(type) {
 	case *sql.NullString:
 		err = convertAssign(dest, val.String)
+		val.String = ""
+		cacheNullString.Put(val)
 	case *sql.NullInt64:
 		err = convertAssign(dest, val.Int64)
+		val.Int64 = 0
+		cacheNullInt64.Put(val)
 	case *sql.NullFloat64:
 		err = convertAssign(dest, val.Float64)
 	default:

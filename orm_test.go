@@ -22,11 +22,11 @@ import (
 // )
 
 type Man struct {
-	Id       int32   `json:"id,omitempty" gorm:"id" db:"id"`
-	Name     string  `json:"name,omitempty" gorm:"name" db:"name"`
-	Age      int32   `json:"age,omitempty" gorm:"age" db:"age"`
-	Addr     string  `json:"addr,omitempty" gorm:"addr" db:"addr"`
-	NickName string  `json:"nickname" gorm:"nickname" db:"nickname"`
+	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
+	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
+	Age      int32  `json:"age,omitempty" gorm:"age" db:"age"`
+	Addr     string `json:"addr,omitempty" gorm:"addr" db:"addr"`
+	NickName string `json:"nickname" gorm:"nickname" db:"nickname"`
 }
 
 type Student struct {
@@ -76,6 +76,38 @@ func TestParseTable(t *testing.T) {
 	var m Man
 	c, v, e := NewTable(db).getHandleTableCol2Val(m, false, "man")
 	t.Log(c, v, e)
+}
+
+func TestGetNullType(t *testing.T) {
+	// CREATE TABLE test_col (
+	// 	id INT auto_increment PRIMARY KEY,
+	// 	l_tinyint TINYINT,
+	// 	l_int int,
+	// 	l_long LONG,
+	// 	l_float FLOAT,
+	// 	l_dec DECIMAL,
+	// 	l_char CHAR(10),
+	// 	l_varchar VARCHAR(10),
+	// 	l_text LONGTEXT
+	// ) COMMENT '测试字段';
+
+	type TestColInfo struct {
+		Id       int32  `json:"id,omitempty"`
+		LTinyint int8   `json:"l_tinyint,omitempty"`
+		LInt     int32  `json:"l_int,omitempty"`
+		LLong    string `json:"l_long,omitempty"`
+		LFloat   string `json:"l_float,omitempty"`
+		LDec     string `json:"l_dec,omitempty"`
+		LChar    string `json:"l_char,omitempty"`
+		LVarchar string `json:"l_varchar,omitempty"`
+		LText    string `json:"l_text,omitempty"`
+	}
+	var data TestColInfo
+	err := FindWhere(db, "test_col", &data, "id=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(data)
 }
 
 func TestGetCol(t *testing.T) {
