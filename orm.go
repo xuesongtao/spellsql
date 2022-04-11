@@ -25,10 +25,11 @@ const (
 var (
 	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
 	cacheStructTag2FieldIndexMap = sync.Map{} // 缓存结构体 tag 对应的 field index
-	
+
 	// 常用就缓存下
-	cacheNullString              = sync.Pool{New: func() interface{} { return new(sql.NullString) }} 
-	cacheNullInt64               = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
+	cacheTabObj     = sync.Pool{New: func() interface{} { return new(Table) }}
+	cacheNullString = sync.Pool{New: func() interface{} { return new(sql.NullString) }}
+	cacheNullInt64  = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
 )
 
 type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
@@ -46,13 +47,14 @@ type TableColInfo struct {
 type Table struct {
 	db               DBer
 	isPrintSql       bool       // 是否打印sql
+	haveFree         bool       // 是否已是否
 	tmpSqlObj        *SqlStrObj // 暂存对象
 	tag              string     // 解析字段的tag
 	name             string
 	cacheCol2InfoMap map[string]*TableColInfo // 记录该表的所有字段名
 }
 
-// NewTable 初始化
+// NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
 // args 支持两个参数
 // args[0]: 会解析为 tableName, 这里如果有值, 在进行操作表的时候就会以此表为准,
 // 如果为空时, 在通过对象进行操作时按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
@@ -62,11 +64,12 @@ func NewTable(db DBer, args ...string) *Table {
 		return nil
 	}
 
-	t := &Table{
-		db:         db,
-		isPrintSql: true,
-		tag:        defaultTableTag,
-	}
+	t := cacheTabObj.Get().(*Table)
+	t.db = db
+	t.isPrintSql = true
+	t.tag = defaultTableTag
+	t.name = ""
+	t.haveFree = false
 
 	switch len(args) {
 	case 1:
@@ -76,6 +79,22 @@ func NewTable(db DBer, args ...string) *Table {
 		t.tag = args[1]
 	}
 	return t
+}
+
+func (t *Table) free() {
+	if t.haveFree {
+		cjLog.Panic("table have free, you can't again use")
+		// glog.Panic("table have free, you can't again use")
+		return
+	}
+	t.haveFree = true
+	t.db = nil
+	t.tmpSqlObj = nil
+	t.name = ""
+	t.cacheCol2InfoMap = nil
+
+	// 存放缓存
+	cacheTabObj.Put(t)
 }
 
 // IsPrintSql 是否打印 sql
@@ -315,6 +334,9 @@ func (t *Table) Count(total interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectCount()
 	}
+
+	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
+	// defer t.free()
 	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).Scan(total)
 }
 
@@ -426,12 +448,13 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2Field
 
 // find 查询
 func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
+	defer t.free()
 	ty := reflect.TypeOf(dest)
 	if ty.Kind() != reflect.Ptr {
 		return errors.New("dest should is ptr")
 	}
 
-	rows, err := t.Query()
+	rows, err := t.Query(false)
 	if err != nil {
 		return err
 	}
@@ -562,7 +585,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			case "NullFloat64":
 				values[i] = new(sql.NullFloat64)
 			default:
-				values[i] = cacheNullString.Get().(*sql.NullString) 
+				values[i] = cacheNullString.Get().(*sql.NullString)
 			}
 
 			// 结构体, 这里记录 struct 那个字段需要映射 NULL 值
@@ -721,6 +744,7 @@ func (t *Table) Raw(sql interface{}) *Table {
 
 // Exec 执行
 func (t *Table) Exec() (sql.Result, error) {
+	defer t.free()
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
@@ -731,6 +755,7 @@ func (t *Table) Exec() (sql.Result, error) {
 
 // QueryRowScan 单行查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
+	defer t.free()
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
@@ -747,7 +772,16 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 }
 
 // Query 多行查询, 返回的 sql.Rows 需要调用 Close
-func (t *Table) Query() (*sql.Rows, error) {
+func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
+	defaultNeedCache := true
+	if len(isNeedCache) > 0 {
+		defaultNeedCache = isNeedCache[0]
+	}
+
+	if defaultNeedCache {
+		defer t.free()
+	}
+
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
@@ -822,6 +856,11 @@ func UpdateForObj(db DBer, tableName string, obj interface{}) (sql.Result, error
 // FindWhere 查询对象中的字段内容
 func FindWhere(db DBer, tableName string, obj interface{}, where string, args ...interface{}) error {
 	return NewTable(db, tableName).FindWhere(obj, where, args...)
+}
+
+// SelectFindWhere 查询指定内容的
+func SelectFindWhere(db DBer, fields, tableName string, obj interface{}, where string, args ...interface{}) error {
+	return NewTable(db, tableName).Select(fields).FindWhere(obj, where, args...)
 }
 
 // InsertForSql 根据 sql 新增

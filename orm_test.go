@@ -199,7 +199,7 @@ func TestFindForJoin(t *testing.T) {
 }
 
 // FindOne 性能对比
-//  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=3
+//  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
 
 // func BenchmarkFindOneGorm(b *testing.B) {
 // 	for i := 0; i < b.N; i++ {
@@ -395,4 +395,10 @@ func TestFindWhereCount(t *testing.T) {
 
 	Count(db, "man", &total, "id>1")
 	t.Log(total)
+}
+
+func TestSelectFindWhere(t *testing.T) {
+	var m Man
+	SelectFindWhere(db, "name", "man", &m, "id=?", 1)
+	t.Log(m)
 }
