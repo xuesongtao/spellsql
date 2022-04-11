@@ -437,3 +437,9 @@ func TestFindWhereCount(t *testing.T) {
 	Count(db, "man", &total, "id>1")
 	t.Log(total)
 }
+
+func TestSelectFindWhere(t *testing.T) {
+	var m Man
+	SelectFindWhere(db, "name", "man", &m, "id=?", 1)
+	t.Log(m)
+}

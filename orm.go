@@ -25,10 +25,10 @@ const (
 var (
 	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
 	cacheStructTag2FieldIndexMap = sync.Map{} // 缓存结构体 tag 对应的 field index
-	
+
 	// 常用就缓存下
-	cacheNullString              = sync.Pool{New: func() interface{} { return new(sql.NullString) }} 
-	cacheNullInt64               = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
+	cacheNullString = sync.Pool{New: func() interface{} { return new(sql.NullString) }}
+	cacheNullInt64  = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
 )
 
 type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
@@ -562,7 +562,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			case "NullFloat64":
 				values[i] = new(sql.NullFloat64)
 			default:
-				values[i] = cacheNullString.Get().(*sql.NullString) 
+				values[i] = cacheNullString.Get().(*sql.NullString)
 			}
 
 			// 结构体, 这里记录 struct 那个字段需要映射 NULL 值
@@ -822,6 +822,11 @@ func UpdateForObj(db DBer, tableName string, obj interface{}) (sql.Result, error
 // FindWhere 查询对象中的字段内容
 func FindWhere(db DBer, tableName string, obj interface{}, where string, args ...interface{}) error {
 	return NewTable(db, tableName).FindWhere(obj, where, args...)
+}
+
+// SelectFindWhere 查询指定内容的
+func SelectFindWhere(db DBer, fields, tableName string, obj interface{}, where string, args ...interface{}) error {
+	return NewTable(db, tableName).Select(fields).FindWhere(obj, where, args...)
 }
 
 // InsertForSql 根据 sql 新增
