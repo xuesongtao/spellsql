@@ -213,7 +213,7 @@ func TestFindForJoin(t *testing.T) {
 }
 
 // FindOne 性能对比
-//  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=3
+//  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindOneGorm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -317,6 +317,8 @@ func TestSqlxSelect(t *testing.T) {
 		t.Log(v)
 	}
 }
+
+// go test -benchmem -run=^$ -bench ^BenchmarkFindAll gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindAllGorm(b *testing.B) {
 	for i := 0; i < b.N; i++ {

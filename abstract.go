@@ -2,7 +2,7 @@ package spellsql
 
 import "database/sql"
 
-// DBer 
+// DBer
 type DBer interface {
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
@@ -17,4 +17,6 @@ type Logger interface {
 	Errorf(format string, v ...interface{})
 	Warning(v ...interface{})
 	Warningf(format string, v ...interface{})
+	Panic(v ...interface{})
+	Panicf(format string, v ...interface{})
 }
