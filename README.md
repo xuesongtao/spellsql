@@ -17,36 +17,28 @@
 
 * 直接根据 args 中类型来自动推动 arg 的类型, 使用如下:
     1. 第一种用法: 根据 args 中类型来自动推动 arg 的类型
-    
-
-```
+    ```
         如: NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?", "test", 123).GetSqlStr()
         => SELECT username, password FROM sys_user WHERE username = "test" AND password = 123
-    ```
+    ```  
 
     2. 第二种用法: 当 arg 为 []int, 暂时支持 []int, []int32, []int64
-    
-
-```
+    ```
         如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?)", []int{1, 2, 3}).GetSqlStr()
         => SELECT username, password FROM sys_user WHERE id IN (1,2,3)
     ```
 
 ##### 2.2 占位符 ?d
 
-* 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 0, 如: `"123" => 123`;              `[]string{"1", "2", "3"} => 1,2,3`, 如下:
+* 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 0, 如: `"123" => 123`;                 `[]string{"1", "2", "3"} => 1,2,3`, 如下:
     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个
-    
-
-```
+    ```
         如: NewCacheSql("SELECT username, password FROM sys_user WHERE id = ?d", "123").GetSqlStr()
         => SELECT username, password FROM sys_user WHERE id = 123
     ```
 
     第二种用法: 当 arg 为 []string, 又想把解析后的单个元素不加引号
-    
-
-```
+    ```
         如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?d)", []string{"1", "2", "3"}).GetSqlStr()
         => SELECT username, password FROM sys_user WHERE id IN (1,2,3)
     ```
@@ -55,17 +47,13 @@
 
 * 这样会让字符串类型不加引号, 原样输出, 如: "test" => test; 
     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型
-    
-
-```
+    ```
         如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123").GetSqlStr()
         => SELECT username, password FROM sys_user WHERE id = 123
     ```
 
     第二种用法: 子查询
-    
-
-```
+    ```
         如: NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (?v)", FmtSqlStr("SELECT id FROM user WHERE name=?", "test").GetSqlStr()
         => SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (SELECT id FROM user WHERE name="test");
     ```
@@ -202,7 +190,9 @@
 ```
 
 #### 4 支持简易的 orm
+
 * 支持自定义 `tag`, 默认 `json`
+
 ```
     type Man struct {
         Id   int32  `json:"id,omitempty"`
