@@ -12,14 +12,17 @@ import (
 )
 
 const (
-	defaultTableTag = "json"
-	structErr       = "type User struct {\n" +
-		"    Name string `json:\"name\"`\n" +
-		"    Age  int    `json:\"age\"`\n" +
-		"    Addr string `json:\"addr\"`\n" +
-		"}"
-	sqlObjErr          = "tmpSqlObj is nil"
-	tableNameIsUnknown = "table name is unknown"
+	defaultTableTag        = "json"
+	defaultBatchSelectSize = 10 // 批量查询默认条数
+)
+
+var (
+	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
+		"    Name string `json:\"name\"`\n"+
+		"}")
+	sqlObjErr             = errors.New("tmpSqlObj is nil")
+	tableNameIsUnknownErr = errors.New("table name is unknown")
+	nullRowErr          = errors.New("row is null")
 )
 
 var (
@@ -125,7 +128,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 	}
 
 	if t.name == "" {
-		return errors.New(tableNameIsUnknown)
+		return tableNameIsUnknownErr
 	}
 
 	// 先判断下缓存中有没有
@@ -222,7 +225,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	}
 
 	if len(columns) == 0 || len(values) == 0 {
-		err = fmt.Errorf("you should sure struct is ok, eg: %s", structErr)
+		err = structTagErr
 		return
 	}
 	return
@@ -284,8 +287,8 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 	} else {
 		if t.name == "" {
-			cjLog.Error(tableNameIsUnknown)
-			// glog.Error(tableNameIsUnknown)
+			cjLog.Error(tableNameIsUnknownErr)
+			// glog.Error(tableNameIsUnknownErr)
 			return nil
 		}
 		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
@@ -322,8 +325,8 @@ func (t *Table) Select(fields string) *Table {
 	}
 
 	if t.name == "" {
-		cjLog.Error(tableNameIsUnknown)
-		// glog.Error(tableNameIsUnknown)
+		cjLog.Error(tableNameIsUnknownErr)
+		// glog.Error(tableNameIsUnknownErr)
 		return nil
 	}
 
@@ -412,6 +415,10 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
+
+	if t.tmpSqlObj.LimitIsEmpty() {
+		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
+	}
 	return t.find(dest, fn...)
 }
 
@@ -422,6 +429,10 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 		t.SelectAuto(dest)
 	}
 	t.tmpSqlObj.SetWhereArgs(where, args...)
+
+	if t.tmpSqlObj.LimitIsEmpty() {
+		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
+	}
 	return t.find(dest)
 }
 
@@ -568,7 +579,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}) error
 	if !rows.Next() { // 没有数据
 		cjLog.Warning(sql.ErrNoRows)
 		// glog.Warning(sql.ErrNoRows)
-		return nil
+		return nullRowErr
 	}
 
 	if err := rows.Scan(values...); err != nil {
@@ -795,7 +806,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	if err == sql.ErrNoRows {
 		cjLog.Warning(err)
 		// glog.Warning(err)
-		return nil
+		return nullRowErr
 	}
 	return err
 }
@@ -861,6 +872,11 @@ func parseTableName(objName string) string {
 }
 
 // ========================================= 以下为常用操作的封装 ==================================
+
+// IsNullRow 根据 err 判断是否结果为空
+func IsNullRow(err error) bool {
+	return err == nullRowErr
+}
 
 // Count 获取总数
 func Count(db DBer, tableName string, dest interface{}, where string, args ...interface{}) error {
