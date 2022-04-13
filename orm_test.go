@@ -127,11 +127,18 @@ func TestInsert(t *testing.T) {
 		Age:  18,
 		Addr: "成都市",
 	}
-	rows, err := NewTable(db).Insert(m)
-	if err != nil {
-		t.Log(err)
-		return
-	}
+
+	// 1
+	rows, _ := NewTable(db).Insert(m).Exec()
+	t.Log(rows.LastInsertId())
+
+	// 2
+	rows, _ = InsertForObj(db, "man", m)
+	t.Log(rows.LastInsertId())
+
+	// 3
+	sqlObj := NewCacheSql("INSERT INTO man (name,age,addr) VALUES (?, ?, ?)", m.Name, m.Age, m.Addr)
+	rows, _ = ExecForSql(db, sqlObj)
 	t.Log(rows.LastInsertId())
 }
 
@@ -139,11 +146,17 @@ func TestDelete(t *testing.T) {
 	m := Man{
 		Id: 9,
 	}
-	rows, err := NewTable(db).Delete(m).Exec()
-	if err != nil {
-		t.Log(err)
-		return
-	}
+	// 1
+	rows, _ := NewTable(db).Delete(m).Exec()
+	t.Log(rows.LastInsertId())
+
+	// 2
+	rows, _ = DeleteForObj(db, "man", m)
+	t.Log(rows.LastInsertId())
+
+	// 3
+	sqlObj := NewCacheSql("DELETE FROM man WHERE id=?", 9)
+	rows, _ = ExecForSql(db, sqlObj)
 	t.Log(rows.LastInsertId())
 }
 
@@ -162,21 +175,39 @@ func TestUpdate(t *testing.T) {
 		Age:  20,
 		Addr: "测试",
 	}
-	rows, err := NewTable(db).Update(m).Where("id=?", 7).Exec()
-	if err != nil {
-		t.Log(err)
-		return
-	}
+
+	// 1
+	rows, _ := NewTable(db).Update(m).Where("id=?", 7).Exec()
+	t.Log(rows.LastInsertId())
+
+	// 2
+	rows, _ = UpdateForObj(db, "man", m, "id=?", 7)
+	t.Log(rows.LastInsertId())
+
+	// 3
+	sqlObj := NewCacheSql("UPDATE man SET name=?,age=?,addr=? WHERE id=?", m.Name, m.Age, m.Addr, 7)
+	rows, _ = ExecForSql(db, sqlObj)
 	t.Log(rows.LastInsertId())
 }
 
 func TestFindOne(t *testing.T) {
 	var m Man
-	err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m)
+
+	// 1
+	_ = NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
+	t.Log(m)
+
+	// 2
+	_ = NewTable(db).SelectAuto("name,age", "man").Where("id=?", 1).FindOne(&m)
+	t.Log(m)
+
+	// 3
+	_ = FindOne(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m)
+	t.Log(m)
+
+	// 4
+	_ = FindWhere(db, "man", &m, "id=?", 1)
+	t.Log(m)
 }
 
 func TestFindOne1(t *testing.T) {
@@ -193,7 +224,7 @@ func TestFindOne1(t *testing.T) {
 
 func TestFindForJoin(t *testing.T) {
 	var m []Man
-	sqlStr := GetSqlStr("SELECT m.name,m.age,s.nickname FROM man m JOIN student s ON m.id=s.u_id")
+	sqlStr := NewCacheSql("SELECT m.name,m.age,s.nickname FROM man m JOIN student s ON m.id=s.u_id")
 	NewTable(db).Raw(sqlStr).FindAll(&m)
 	t.Log(m)
 }
@@ -388,12 +419,15 @@ func TestFindWhere(t *testing.T) {
 	t.Logf("%+v", m)
 }
 
-func TestFindWhereCount(t *testing.T) {
+func TestCount(t *testing.T) {
 	var total int32
 	NewTable(db, "man").SelectCount().FindWhere(&total, "id>?", 1)
 	t.Log(total)
 
 	Count(db, "man", &total, "id>1")
+	t.Log(total)
+
+	NewTable(db, "man").SelectAll().Where("id>?", 1).Count(&total)
 	t.Log(total)
 }
 

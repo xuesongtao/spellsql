@@ -46,6 +46,7 @@ type TableColInfo struct {
 
 type Table struct {
 	db               DBer
+	printSqlCallSkip uint8      // 打印 sql 时显示
 	isPrintSql       bool       // 是否打印sql
 	haveFree         bool       // 是否已是否
 	tmpSqlObj        *SqlStrObj // 暂存对象
@@ -70,6 +71,7 @@ func NewTable(db DBer, args ...string) *Table {
 	t.tag = defaultTableTag
 	t.name = ""
 	t.haveFree = false
+	t.printSqlCallSkip = 2
 
 	switch len(args) {
 	case 1:
@@ -100,6 +102,12 @@ func (t *Table) free() {
 // IsPrintSql 是否打印 sql
 func (t *Table) IsPrintSql(is bool) *Table {
 	t.isPrintSql = is
+	return t
+}
+
+// PrintSqlCallSkip 打印 sql 的时候显示调用信息
+func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
+	t.printSqlCallSkip = skip
 	return t
 }
 
@@ -233,16 +241,20 @@ func (t *Table) parseTag2Col(tag string) (column string) {
 }
 
 // Insert 提交, 支持批量提交
-func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
+func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	if len(insertObjs) == 0 {
-		return nil, errors.New("insertObjs is empty")
+		cjLog.Error("insertObjs is empty")
+		// glog.Error("insertObjs is empty")
+		return nil
 	}
 
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 		if err != nil {
-			return nil, err
+			cjLog.Error(err)
+			// glog.Error(err)
+			return nil
 		}
 		if i == 0 {
 			insertSql = NewCacheSql("INSERT INTO ?v (?v)", t.name, strings.Join(columns, ", "))
@@ -250,7 +262,7 @@ func (t *Table) Insert(insertObjs ...interface{}) (sql.Result, error) {
 		insertSql.SetInsertValues(values...)
 	}
 	t.tmpSqlObj = insertSql
-	return t.Exec()
+	return t
 }
 
 // Delete 会以对象中有值得为条件进行删除
@@ -319,6 +331,46 @@ func (t *Table) Select(fields string) *Table {
 	return t
 }
 
+// SelectAuto 根据输入类型进行自动推断要查询的字段值
+func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
+	if len(tableName) > 0 {
+		t.name = tableName[0]
+	}
+
+	if val, ok := src.(string); ok {
+		t.Select(val)
+		return t
+	}
+
+	ty := removeTypePtr(reflect.TypeOf(src))
+	selectFields := make([]string, 0, 5)
+	switch ty.Kind() {
+	case reflect.Struct, reflect.Slice:
+		if ty.Kind() == reflect.Slice {
+			ty = ty.Elem()
+			if ty.Kind() == reflect.Ptr {
+				ty = removeTypePtr(ty)
+			}
+		}
+		if t.name == "" {
+			t.name = parseTableName(ty.Name())
+		}
+		_ = t.initCacheCol2InfoMap()
+		_, sortCol := t.parseCol2FieldIndex(ty, true)
+		for _, col := range sortCol {
+			// 排除结构体中的字段, 数据库没有
+			if _, ok := t.cacheCol2InfoMap[col]; !ok {
+				continue
+			}
+			selectFields = append(selectFields, col)
+		}
+		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ", "), t.name)
+	default:
+		t.SelectAll()
+	}
+	return t
+}
+
 //  SelectAll() 查询所有字段
 func (t *Table) SelectAll() *Table {
 	return t.Select("*")
@@ -337,7 +389,7 @@ func (t *Table) Count(total interface{}) error {
 
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
-	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetTotalSqlStr()).Scan(total)
+	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetTotalSqlStr()).Scan(total)
 }
 
 // FindOne 单行查询
@@ -367,32 +419,7 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 // dest 支持 struct, slice, 单字段
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
 	if t.sqlObjIsNil() {
-		ty := removeTypePtr(reflect.TypeOf(dest))
-		selectFields := make([]string, 0, 5)
-		switch ty.Kind() {
-		case reflect.Struct, reflect.Slice:
-			if ty.Kind() == reflect.Slice {
-				ty = ty.Elem()
-				if ty.Kind() == reflect.Ptr {
-					ty = removeTypePtr(ty)
-				}
-			}
-			if t.name == "" {
-				t.name = parseTableName(ty.Name())
-			}
-			t.initCacheCol2InfoMap()
-			_, sortCol := t.parseCol2FieldIndex(ty, true)
-			for _, col := range sortCol {
-				// 排除结构体中的字段, 数据库没有
-				if _, ok := t.cacheCol2InfoMap[col]; !ok {
-					continue
-				}
-				selectFields = append(selectFields, col)
-			}
-			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ", "), t.name)
-		default:
-			t.SelectAll()
-		}
+		t.SelectAuto(dest)
 	}
 	t.tmpSqlObj.SetWhereArgs(where, args...)
 	return t.find(dest)
@@ -453,12 +480,14 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 	if ty.Kind() != reflect.Ptr {
 		return errors.New("dest should is ptr")
 	}
+	t.printSqlCallSkip += 2
 
 	rows, err := t.Query(false)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
+
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
 	case reflect.Struct:
@@ -750,7 +779,7 @@ func (t *Table) Exec() (sql.Result, error) {
 		// glog.Error(sqlObjErr)
 		return nil, nil
 	}
-	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr())
+	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
 }
 
 // QueryRowScan 单行查询
@@ -761,8 +790,8 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		// glog.Error(sqlObjErr)
 		return nil
 	}
-
-	err := t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr()).Scan(dest...)
+	t.printSqlCallSkip += 1
+	err := t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()).Scan(dest...)
 	if err == sql.ErrNoRows {
 		cjLog.Warning(err)
 		// glog.Warning(err)
@@ -787,7 +816,7 @@ func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 		// glog.Error(sqlObjErr)
 		return nil, nil
 	}
-	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).GetSqlStr())
+	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
 }
 
 // removeValuePtr 移除多指针
@@ -835,48 +864,48 @@ func parseTableName(objName string) string {
 
 // Count 获取总数
 func Count(db DBer, tableName string, dest interface{}, where string, args ...interface{}) error {
-	return NewTable(db, tableName).SelectCount().Where(where, args...).Count(dest)
+	return NewTable(db, tableName).PrintSqlCallSkip(3).SelectCount().Where(where, args...).Count(dest)
 }
 
 // InsertForObj 根据对象新增
 func InsertForObj(db DBer, tableName string, src ...interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).Insert(src...)
+	return NewTable(db, tableName).PrintSqlCallSkip(3).Insert(src...).Exec()
 }
 
 // DeleteForObj 根据对象删除
 func DeleteForObj(db DBer, tableName string, src interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).Delete(src).Exec()
+	return NewTable(db, tableName).PrintSqlCallSkip(3).Delete(src).Exec()
 }
 
 // UpdateForObj 根据对象更新
-func UpdateForObj(db DBer, tableName string, src interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).Update(src).Exec()
+func UpdateForObj(db DBer, tableName string, src interface{}, where string, args ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).Update(src).Where(where, args...).Exec()
 }
 
 // FindWhere 查询对象中的字段内容
 func FindWhere(db DBer, tableName string, dest interface{}, where string, args ...interface{}) error {
-	return NewTable(db, tableName).FindWhere(dest, where, args...)
+	return NewTable(db, tableName).PrintSqlCallSkip(3).FindWhere(dest, where, args...)
 }
 
 // SelectFindWhere 查询指定内容的
 func SelectFindWhere(db DBer, fields, tableName string, dest interface{}, where string, args ...interface{}) error {
-	return NewTable(db, tableName).Select(fields).FindWhere(dest, where, args...)
+	return NewTable(db, tableName).PrintSqlCallSkip(3).Select(fields).FindWhere(dest, where, args...)
 }
 
 // ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
 // sql sqlStr 或 *SqlStrObj
 func ExecForSql(db DBer, sql interface{}) (sql.Result, error) {
-	return NewTable(db).Raw(sql).Exec()
+	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).Exec()
 }
 
 // FindOne 单查询
 // sql sqlStr 或 *SqlStrObj
 func FindOne(db DBer, sql interface{}, dest ...interface{}) error {
-	return NewTable(db).Raw(sql).FindOne(dest...)
+	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).FindOne(dest...)
 }
 
 // FindAll 多查询
 // sql sqlStr 或 *SqlStrObj
 func FindAll(db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
-	return NewTable(db).Raw(sql).FindAll(dest, fn...)
+	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).FindAll(dest, fn...)
 }

@@ -47,7 +47,7 @@ func ExampleOrmInsert() {
 		Age:  18,
 		Addr: "成都市",
 	}
-	_, _ = NewTable(db).Insert(m)
+	_, _ = NewTable(db).Insert(m).Exec()
 
 	// Output:
 }
