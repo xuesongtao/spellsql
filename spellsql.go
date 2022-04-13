@@ -87,7 +87,7 @@ type SqlStrObj struct {
 //      第二种用法: 当 arg 为 []string, 又想把解析后的单个元素不加引号
 // 		如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?d)", []string{"1", "2", "3"})
 // 		=> SELECT username, password FROM sys_user WHERE id IN (1,2,3)
-// 
+//
 // 4. 占位符为: ?v, 这样会让字符串类型不加引号, 原样输出, 如: "test" => test;
 // 		第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型
 // 		如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123")

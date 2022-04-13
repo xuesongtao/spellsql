@@ -3,6 +3,7 @@ package spellsql
 import (
 	"fmt"
 	"math"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -391,6 +392,10 @@ func TestSqlStr_DELETEGetSql(t *testing.T) {
 	s := NewSql("DELETE FROM sys_user")
 	s.SetWhere("username", "=", "xue")
 	t.Log(s.GetSqlStr())
+}
+
+func TestRuntimeCaller(t *testing.T) {
+	t.Log(runtime.Caller(0))
 }
 
 func BenchmarkFmtInt2Str(b *testing.B) {
