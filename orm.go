@@ -881,6 +881,12 @@ func UpdateForSql(db DBer, sql interface{}) (sql.Result, error) {
 	return NewTable(db).Raw(sql).Exec()
 }
 
+// ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
+// sql sqlStr 或 *SqlStrObj
+func ExecForSql(db DBer, sql interface{}) (sql.Result, error) {
+	return NewTable(db).Raw(sql).Exec()
+}
+
 // FindOne 单查询
 // sql sqlStr 或 *SqlStrObj
 func FindOne(db DBer, sql interface{}, dest ...interface{}) error {
