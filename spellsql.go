@@ -40,16 +40,15 @@ var (
 
 // SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
-	hasWhereStr     bool   // 标记 SELECT 是否添加已添加 WHERE
+	hasWhereStr     bool   // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
 	hasValuesStr    bool   // 标记 INSERT 是否添加已添加 VALUES
-	hasSetStr       bool   // 标记 UPDATE 师范添加 SET
+	hasSetStr       bool   // 标记 UPDATE 是否添加 SET
 	isPutPooled     bool   // 标记是否已被回收了
-	needAddJoinStr  bool   // 标记初始化后, WHERE后再新加的值时是否需要添加 AND/OR
-	needAddComma    bool   // 标记初始化后, UPDATE, INSERT 再添加的值是是否需要添加 ,
+	needAddJoinStr  bool   // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
+	needAddComma    bool   // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
+	needAddbracket  bool   // 标记 INSERT 时, 是否添加括号
 	isPrintSqlLog   bool   // 标记是否打印 生成的 sqlStr log
 	isCallCacheInit bool   // 标记是否为 NewCacheSql 初始化生产的对象
-	needAddbracket  bool   // 标记 INSERT 时, 是否添加括号(SetInsertValuesArgs)
-	isHandled       bool   // 标记是否处理
 	actionNum       uint8  // INSERT/DELETE/SELECT/UPDATE
 	callerSkip      uint8  // 跳过调用栈的数
 	systemSplit     string // 系统对应的路径分隔符
@@ -217,7 +216,6 @@ func (s *SqlStrObj) init() {
 	s.needAddComma = false
 	s.isCallCacheInit = false
 	s.needAddbracket = false
-	s.isHandled = false
 	s.callerSkip = 1
 	s.systemSplit = "/"
 	if runtime.GOOS == "windows" {
@@ -375,6 +373,7 @@ func (s *SqlStrObj) initValues() {
 		s.hasValuesStr = true
 		isAddComma = false
 	}
+
 	if s.actionNum == UPDATE {
 		if !s.hasSetStr {
 			s.valuesBuf.WriteString(" SET")
@@ -497,11 +496,10 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 // 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
 func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *SqlStrObj {
 	s.initValues()
-	if !s.isHandled { // 防止重复处理
+	if !s.needAddbracket { // 防止重复处理
 		if IndexForBF(true, sqlStr, "(") == -1 && IndexForBF(false, sqlStr, ")") == -1 {
 			s.needAddbracket = true
 		}
-		s.isHandled = true
 	}
 
 	if s.needAddbracket {
@@ -534,6 +532,11 @@ func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
 func (s *SqlStrObj) SetLimitStr(limitStr string) *SqlStrObj {
 	s.limitStr = " LIMIT " + limitStr
 	return s
+}
+
+// LimitIsEmpty 是否添加 limit
+func (s *SqlStrObj) LimitIsEmpty() bool {
+	return s.limitStr == ""
 }
 
 // SetGroupByStr 设置 groupBy

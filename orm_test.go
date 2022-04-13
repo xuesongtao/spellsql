@@ -215,8 +215,8 @@ func TestFindOne1(t *testing.T) {
 		name string
 		age  int
 	)
-	err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&name, &age)
-	if err != nil {
+	err := NewTable(db, "man").Select("name,age").Where("id=?", 100).FindOne(&name, &age)
+	if err != nil && !IsNullRow(err) {
 		t.Fatal(err)
 	}
 	t.Logf("%+v %d", name, age)
