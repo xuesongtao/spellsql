@@ -402,7 +402,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
-	t.tmpSqlObj.SetLimitStr("1")
+	t.tmpSqlObj.SetLimit(0, 1)
 	if len(dest) == 1 {
 		return t.find(dest[0])
 	}
