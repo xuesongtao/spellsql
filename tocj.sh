@@ -60,8 +60,10 @@ function gitHandle() {
     git pull
     checkIsOk "git pull"
 
-    git add .
-    checkIsOk "git add"
+    targetDir="app/model/mysql"
+    waitGitAdd="${targetDir}/getsqlstr.go ${targetDir}/getsqlstr_test.go ${targetDir}/orm.go ${targetDir}/orm_test.go"
+    git add $waitGitAdd
+    checkIsOk "git add ${waitGitAdd}"
 
     git commit -m "update getsqlstr"
     checkIsOk "git commit"
@@ -103,7 +105,7 @@ function main() {
     fi
 
     for goFile in $(find "/Users/xuesongtao/goProject/src/workGo" -name "getsqlstr.go"); do
-        sleep 1s
+        sleep 1
         startHandle $goFile
     done
 }

@@ -839,28 +839,28 @@ func Count(db DBer, tableName string, dest interface{}, where string, args ...in
 }
 
 // InsertForObj 根据对象新增
-func InsertForObj(db DBer, tableName string, obj ...interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).Insert(obj...)
+func InsertForObj(db DBer, tableName string, src ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Insert(src...)
 }
 
 // DeleteForObj 根据对象删除
-func DeleteForObj(db DBer, tableName string, obj interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).Delete(obj).Exec()
+func DeleteForObj(db DBer, tableName string, src interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Delete(src).Exec()
 }
 
 // UpdateForObj 根据对象更新
-func UpdateForObj(db DBer, tableName string, obj interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).Update(obj).Exec()
+func UpdateForObj(db DBer, tableName string, src interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Update(src).Exec()
 }
 
 // FindWhere 查询对象中的字段内容
-func FindWhere(db DBer, tableName string, obj interface{}, where string, args ...interface{}) error {
-	return NewTable(db, tableName).FindWhere(obj, where, args...)
+func FindWhere(db DBer, tableName string, dest interface{}, where string, args ...interface{}) error {
+	return NewTable(db, tableName).FindWhere(dest, where, args...)
 }
 
 // SelectFindWhere 查询指定内容的
-func SelectFindWhere(db DBer, fields, tableName string, obj interface{}, where string, args ...interface{}) error {
-	return NewTable(db, tableName).Select(fields).FindWhere(obj, where, args...)
+func SelectFindWhere(db DBer, fields, tableName string, dest interface{}, where string, args ...interface{}) error {
+	return NewTable(db, tableName).Select(fields).FindWhere(dest, where, args...)
 }
 
 // InsertForSql 根据 sql 新增
