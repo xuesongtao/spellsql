@@ -863,24 +863,6 @@ func SelectFindWhere(db DBer, fields, tableName string, dest interface{}, where 
 	return NewTable(db, tableName).Select(fields).FindWhere(dest, where, args...)
 }
 
-// InsertForSql 根据 sql 新增
-// sql sqlStr 或 *SqlStrObj
-func InsertForSql(db DBer, sql interface{}) (sql.Result, error) {
-	return NewTable(db).Raw(sql).Exec()
-}
-
-// DeleteForSql 根据 sql 删除
-// sql sqlStr 或 *SqlStrObj
-func DeleteForSql(db DBer, sql interface{}) (sql.Result, error) {
-	return NewTable(db).Raw(sql).Exec()
-}
-
-// UpdateForSql 根据 sql 更新
-// sql sqlStr 或 *SqlStrObj
-func UpdateForSql(db DBer, sql interface{}) (sql.Result, error) {
-	return NewTable(db).Raw(sql).Exec()
-}
-
 // ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
 // sql sqlStr 或 *SqlStrObj
 func ExecForSql(db DBer, sql interface{}) (sql.Result, error) {
