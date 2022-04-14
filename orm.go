@@ -52,6 +52,7 @@ type Table struct {
 	printSqlCallSkip uint8      // 打印 sql 时显示
 	isPrintSql       bool       // 是否打印sql
 	haveFree         bool       // 是否已是否
+	needSetSize      bool       // 批量查询的时候是否需要设置默认返回条数
 	tmpSqlObj        *SqlStrObj // 暂存对象
 	tag              string     // 解析字段的tag
 	name             string
@@ -70,11 +71,12 @@ func NewTable(db DBer, args ...string) *Table {
 
 	t := cacheTabObj.Get().(*Table)
 	t.db = db
+	t.printSqlCallSkip = 2
 	t.isPrintSql = true
+	t.haveFree = false
+	t.needSetSize = true
 	t.tag = defaultTableTag
 	t.name = ""
-	t.haveFree = false
-	t.printSqlCallSkip = 2
 
 	switch len(args) {
 	case 1:
@@ -102,21 +104,27 @@ func (t *Table) free() {
 	cacheTabObj.Put(t)
 }
 
+// Name 设置表名
+func (t *Table) Name(tableName string) *Table {
+	t.name = tableName
+	return t
+}
+
 // IsPrintSql 是否打印 sql
 func (t *Table) IsPrintSql(is bool) *Table {
 	t.isPrintSql = is
 	return t
 }
 
-// PrintSqlCallSkip 打印 sql 的时候显示调用信息
-func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
-	t.printSqlCallSkip = skip
+// NeedSetSize 查询的时候, 是否需要设置默认 size
+func (t *Table) NeedSetSize(need bool) *Table {
+	t.needSetSize = need
 	return t
 }
 
-// Name 设置表名
-func (t *Table) Name(tableName string) *Table {
-	t.name = tableName
+// PrintSqlCallSkip 打印 sql 的时候显示调用信息
+func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
+	t.printSqlCallSkip = skip
 	return t
 }
 
@@ -402,7 +410,9 @@ func (t *Table) FindOne(dest ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
-	t.tmpSqlObj.SetLimit(0, 1)
+	if t.needSetSize {
+		t.tmpSqlObj.SetLimit(0, 1)
+	}
 	if len(dest) == 1 {
 		return t.find(dest[0])
 	}
@@ -416,7 +426,9 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
-	t.tmpSqlObj.SetLimit(0, 1)
+	if t.needSetSize {
+		t.tmpSqlObj.SetLimit(0, 1)
+	}
 	return t.find(dest, fn...)
 }
 
@@ -429,7 +441,7 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 		t.SelectAll()
 	}
 
-	if t.tmpSqlObj.LimitIsEmpty() {
+	if t.tmpSqlObj.LimitIsEmpty() && t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
 	return t.find(dest, fn...)
@@ -444,7 +456,7 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 	}
 	t.tmpSqlObj.SetWhereArgs(where, args...)
 
-	if t.tmpSqlObj.LimitIsEmpty() {
+	if t.tmpSqlObj.LimitIsEmpty() && t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
 	return t.find(dest)
