@@ -22,7 +22,7 @@ var (
 		"}")
 	sqlObjErr             = errors.New("tmpSqlObj is nil")
 	tableNameIsUnknownErr = errors.New("table name is unknown")
-	nullRowErr          = errors.New("row is null")
+	nullRowErr            = errors.New("row is null")
 )
 
 var (
@@ -397,7 +397,7 @@ func (t *Table) Count(total interface{}) error {
 
 // FindOne 单行查询
 // dest 长度 > 1 时, 支持多个字段查询
-// dest 长度 == 1 时, 支持 struct/单字段
+// dest 长度 == 1 时, 支持 struct, 单字段
 func (t *Table) FindOne(dest ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -409,8 +409,21 @@ func (t *Table) FindOne(dest ...interface{}) error {
 	return t.QueryRowScan(dest...)
 }
 
+// FindOneFn 单行查询
+// dest 支持 struct, 单字段
+// fn 支持将查询结果行进行修改
+func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
+	if t.sqlObjIsNil() {
+		t.SelectAll()
+	}
+	t.tmpSqlObj.SetLimit(0, 1)
+	return t.find(dest, fn...)
+}
+
 // FindAll 多行查询
-// dest 支持 strut/单字段 slice
+// 如果没有指定查询条数, 默认 defaultBatchSelectSize
+// dest 支持 struct 切片, 单字段切片
+// fn 支持将查询结果行进行处理
 func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -422,8 +435,9 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	return t.find(dest, fn...)
 }
 
-// FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询
-// dest 支持 struct, slice, 单字段
+// FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询,
+// 如果没有指定查询条数, 默认 defaultBatchSelectSize.
+// dest 支持 struct, slice, 单字段.
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAuto(dest)
@@ -502,14 +516,14 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 	ty = removeTypePtr(ty)
 	switch ty.Kind() {
 	case reflect.Struct:
-		return t.scanOne(rows, ty, dest)
+		return t.scanOne(rows, ty, dest, fn...)
 	case reflect.Slice:
 		return t.scanAll(rows, ty.Elem(), dest, fn...)
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64, reflect.String:
-		return t.scanOne(rows, ty, dest)
+		return t.scanOne(rows, ty, dest, fn...)
 	default:
 		return errors.New("dest kind nonsupport")
 	}
@@ -564,7 +578,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 }
 
 // scanOne 处理单个结果集
-func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}) error {
+func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
 	colTypes, _ := rows.ColumnTypes()
 	colLen := len(colTypes)
 	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
@@ -588,6 +602,12 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}) error
 
 	if err := t.setDest(base, fieldIndex2NullIndexMap, values); err != nil {
 		return err
+	}
+
+	if len(fn) == 1 { // 回调方法, 方便修改
+		if err := fn[0](base.Addr().Interface()); err != nil {
+			return err
+		}
 	}
 	destReflectValue.Set(base)
 	return nil
@@ -918,6 +938,12 @@ func ExecForSql(db DBer, sql interface{}) (sql.Result, error) {
 // sql sqlStr 或 *SqlStrObj
 func FindOne(db DBer, sql interface{}, dest ...interface{}) error {
 	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).FindOne(dest...)
+}
+
+// FindOneFn 单查询
+// sql sqlStr 或 *SqlStrObj
+func FindOneFn(db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
+	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).FindOneFn(dest, fn...)
 }
 
 // FindAll 多查询

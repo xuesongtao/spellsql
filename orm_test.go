@@ -220,6 +220,15 @@ func TestFindOne(t *testing.T) {
 	t.Log(m)
 
 	// 4
+	_ = FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row interface{}) error {
+		v := _row.(*Man)
+		v.Name = "被修改了哦"
+		v.Age = 100000
+		return nil
+	})
+	t.Log(m)
+
+	// 5
 	_ = FindWhere(db, "man", &m, "id=?", 1)
 	t.Log(m)
 }
@@ -229,11 +238,15 @@ func TestFindOne1(t *testing.T) {
 		name string
 		age  int
 	)
-	err := NewTable(db, "man").Select("name,age").Where("id=?", 100).FindOne(&name, &age)
-	if err != nil && !IsNullRow(err) {
-		t.Fatal(err)
-	}
-	t.Logf("%+v %d", name, age)
+	_ = NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&name, &age)
+	t.Log(name, age)
+
+	_ = FindOneFn(db, NewCacheSql("SELECT name FROM man WHERE id=?", 1), &name, func(_row interface{}) error {
+		v := _row.(*string)
+		*v = "被修改了哦"
+		return nil
+	})
+	t.Log(name)
 }
 
 func TestFindForJoin(t *testing.T) {
@@ -243,7 +256,7 @@ func TestFindForJoin(t *testing.T) {
 	t.Log(m)
 }
 
-// FindOne 性能对比, 以下是在 mac11 m1 上测试 
+// FindOne 性能对比, 以下是在 mac11 m1 上测试
 //  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindOneGorm(b *testing.B) {
