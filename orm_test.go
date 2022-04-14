@@ -243,7 +243,7 @@ func TestFindForJoin(t *testing.T) {
 	t.Log(m)
 }
 
-// FindOne 性能对比
+// FindOne 性能对比, 以下是在 mac11 m1 上测试 
 //  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindOneGorm(b *testing.B) {
@@ -349,6 +349,7 @@ func TestSqlxSelect(t *testing.T) {
 	}
 }
 
+// 以下是在 mac11 m1 上测试
 // go test -benchmem -run=^$ -bench ^BenchmarkFindAll gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindAllGorm(b *testing.B) {
@@ -385,9 +386,8 @@ func BenchmarkFindAllQuery(b *testing.B) {
 		if err != nil {
 			return
 		}
-		defer rows.Close()
 
-		res := make([]*Man, 0, 10)
+		var res []*Man
 		for rows.Next() {
 			var info Man
 			var addr sql.NullString
@@ -398,6 +398,7 @@ func BenchmarkFindAllQuery(b *testing.B) {
 			info.Addr = addr.String
 			res = append(res, &info)
 		}
+		rows.Close()
 	}
 
 	// BenchmarkFindAll2-8        27165             42027 ns/op            1448 B/op         50 allocs/op
@@ -407,7 +408,7 @@ func BenchmarkFindAllQuery(b *testing.B) {
 
 func BenchmarkFindAllOrm(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		m := make([]*Man, 0, 10)
+		var m []*Man
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 10).FindAll(&m)
 	}
 

@@ -511,7 +511,7 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 		reflect.Float32, reflect.Float64, reflect.String:
 		return t.scanOne(rows, ty, dest)
 	default:
-		return errors.New("dest kind not found")
+		return errors.New("dest kind nonsupport")
 	}
 }
 
@@ -535,7 +535,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 		}
 
 		if err := rows.Scan(values...); err != nil {
-			return fmt.Errorf("mysql scan is failed, err: %v", err)
+			return fmt.Errorf("rows scan is failed, err: %v", err)
 		}
 
 		if err := t.setDest(base, fieldIndex2NullIndexMap, values); err != nil {
@@ -609,8 +609,8 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 
 		if !structFieldExist {
 			// 说明结构里查询的值不存在
-			cjLog.Errorf("col %q no found struct dest", colType.Name())
-			// glog.Errorf("col %q no found struct dest", colType.Name())
+			cjLog.Errorf("col %q no found in dest struct", colType.Name())
+			// glog.Errorf("col %q no found in dest struct", colType.Name())
 			continue
 		}
 
@@ -644,7 +644,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		// 处理数据库字段非 NULL 部分
 		if isStruct { // 结构体
 			values[i] = dest.Field(fieldIndex).Addr().Interface()
-		} else { // 单字段
+		} else { // 单字段, 其自需占一个位置查询即可
 			values[i] = dest.Addr().Interface()
 			break
 		}
