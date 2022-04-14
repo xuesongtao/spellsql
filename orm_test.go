@@ -22,11 +22,11 @@ import (
 // )
 
 type Man struct {
-	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
-	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
-	Age      int32  `json:"age,omitempty" gorm:"age" db:"age"`
+	Id   int32  `json:"id,omitempty" gorm:"id" db:"id"`
+	Name string `json:"name,omitempty" gorm:"name" db:"name"`
+	Age  int32  `json:"age,omitempty" gorm:"age" db:"age"`
 	Addr     string `json:"addr,omitempty" gorm:"addr" db:"addr"`
-	NickName string `json:"nickname" gorm:"nickname" db:"nickname"`
+	// NickName string `json:"nickname" gorm:"nickname" db:"nickname"`
 }
 
 type Student struct {

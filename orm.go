@@ -74,7 +74,7 @@ func NewTable(db DBer, args ...string) *Table {
 	t.printSqlCallSkip = 2
 	t.isPrintSql = true
 	t.haveFree = false
-	t.needSetSize = true
+	t.needSetSize = false
 	t.tag = defaultTableTag
 	t.name = ""
 
@@ -629,7 +629,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]int, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
 	// 判断下是否为结构体, 结构体才给结构体里的值进行处理
 	isStruct := dest.Kind() == reflect.Struct
-	var canScanValueNum int
+	var structMissFields []string
 	for i, colType := range colTypes {
 		var (
 			fieldIndex       int
@@ -639,14 +639,15 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			fieldIndex, structFieldExist = col2FieldIndexMap[colType.Name()]
 		}
 
+		// 说明结构里查询的值不存在
 		if !structFieldExist {
-			// 说明结构里查询的值不存在
-			cjLog.Errorf("col %q no found in dest struct", colType.Name())
-			// glog.Errorf("col %q no found in dest struct", colType.Name())
+			if structMissFields == nil {
+				structMissFields = make([]string, 0, len(colTypes)/2)
+			}
+			structMissFields = append(structMissFields, colType.Name())
 			continue
 		}
 
-		canScanValueNum++
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
 		canNull, _ := colType.Nullable()
 		if canNull {
@@ -682,8 +683,8 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		}
 	}
 
-	if len(colTypes) != canScanValueNum {
-		return fmt.Errorf("check scan is failed, select result len %d, dest len %d", len(colTypes), canScanValueNum)
+	if len(structMissFields) > 0 {
+		return fmt.Errorf("getScanValues is failed, cols %q is miss dest struct", strings.Join(structMissFields, ","))
 	}
 	return nil
 }
