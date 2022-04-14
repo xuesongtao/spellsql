@@ -74,7 +74,7 @@ func NewTable(db DBer, args ...string) *Table {
 	t.printSqlCallSkip = 2
 	t.isPrintSql = true
 	t.haveFree = false
-	t.needSetSize = true
+	t.needSetSize = false
 	t.tag = defaultTableTag
 	t.name = ""
 
