@@ -791,13 +791,13 @@ func (t *Table) Limit(page int32, size int32) *Table {
 }
 
 // Group
-func (t *Table) Group(groupSqlStr string) *Table {
+func (t *Table) GroupBy(sqlStr string) *Table {
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
 		return nil
 	}
-	t.tmpSqlObj.SetGroupByStr(groupSqlStr)
+	t.tmpSqlObj.SetGroupByStr(sqlStr)
 	return t
 }
 
