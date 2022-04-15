@@ -269,9 +269,12 @@
 	t.Logf("%+v", m)
 ```
 
+###### 4.4.3 其他
+* 使用可以参考 `orm_test.go` 和 `example_orm_test.go`
+
 #### 4.5 补充
 
-* 其中做几个性能对比: 原生 < spellsql_orm < gorm(orm_test.go里有测试数据, 功能较少, 场景有限, 望大佬莫笑)
+* 其中做几个性能对比: 原生 < spellsql_orm < gorm(orm_test.go里有测试数据, 功能较少, 场景有限, 望大佬莫笑), 如果要测试可以在`dev`分支上
 
 #### 其他
 
