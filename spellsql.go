@@ -114,7 +114,7 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		return
 	}
 	actionStr := sqlStr[:6]
-	upperStr := s.toUpper(actionStr)
+	upperStr := toUpper(actionStr)
 	switch upperStr {
 	case "INSERT", "REPLAC":
 		s.actionNum = INSERT
@@ -141,16 +141,8 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		}
 	}
 
-	getTargetIndexFn := func(targetStr string) int {
-		tmpIndex := IndexForBF(false, sqlStr, targetStr)
-		if tmpIndex == -1 {
-			tmpIndex = IndexForBF(false, sqlStr, s.toLower(targetStr))
-		}
-		return tmpIndex
-	}
-
-	if s.actionNum == SELECT {
-		whereIndex := getTargetIndexFn("WHERE")
+	initWhereFn := func() {
+		whereIndex := getTargetIndex(sqlStr, "WHERE")
 		if whereIndex > -1 {
 			s.hasWhereStr = true
 
@@ -161,49 +153,29 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		}
 	}
 
+	if s.actionNum == SELECT {
+		initWhereFn()
+	}
+
 	if s.actionNum == UPDATE {
-		setIndex := getTargetIndexFn("SET")
+		setIndex := getTargetIndex(sqlStr, "SET")
 		if setIndex > -1 {
 			s.hasSetStr = true
 			s.needAddComma = sqlLen-setIndex > 3+3
 
 			// 如果有 SET 需要判断下是否包含 WHERE
-			whereIndex := getTargetIndexFn("WHERE")
-			if whereIndex > -1 {
-				s.hasWhereStr = true
-			}
+			initWhereFn()
 		}
 	}
 
 	if s.actionNum == DELETE {
-		whereIndex := getTargetIndexFn("WHERE")
-		if whereIndex > -1 {
-			s.hasWhereStr = true
-		}
+		initWhereFn()
 	}
 
 	if s.actionNum == INSERT {
-		s.hasValuesStr = getTargetIndexFn("VALUE") > -1
+		s.hasValuesStr = getTargetIndex(sqlStr, "VALUE") > -1
 	}
 	s.writeSqlStr2Buf(&s.buf, sqlStr, args...)
-}
-
-func (s *SqlStrObj) toUpper(str string) string {
-	strByte := []byte(str)
-	l := len(strByte)
-	for i := 0; i < l; i++ {
-		strByte[i] &= '_'
-	}
-	return string(strByte)
-}
-
-func (s *SqlStrObj) toLower(str string) string {
-	strByte := []byte(str)
-	l := len(strByte)
-	for i := 0; i < l; i++ {
-		strByte[i] |= ' '
-	}
-	return string(strByte)
 }
 
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
@@ -233,7 +205,7 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 		// 这里为 " OR"
 		defaultJoinStr = " " + joinStr[0]
 	}
-	isNeedAddJoinStr := true
+	isNeedAddJoinStr := true // 本次默认添加
 	if !s.hasWhereStr {
 		s.whereBuf.WriteString(" WHERE")
 		s.hasWhereStr = true
@@ -256,9 +228,9 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 
 		// 如果初始化时或已经merge后 sqlStr已经这样了: xxx WHERE xxx, 我们通过判断 WHERE 的下标是否为最后几个字符, 如果是的话就
 		// 不处理, 反之加 AND
-		whereIndex := IndexForBF(false, s.buf.String(), "WHERE")
+		whereIndex := getTargetIndex(s.buf.String(), "WHERE")
 		if whereIndex == -1 {
-			whereIndex = IndexForBF(false, s.buf.String(), "where")
+			return
 		}
 		lastIndex := s.SqlStrLen() - 1
 
@@ -367,7 +339,7 @@ func (s *SqlStrObj) SetPrintLog(isPrint bool) *SqlStrObj {
 
 // initValues 初始化 valueBuf
 func (s *SqlStrObj) initValues() {
-	isAddComma := true
+	isAddComma := true // 本次默认加逗号
 	if s.actionNum == INSERT && !s.hasValuesStr {
 		s.valuesBuf.WriteString(" VALUES")
 		s.hasValuesStr = true
@@ -400,9 +372,9 @@ func (s *SqlStrObj) initValues() {
 			// slow path
 			// 如果初始化时或已经merge后 sqlStr已经这样了: xxx VALUES (xxx), 我们通过判断 VALUE 的下标是否为最后几个字符, 如果是的话就
 			// 不处理, 反之加逗号
-			valueIndex := IndexForBF(true, s.buf.String(), "VALUE")
+			valueIndex := getTargetIndex(s.buf.String(), "VALUE")
 			if valueIndex == -1 {
-				valueIndex = IndexForBF(true, s.buf.String(), "value")
+				return
 			}
 
 			lastIndex := s.SqlStrLen() - 1
@@ -1085,6 +1057,33 @@ func (s *SqlStrObj) UInt2Str(num uint64) string {
 		a[i] = int2Str[is]
 	}
 	return string(a[i:])
+}
+
+// getTargetIndex 忽略大小写
+func getTargetIndex(sqlStr, targetStr string) int {
+	tmpIndex := IndexForBF(false, sqlStr, targetStr)
+	if tmpIndex == -1 {
+		tmpIndex = IndexForBF(false, sqlStr, toLower(targetStr))
+	}
+	return tmpIndex
+}
+
+func toUpper(str string) string {
+	strByte := []byte(str)
+	l := len(strByte)
+	for i := 0; i < l; i++ {
+		strByte[i] &= '_'
+	}
+	return string(strByte)
+}
+
+func toLower(str string) string {
+	strByte := []byte(str)
+	l := len(strByte)
+	for i := 0; i < l; i++ {
+		strByte[i] |= ' '
+	}
+	return string(strByte)
 }
 
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
