@@ -377,6 +377,8 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		}
 		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ", "), t.name)
 	default:
+		cjLog.Warning("src kind is not struct or slice struct")
+		// glog.Warning("src kind is not struct or slice struct")
 		t.SelectAll()
 	}
 	return t
@@ -937,8 +939,9 @@ func FindWhere(db DBer, tableName string, dest interface{}, where string, args .
 }
 
 // SelectFindWhere 查询指定内容的
-func SelectFindWhere(db DBer, fields, tableName string, dest interface{}, where string, args ...interface{}) error {
-	return NewTable(db, tableName).PrintSqlCallSkip(3).Select(fields).FindWhere(dest, where, args...)
+// fields 可以字符串(如: "name,age,addr"); 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+func SelectFindWhere(db DBer, fields interface{}, tableName string, dest interface{}, where string, args ...interface{}) error {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).SelectAuto(fields).FindWhere(dest, where, args...)
 }
 
 // ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
