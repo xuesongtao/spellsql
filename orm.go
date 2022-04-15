@@ -605,8 +605,6 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	}
 
 	if !rows.Next() { // 没有数据
-		cjLog.Warning(sql.ErrNoRows)
-		// glog.Warning(sql.ErrNoRows)
 		return nullRowErr
 	}
 
@@ -839,8 +837,6 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	t.printSqlCallSkip += 1
 	err := t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()).Scan(dest...)
 	if err == sql.ErrNoRows {
-		cjLog.Warning(err)
-		// glog.Warning(err)
 		return nullRowErr
 	}
 	return err
