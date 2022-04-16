@@ -471,6 +471,27 @@ func TestFindAll2(t *testing.T) {
 	t.Log(len(names), names)
 }
 
+func TestFindAll3(t *testing.T) {
+	rows, err := NewTable(db).SelectAuto(Man{}).Where("id>?", 1).Query()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			id, age        int
+			name, nickname string
+			addr           sql.NullString
+		)
+		err = rows.Scan(&id, &name, &age, &addr, &nickname)
+		if err != nil {
+			t.Log(err)
+		}
+		t.Log(id, name, age, addr.String, nickname)
+	}
+}
+
 func TestSqlxSelect(t *testing.T) {
 	var m []*Man
 	sqlStr := FmtSqlStr("SELECT id,name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)

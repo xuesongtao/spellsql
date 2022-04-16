@@ -270,8 +270,8 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 		if err != nil {
-			cjLog.Error(err)
-			// glog.Error(err)
+			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
+			// glog.Error("getHandleTableCol2Val is failed, err:", err)
 			return nil
 		}
 		if i == 0 {
@@ -732,7 +732,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		}
 	}
 
-	if  len(structMissFields) > 0 {
+	if isStruct && len(structMissFields) > 0 {
 		return fmt.Errorf("getScanValues is failed, cols %q is miss dest struct", strings.Join(structMissFields, ","))
 	}
 	return nil
