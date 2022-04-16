@@ -87,8 +87,17 @@ func init() {
 }
 
 func TestParseTable(t *testing.T) {
-	var m Man
+	m := Man{
+		Id:       1,
+		Name:     "xuesongtao",
+		Age:      20,
+		Addr:     "四川成都",
+		NickName: "a-tao",
+	}
 	c, v, e := NewTable(db).getHandleTableCol2Val(m, false, "man")
+	t.Log(c, v, e)
+
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, false, "man")
 	t.Log(c, v, e)
 }
 
@@ -122,15 +131,12 @@ func TestGetNullType(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(data)
-}
 
-func TestGetCol(t *testing.T) {
 	for i := 0; i < 1; i++ {
-		tab := NewTable(db, "man")
+		tab := NewTable(db, "test_col")
 		tab.initCacheCol2InfoMap()
-		t.Logf("%+v", tab.cacheCol2InfoMap)
 		for k, v := range tab.cacheCol2InfoMap {
-			fmt.Println(k, v)
+			fmt.Printf("k: %v, v: %+v\n", k, v)
 		}
 	}
 }
