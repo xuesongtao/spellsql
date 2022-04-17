@@ -171,7 +171,7 @@ func TestDelete(t *testing.T) {
 	t.Log(rows.LastInsertId())
 
 	// 2
-	rows, _ = DeleteForObj(db, "man", m)
+	rows, _ = DeleteWhere(db, "man", "id=?", 9)
 	t.Log(rows.LastInsertId())
 
 	// 3
@@ -191,13 +191,13 @@ func TestDelete1(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	m := Man{
-		Name: "xuesongtao",
+		Name: "xue12",
 		Age:  20,
 		Addr: "测试",
 	}
 
 	// 1
-	rows, _ := NewTable(db).Update(m).Where("id=?", 7).Exec()
+	rows, _ := NewTable(db).Update(m, "id=?", 7).Exec()
 	t.Log(rows.LastInsertId())
 
 	// 2
@@ -336,7 +336,7 @@ func TestSelectFindWhere(t *testing.T) {
 
 func TestSelectRes2Map(t *testing.T) {
 	// 1
-	var m = make(map[string]string, 10)
+	var m map[string]string
 	err := SelectFindWhere(db, Man{}, "man", &m, "id=1")
 	if err != nil {
 		t.Fatal(err)
@@ -379,7 +379,7 @@ func TestSelectRes2SliceMap(t *testing.T) {
 }
 
 // FindOne 性能对比, 以下是在 mac11 m1 上测试
-//  go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
+// go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindOneGorm(b *testing.B) {
 	for i := 0; i < b.N; i++ {

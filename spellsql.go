@@ -1089,7 +1089,7 @@ func toLower(str string) string {
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
 // isFont2End 是否从主串前向后遍历查找
 // 如果匹配的内容靠前建议 isFont2End=true, 反之 false
-// todo 暂时只能匹配英文
+// TODO 暂不支持中文
 func IndexForBF(isFont2End bool, s, substr string) int {
 	substrLen := len(substr)
 	sLen := len(s)
@@ -1116,6 +1116,7 @@ func IndexForBF(isFont2End bool, s, substr string) int {
 		}
 		return -1
 	}
+
 	for i := sLen - 1; i >= 0; i-- {
 		for j := substrLen - 1; j >= 0; j-- {
 			mainStr := s[i]

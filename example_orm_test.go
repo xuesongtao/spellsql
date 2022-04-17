@@ -17,7 +17,7 @@ func myPrint(v interface{}, isStruct bool) {
 func ExampleOrmList() {
 	sqlObj := NewCacheSql("SELECT id,name,age FROM man")
 	if true {
-		sqlObj.SetWhereArgs("id IN (?)", []int{1, 2})
+		sqlObj.SetWhereArgs("id < ?", 5)
 	}
 
 	table := NewTable(db).Raw(sqlObj)
@@ -38,7 +38,7 @@ func ExampleOrmList() {
 
 	// Output:
 	// 4
-	// [{"id":1,"name":"被修改为 test","age":20,"nickname":""},{"id":2,"name":"xue1","age":18,"nickname":""}]
+	// [{"id":1,"name":"被修改为 test","age":20,"nickname":""},{"id":2,"name":"xue1","age":18,"nickname":""},{"id":3,"name":"xue12","age":18,"nickname":""},{"id":4,"name":"xue123","age":18,"nickname":""}]
 }
 
 func ExampleOrmInsert() {
@@ -58,7 +58,7 @@ func ExampleOrmUpdate() {
 		Age:  20,
 		Addr: "测试",
 	}
-	_, _ = NewTable(db).Update(m).Where("id=?", 7).Exec()
+	_, _ = NewTable(db).Update(m, "id=?", 7).Exec()
 
 	// Output:
 }

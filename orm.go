@@ -55,22 +55,23 @@ type TableColInfo struct {
 
 type Table struct {
 	db               DBer
-	printSqlCallSkip uint8                    // 打印 sql 时显示
-	isPrintSql       bool                     // 是否打印sql
-	haveFree         bool                     // 是否已是否
-	needSetSize      bool                     // 批量查询的时候是否需要设置默认返回条数
-	tmpSqlObj        *SqlStrObj               // 暂存对象
-	tag              string                   // 解析字段的tag
+	printSqlCallSkip uint8                    // 标记打印 sql 时, 需要跳过的 structNeedSkip, 该参数为 runtime.Caller(structNeedSkip)
+	isPrintSql       bool                     // 标记是否打印 sql
+	haveFree         bool                     // 标记 table 释放已释放
+	needSetSize      bool                     // 标记批量查询的时候是否需要设置默认返回条数
+	tmpSqlObj        *SqlStrObj               // 暂存 SqlStrObj 对象
+	tag              string                   // 记录解析 struct 中字段名的 tag
 	name             string                   // 表名
 	destTypeBitmap   [4]bool                  // 查询时, 用于标记 dest 类型的位图
 	cacheCol2InfoMap map[string]*TableColInfo // 记录该表的所有字段名
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
+// 注: 使用 INSERT/UPDATE/DELETE/SELECT(SELECT 排除使用 Count)操作后该对象就会被释放, 如果继续使用会出现 panic
 // args 支持两个参数
 // args[0]: 会解析为 tableName, 这里如果有值, 在进行操作表的时候就会以此表为准,
 // 如果为空时, 在通过对象进行操作时按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
-// args[1]: 会解析为待解析的 tag
+// args[1]: 会解析为待解析的 tag, 默认 defaultTableTag
 func NewTable(db DBer, args ...string) *Table {
 	if db == nil {
 		return nil
@@ -129,13 +130,13 @@ func (t *Table) NeedSetSize(need bool) *Table {
 	return t
 }
 
-// PrintSqlCallSkip 打印 sql 的时候显示调用信息
-func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
-	t.printSqlCallSkip = skip
+// PrintSqlCallSkip 用于 sql 打印时候显示调用处的信息
+func (t *Table) PrintSqlCallSkip(structNeedSkip uint8) *Table {
+	t.printSqlCallSkip = structNeedSkip
 	return t
 }
 
-// initCacheCol2InfoMap 初始化表字段map, 由于json tag应用比较多, 为了在后续执行insert等通过对象取值会存在取值错误现象, 所以需要预处理下
+// initCacheCol2InfoMap 初始化表字段 map, 由于json tag 应用比较多, 为了在后续执行 INSERT/UPDATE 等通过对象取值会存在取值错误现象, 所以需要预处理下
 func (t *Table) initCacheCol2InfoMap() error {
 	// 已经初始化过了
 	if t.cacheCol2InfoMap != nil {
@@ -176,10 +177,10 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
-// skip 跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
-func (t *Table) skip(fieldInfo reflect.StructField) bool {
+// structNeedSkip 跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
+func (t *Table) structNeedSkip(fieldInfo reflect.StructField) bool {
 	switch fieldInfo.Type.Kind() {
-	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Struct:
+	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Struct: // 不处理嵌套
 		return true
 	}
 
@@ -208,7 +209,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	values = make([]interface{}, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		structField := ty.Field(i)
-		if t.skip(structField) {
+		if t.structNeedSkip(structField) {
 			continue
 		}
 
@@ -298,7 +299,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		for i := 0; i < l; i++ {
 			k := columns[i]
 			v := values[i]
-			t.tmpSqlObj.SetWhereArgs("?v=?", k, v)
+			t.tmpSqlObj.SetWhereArgs("?v = ?", k, v)
 		}
 	} else {
 		if t.name == "" {
@@ -312,7 +313,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 }
 
 // Update 会更新输入的值
-func (t *Table) Update(updateObj interface{}) *Table {
+func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
 	columns, values, err := t.getHandleTableCol2Val(updateObj, true, t.name)
 	if err != nil {
 		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
@@ -325,8 +326,9 @@ func (t *Table) Update(updateObj interface{}) *Table {
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]
-		t.tmpSqlObj.SetUpdateValueArgs("?v=?", k, v)
+		t.tmpSqlObj.SetUpdateValueArgs("?v = ?", k, v)
 	}
+	t.tmpSqlObj.SetWhereArgs(where, args...)
 	return t
 }
 
@@ -373,7 +375,11 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		if t.name == "" {
 			t.name = parseTableName(ty.Name())
 		}
-		_ = t.initCacheCol2InfoMap()
+		if err := t.initCacheCol2InfoMap(); err != nil {
+			cjLog.Error("initCacheCol2InfoMap is failed, err:", err)
+			// glog.Error("initCacheCol2InfoMap is failed, err:", err)
+			return nil
+		}
 		_, sortCol := t.parseCol2FieldIndex(ty, true)
 		for _, col := range sortCol {
 			// 排除结构体中的字段, 数据库没有
@@ -503,7 +509,7 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2Field
 	sortCol = make([]string, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		structField := ty.Field(i)
-		if t.skip(structField) {
+		if t.structNeedSkip(structField) {
 			continue
 		}
 		val := structField.Tag.Get(t.tag)
@@ -617,13 +623,13 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 
 // scanOne 处理单个结果集
 func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
-	// t.loadDestTypeBitmap(ty) // 这里可以不用处理
+	// t.loadDestTypeBitmap(ty) // 这里可以不用再处理
 	colTypes, _ := rows.ColumnTypes()
 	colLen := len(colTypes)
 	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
 	values := make([]interface{}, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
-	destReflectValue := removeValuePtr(reflect.ValueOf(dest))
+	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
 	base := reflect.New(ty).Elem()
 	if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
@@ -696,18 +702,13 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			}
 
 			// struct, 这里记录 struct 那个字段需要映射 NULL 值
+			// map/单字段, 为了减少创建标记, 借助 fieldIndex2NullIndexMap 用于标识单字段是否包含空值,  在 setDest 使用
 			if isStruct && structFieldExist {
 				fieldIndex2NullIndexMap[fieldIndex] = i
-			}
-
-			// map
-			if isMap {
+			} else if isMap {
 				fieldIndex2NullIndexMap[i] = i
-			}
-
-			// 单字段, 为了减少创建标记, 借助 fieldIndex2NullIndexMap 用于标识单字段是否包含空值
-			if isOneField {
-				fieldIndex2NullIndexMap[i] = i // 在 setDest 使用
+			} else if isOneField {
+				fieldIndex2NullIndexMap[i] = i
 				break
 			}
 			continue
@@ -719,7 +720,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		} else if isMap {
 			destValType := dest.Type().Elem()
 			if destValType.Kind() == reflect.Interface {
-				// 如果 map 的 value 为 interface{} 时, 数据库返回的类型为字符串时, 再经过 Scan 后, 会被处理为 []byte
+				// 如果 map 的 value 为 interface{} 时, 数据库类型为字符串时 driver.Value 的类型为 RawBytes, 再经过 Scan 后, 会被处理为 []byte
 				// 为了避免这种就直接处理为字符串
 				values[i] = cacheNullString.Get().(*sql.NullString)
 				fieldIndex2NullIndexMap[i] = i
@@ -761,8 +762,7 @@ func (t *Table) nullScan(dest, src interface{}) (err error) {
 func (t *Table) setDest(dest reflect.Value, colTypes []*sql.ColumnType, fieldIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
 	if t.destTypeBitmap[structNo] {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
-			err := t.nullScan(dest.Field(fieldIndex).Addr().Interface(), scanResult[nullIndex])
-			if err != nil {
+			if err := t.nullScan(dest.Field(fieldIndex).Addr().Interface(), scanResult[nullIndex]); err != nil {
 				return err
 			}
 		}
@@ -975,6 +975,12 @@ func IsNullRow(err error) bool {
 	return err == nullRowErr
 }
 
+// ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
+// sql sqlStr 或 *SqlStrObj
+func ExecForSql(db DBer, sql interface{}) (sql.Result, error) {
+	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).Exec()
+}
+
 // Count 获取总数
 func Count(db DBer, tableName string, dest interface{}, where string, args ...interface{}) error {
 	return NewTable(db, tableName).PrintSqlCallSkip(3).SelectCount().Where(where, args...).Count(dest)
@@ -985,14 +991,14 @@ func InsertForObj(db DBer, tableName string, src ...interface{}) (sql.Result, er
 	return NewTable(db, tableName).PrintSqlCallSkip(3).Insert(src...).Exec()
 }
 
-// DeleteForObj 根据对象删除
-func DeleteForObj(db DBer, tableName string, src interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).PrintSqlCallSkip(3).Delete(src).Exec()
-}
-
 // UpdateForObj 根据对象更新
 func UpdateForObj(db DBer, tableName string, src interface{}, where string, args ...interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).PrintSqlCallSkip(3).Update(src).Where(where, args...).Exec()
+	return NewTable(db, tableName).PrintSqlCallSkip(3).Update(src, where, args...).Exec()
+}
+
+// DeleteWhere 根据条件删除
+func DeleteWhere(db DBer, tableName string, where string, args ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).Delete().Where(where, args...).Exec()
 }
 
 // FindWhere 查询对象中的字段内容
@@ -1004,12 +1010,6 @@ func FindWhere(db DBer, tableName string, dest interface{}, where string, args .
 // fields 可以字符串(如: "name,age,addr"); 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
 func SelectFindWhere(db DBer, fields interface{}, tableName string, dest interface{}, where string, args ...interface{}) error {
 	return NewTable(db, tableName).PrintSqlCallSkip(3).SelectAuto(fields).FindWhere(dest, where, args...)
-}
-
-// ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
-// sql sqlStr 或 *SqlStrObj
-func ExecForSql(db DBer, sql interface{}) (sql.Result, error) {
-	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).Exec()
 }
 
 // FindOne 单查询
