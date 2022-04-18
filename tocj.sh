@@ -105,6 +105,11 @@ function main() {
     fi
 
     for goFile in $(find "/Users/xuesongtao/goProject/src/workGo" -name "getsqlstr.go"); do
+        skipFile=$(awk 'BEGIN {print index("'${goFile}'", "aist/management")}') # 不更新的
+        if [[ $skipFile > 0 ]]; then
+            printf "${goFile} is skip\n"
+            continue
+        fi
         sleep 1
         startHandle $goFile
     done
