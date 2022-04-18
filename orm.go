@@ -921,6 +921,9 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 
 	colTypes, _ := rows.ColumnTypes()
 	colLen := len(colTypes)
+	if colLen != len(dest) {
+		return fmt.Errorf("select res len %d, dest len %d", colLen, len(dest))
+	}
 	values := make([]interface{}, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	// 将 dest 转为 []dest
