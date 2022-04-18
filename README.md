@@ -189,7 +189,7 @@
     // SELECT * FROM user_info WHERE u_status = 1 LIMIT 20, 10;
 ```
 
-#### 4 支持简易的 orm
+#### 4 orm 功能介绍
 
 * 支持自定义 `tag`, 默认 `json`
 
@@ -205,44 +205,71 @@
 ##### 4.1 新增
 
 ```
-	Name: "xue1234",
+    m := Man{
+		Name: "xue1234",
 		Age:  18,
 		Addr: "成都市",
 	}
-	rows, err := NewTable(db).Insert(m)
-	if err != nil {
-		t.Log(err)
-		return
-	}
+
+	// 1
+	rows, _ := NewTable(db).Insert(m).Exec()
+	t.Log(rows.LastInsertId())
+
+	// 2
+	rows, _ = InsertForObj(db, "man", m)
+	t.Log(rows.LastInsertId())
+
+	// 3
+	sqlObj := NewCacheSql("INSERT INTO man (name,age,addr) VALUES (?, ?, ?)", m.Name, m.Age, m.Addr)
+	rows, _ = ExecForSql(db, sqlObj)
+	t.Log(rows.LastInsertId())
 ```
 
 ##### 4.2 删除
 
 ```
     m := Man{
-		Id: 1,
+		Id: 9,
 	}
-	rows, err := NewTable(db).Delete(m).Exec()
-	if err != nil {
-		t.Log(err)
-		return
-	}
+	// 1
+	rows, _ := NewTable(db).Delete(m).Exec()
+	t.Log(rows.LastInsertId())
+
+	// 2
+	rows, _ = DeleteWhere(db, "man", "id=?", 9)
+	t.Log(rows.LastInsertId())
+
+	// 3
+	sqlObj := NewCacheSql("DELETE FROM man WHERE id=?", 9)
+	rows, _ = ExecForSql(db, sqlObj)
+	t.Log(rows.LastInsertId())
+
+    // 4
+    rows, _ := NewTable(db, "man").Delete().Where("id=?", 11).Exec()
 	t.Log(rows.LastInsertId())
 ```
 
 ##### 4.3 修改
 
 ```
-    m := Man{
-		Name: "xuesongtao",
+	m := Man{
+		Name: "xue12",
 		Age:  20,
 		Addr: "测试",
 	}
-	rows, err := NewTable(db).Update(m).Where("id=?", 1).Exec()
-	if err != nil {
-		t.Log(err)
-		return
-	}
+
+	// 1
+	rows, _ := NewTable(db).Update(m, "id=?", 7).Exec()
+	t.Log(rows.LastInsertId())
+
+	// 2
+	rows, _ = UpdateForObj(db, "man", m, "id=?", 7)
+	t.Log(rows.LastInsertId())
+
+	// 3
+	sqlObj := NewCacheSql("UPDATE man SET name=?,age=?,addr=? WHERE id=?", m.Name, m.Age, m.Addr, 7)
+	rows, _ = ExecForSql(db, sqlObj)
+	t.Log(rows.LastInsertId())
 ```
 
 ##### 4.4 查询
@@ -250,12 +277,37 @@
 ###### 4.4.1 单查询
 
 ```
-   var m Man
-	err := NewTable(db, "man").Select("*").Where("id=?", 1).FindOne(&m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m) 
+	var m Man
+
+	// 1
+	_ = NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
+	t.Log(m)
+
+	// 2
+	_ = NewTable(db).SelectAuto("name,age", "man").Where("id=?", 1).FindOne(&m)
+	t.Log(m)
+
+	// 3
+	_ = FindOne(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m)
+	t.Log(m)
+
+	// 4, 对查询结果进行内容修改
+	_ = FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row interface{}) error {
+		v := _row.(*Man)
+		v.Name = "被修改了哦"
+		v.Age = 100000
+		return nil
+	})
+	t.Log(m)
+
+	// 5
+	_ = FindWhere(db, "man", &m, "id=?", 1)
+	t.Log(m)
+
+	// 6
+	var b map[string]string
+	_ = FindWhere(db, "man", &b, "id=?", 1)
+	t.Log(b)
 ```
 * 查询结果支持: `struct`, `map`, `单字段`
 
@@ -263,7 +315,14 @@
 
 ```
     var m []*Man
-	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m)
+	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m, func(_row interface{}) error {
+		v := _row.(*Man)
+		if v.Id == 5 {
+			v.Name = "test"
+		}
+		fmt.Println(v.Id, v.Name, v.Age)
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
