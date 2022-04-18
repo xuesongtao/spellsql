@@ -279,6 +279,15 @@ func TestFindWhereForOneFiled(t *testing.T) {
 	t.Logf("%+v", name)
 }
 
+func TestFindWhereForManyFiled(t *testing.T) {
+	var name, addr, age string
+	err := NewTable(db, "man").Select("name,addr,age").Where("id=?", 6).FindOne(&name, &addr, &age)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(name, addr, age)
+}
+
 func TestFindWhereForStruct(t *testing.T) {
 	var m Man
 	err := NewTable(db).FindWhere(&m, "id=?", 1)
