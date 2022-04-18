@@ -431,6 +431,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 	if len(dest) == 1 {
 		return t.find(dest[0])
 	}
+	t.printSqlCallSkip += 1
 	return t.QueryRowScan(dest...)
 }
 
@@ -668,6 +669,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		isStruct         = t.destTypeBitmap[structNo]   // struct
 		isMap            = t.destTypeBitmap[mapNo]      // map
 		isOneField       = t.destTypeBitmap[oneFieldNo] // 单字段
+		isSliceField     = t.destTypeBitmap[sliceNo]    // 切片单字段, 用于 QueryRowScan
 		structMissFields []string
 	)
 	for i, colType := range colTypes {
@@ -675,7 +677,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			fieldIndex       int
 			structFieldExist bool = true
 		)
-		if isStruct {
+		if isStruct && col2FieldIndexMap != nil {
 			fieldIndex, structFieldExist = col2FieldIndexMap[colType.Name()]
 		}
 
@@ -705,11 +707,8 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			// map/单字段, 为了减少创建标记, 借助 fieldIndex2NullIndexMap 用于标识单字段是否包含空值,  在 setDest 使用
 			if isStruct && structFieldExist {
 				fieldIndex2NullIndexMap[fieldIndex] = i
-			} else if isMap {
+			} else if isMap || isSliceField || isOneField {
 				fieldIndex2NullIndexMap[i] = i
-			} else if isOneField {
-				fieldIndex2NullIndexMap[i] = i
-				break
 			}
 			continue
 		}
@@ -730,6 +729,8 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		} else if isOneField { // 单字段, 其自需占一个位置查询即可
 			values[i] = dest.Addr().Interface()
 			break
+		} else if isSliceField { // 单行查询时, 多字段
+			values[i] = dest.Index(i).Interface()
 		}
 	}
 
@@ -791,6 +792,12 @@ func (t *Table) setDest(dest reflect.Value, colTypes []*sql.ColumnType, fieldInd
 	} else if t.destTypeBitmap[oneFieldNo] {
 		if _, ok := fieldIndex2NullIndexMap[0]; ok {
 			return t.nullScan(dest.Addr().Interface(), scanResult[0])
+		}
+	} else if t.destTypeBitmap[sliceNo] {
+		for _, nullIndex := range fieldIndex2NullIndexMap {
+			if err := t.nullScan(dest.Index(nullIndex).Interface(), scanResult[nullIndex]); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -901,9 +908,34 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		return nil
 	}
 	t.printSqlCallSkip += 1
-	err := t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()).Scan(dest...)
-	if err == sql.ErrNoRows {
+
+	rows, err := t.Query(false)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	if !rows.Next() { // 没有就为空
 		return nullRowErr
+	}
+
+	colTypes, _ := rows.ColumnTypes()
+	colLen := len(colTypes)
+	values := make([]interface{}, colLen)
+	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
+	// 将 dest 转为 []dest
+	destsReflectValue := reflect.ValueOf(append([]interface{}{}, dest...))
+	t.loadDestTypeBitmap(destsReflectValue.Type())
+	if err := t.getScanValues(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+		return err
+	}
+
+	if err := rows.Scan(values...); err != nil {
+		return err
+	}
+
+	if err := t.setDest(destsReflectValue, colTypes, fieldIndex2NullIndexMap, values); err != nil {
+		return err
 	}
 	return err
 }
