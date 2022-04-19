@@ -588,6 +588,9 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	values := make([]interface{}, colLen)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
+	if destReflectValue.IsNil() {
+		destReflectValue.Set(reflect.MakeSlice(destReflectValue.Type(), 0, colLen))
+	}
 	for rows.Next() {
 		base := reflect.New(ty).Elem()
 		if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
@@ -774,7 +777,7 @@ func (t *Table) setDest(dest reflect.Value, colTypes []*sql.ColumnType, fieldInd
 			return errors.New("map key must is string")
 		}
 		if dest.IsNil() {
-			dest.Set(reflect.MakeMap(destType))
+			dest.Set(reflect.MakeMapWithSize(destType, len(colTypes)))
 		}
 		for i, col := range colTypes {
 			key := reflect.ValueOf(col.Name())
