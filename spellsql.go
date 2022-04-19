@@ -110,20 +110,19 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 	sqlLen := len(sqlStr)
 
 	// INSERT, DELETE, SELECT, UPDATE
-	if sqlLen < 6 {
-		return
-	}
-	actionStr := sqlStr[:6]
-	upperStr := toUpper(actionStr)
-	switch upperStr {
-	case "INSERT", "REPLAC":
-		s.actionNum = INSERT
-	case "DELETE":
-		s.actionNum = DELETE
-	case "SELECT":
-		s.actionNum = SELECT
-	case "UPDATE":
-		s.actionNum = UPDATE
+	if sqlLen > 6 { // 判断是什么操作
+		actionStr := sqlStr[:6]
+		upperStr := toUpper(actionStr)
+		switch upperStr {
+		case "INSERT", "REPLAC":
+			s.actionNum = INSERT
+		case "DELETE":
+			s.actionNum = DELETE
+		case "SELECT":
+			s.actionNum = SELECT
+		case "UPDATE":
+			s.actionNum = UPDATE
+		}
 	}
 
 	s.init()
