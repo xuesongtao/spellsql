@@ -311,6 +311,15 @@ func TestFindWhere(t *testing.T) {
 	t.Logf("%+v", m)
 }
 
+func TestSelectFindOne(t *testing.T) {
+	var m Man
+	err := SelectFindOne(db, m, "man", FmtSqlStr("id=?", 1), &m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", m)
+}
+
 func TestCount(t *testing.T) {
 	var total int32
 	NewTable(db, "man").SelectCount().FindWhere(&total, "id>?", 1)

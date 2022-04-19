@@ -15,7 +15,7 @@ const (
 	defaultTableTag        = "json"
 	defaultBatchSelectSize = 10 // 批量查询默认条数
 
-	// 查询时, 用于标记 dest type
+	// 查询时, 用于标记查询的 dest type
 	structNo   = 0
 	sliceNo    = 1
 	mapNo      = 2
@@ -53,6 +53,7 @@ type TableColInfo struct {
 	Extra   string
 }
 
+// Table
 type Table struct {
 	db               DBer
 	printSqlCallSkip uint8                    // 标记打印 sql 时, 需要跳过的 structNeedSkip, 该参数为 runtime.Caller(structNeedSkip)
@@ -420,7 +421,7 @@ func (t *Table) Count(total interface{}) error {
 
 // FindOne 单行查询
 // dest 长度 > 1 时, 支持多个字段查询
-// dest 长度 == 1 时, 支持 struct, 单字段
+// dest 长度 == 1 时, 支持 struct/单字段/map
 func (t *Table) FindOne(dest ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -436,7 +437,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 }
 
 // FindOneFn 单行查询
-// dest 支持 struct, 单字段
+// dest 支持 struct/单字段/map
 // fn 支持将查询结果行进行修改
 func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
@@ -450,7 +451,7 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 
 // FindAll 多行查询
 // 如果没有指定查询条数, 默认 defaultBatchSelectSize
-// dest 支持 struct 切片, 单字段切片
+// dest 支持(struct/单字段/map)切片
 // fn 支持将查询结果行进行处理
 func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
@@ -463,9 +464,9 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	return t.find(dest, fn...)
 }
 
-// FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询,
-// 如果没有指定查询条数, 默认 defaultBatchSelectSize.
-// dest 支持 struct, slice, 单字段.
+// FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询
+// 如果没有指定查询条数, 默认 defaultBatchSelectSize
+// dest 支持 struct/slice/单字段/map
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAuto(dest)
@@ -1042,9 +1043,15 @@ func FindWhere(db DBer, tableName string, dest interface{}, where string, args .
 }
 
 // SelectFindWhere 查询指定内容的
-// fields 可以字符串(如: "name,age,addr"); 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+// fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
 func SelectFindWhere(db DBer, fields interface{}, tableName string, dest interface{}, where string, args ...interface{}) error {
-	return NewTable(db, tableName).PrintSqlCallSkip(3).SelectAuto(fields).FindWhere(dest, where, args...)
+	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).FindWhere(dest, where, args...)
+}
+
+// SelectFindOne 单行指定内容查询
+// fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+func SelectFindOne(db DBer, fields interface{}, tableName string, where string, dest ...interface{}) error {
+	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindOne(dest...)
 }
 
 // FindOne 单查询
