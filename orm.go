@@ -705,7 +705,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
 		colInfo := t.cacheCol2InfoMap[colName]
-		// fmt.Printf("colInfo: %+v", colInfo)
+		// fmt.Printf("colInfo: %+v\n", colInfo)
 		if colInfo.Null == "YES" {
 			// fmt.Println(colType.ScanType().Name())
 			switch colType.ScanType().Name() {
