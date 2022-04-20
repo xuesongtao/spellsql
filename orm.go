@@ -94,6 +94,14 @@ func NewTable(db DBer, args ...string) *Table {
 		t.name = args[0]
 		t.tag = args[1]
 	}
+
+	if t.name != "" {
+		if err := t.initCacheCol2InfoMap(); err != nil {
+			cjLog.Error("initCacheCol2InfoMap is failed, err:", err)
+			// glog.Error("initCacheCol2InfoMap is failed, err:", err)
+			return nil
+		}
+	}
 	return t
 }
 
@@ -680,9 +688,10 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		var (
 			fieldIndex       int
 			structFieldExist bool = true
+			colName               = colType.Name()
 		)
 		if isStruct && col2FieldIndexMap != nil {
-			fieldIndex, structFieldExist = col2FieldIndexMap[colType.Name()]
+			fieldIndex, structFieldExist = col2FieldIndexMap[colName]
 		}
 
 		// 说明结构里查询的值不存在
@@ -690,13 +699,14 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			if structMissFields == nil {
 				structMissFields = make([]string, 0, len(colTypes)/2)
 			}
-			structMissFields = append(structMissFields, colType.Name())
+			structMissFields = append(structMissFields, colName)
 			continue
 		}
 
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
-		canNull, _ := colType.Nullable()
-		if canNull {
+		colInfo := t.cacheCol2InfoMap[colName]
+		// fmt.Printf("colInfo: %+v", colInfo)
+		if colInfo.Null == "YES" {
 			// fmt.Println(colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
@@ -962,6 +972,10 @@ func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
 		return nil, nil
+	}
+	
+	if err := t.initCacheCol2InfoMap(); err != nil {
+		return nil, err
 	}
 	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
 }
