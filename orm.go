@@ -705,8 +705,9 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
 		colInfo := t.cacheCol2InfoMap[colName]
+		// fmt.Printf("colInfo: %+v\n", colInfo)
 		if (colInfo != nil && colInfo.Null == "YES") || colInfo == nil { // colInfo == nil 说明初始化表失败, 就直接通过空处理, 查询的时候只会在 t.Query 里
-			// fmt.Println(colType.ScanType().Name())
+			// fmt.Println(colName)
 			switch colType.ScanType().Name() {
 			case "NullInt64":
 				values[i] = cacheNullInt64.Get().(*sql.NullInt64)
