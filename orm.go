@@ -29,8 +29,6 @@ var (
 	sqlObjErr             = errors.New("tmpSqlObj is nil")
 	tableNameIsUnknownErr = errors.New("table name is unknown")
 	nullRowErr            = errors.New("row is null")
-
-	sqlScanner = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
 )
 
 var (
