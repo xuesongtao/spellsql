@@ -276,8 +276,9 @@ func TestFindWhereForOneFiled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	t.Logf("%+v", name)
+	
 }
 
 func TestFindWhereForManyFiled(t *testing.T) {
