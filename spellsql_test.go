@@ -2,362 +2,307 @@ package spellsql
 
 import (
 	"fmt"
-	"math"
-	"runtime"
+	"reflect"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 )
 
-// 可以重复设值
-func TestNewSql_SetWheres(t *testing.T) {
-	s := NewSql("SELECT username, password FROM sys_user WHERE name = ? AND money > ?", "test", 1000.00)
-	s.SetWhereArgs("age > ?d", "12")
-	s.SetWhere("age", "=", "18 or 1=1")
-	s.SetWhere("age", "in", []string{"18 or 1=1"})
-	s.GetTotalSqlStr("1")
-	s.SetWhere("age", "in", []string{"20"})
-	s.GetSqlStr("2")
-	s.SetWhere("username", "test")
-	s.GetSqlStr()
+const (
+	noEqErr = "src, dest is not eq"
+)
 
-	s1 := s.Clone()
-	s1.SetWhere("age", ">", 100)
-	s1.GetSqlStr("3")
+func equal(dest, src interface{}) bool {
+	ok := reflect.DeepEqual(dest, src)
+	if !ok {
+		fmt.Printf("dest: %v\n", dest)
+		fmt.Printf("src: %v\n", src)
+	}
+	return ok
+}
+
+// 新增
+func TestNewCacheSql_INSERT(t *testing.T) {
+	t.Run("no have values", func(t *testing.T) {
+		s := NewCacheSql("INSERT INTO sys_user (username, password, name)").SetPrintLog(false)
+		s.SetInsertValues("xuesongtao", "123456", "阿桃")
+		s.SetInsertValues("xuesongtao", "123456", "阿桃")
+		sqlStr := s.GetSqlStr()
+		sureSql := `INSERT INTO sys_user (username, password, name) VALUES ("xuesongtao", "123456", "阿桃"), ("xuesongtao", "123456", "阿桃");`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("have values", func(t *testing.T) {
+		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES")
+		s.SetPrintLog(false)
+		s.SetInsertValues("xuesongtao", "123456", "阿桃")
+		s.SetInsertValues("xuesongtao", "123456", "阿桃")
+		sqlStr := s.GetSqlStr()
+		sureSql := `INSERT INTO sys_user (username, password, name) VALUES ("xuesongtao", "123456", "阿桃"), ("xuesongtao", "123456", "阿桃");`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("have values", func(t *testing.T) {
+		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (?, ?, ?)", "test", 123456, "阿涛")
+		s.SetPrintLog(false)
+		s.SetInsertValues("xuesongtao", "123456", "阿桃")
+		s.SetInsertValues("xuesongtao", "123456", "阿桃")
+		sqlStr := s.GetSqlStr()
+		sureSql := `INSERT INTO sys_user (username, password, name) VALUES ("test", 123456, "阿涛"), ("xuesongtao", "123456", "阿桃"), ("xuesongtao", "123456", "阿桃");`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("key-value", func(t *testing.T) {
+		s := NewCacheSql("INSERT INTO sys_user (username, password)")
+		s.SetPrintLog(false)
+		s.SetInsertValues("xue", 12)
+		sqlStr := s.GetSqlStr()
+		sureSql := `INSERT INTO sys_user (username, password) VALUES ("xue", 12);`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("insert many", func(t *testing.T) {
+		s := NewCacheSql("INSERT INTO sys_user (username, password)").SetPrintLog(false)
+		for i := 0; i < 2; i++ {
+			s.SetInsertValuesArgs("?, ?d", "xue", "123456")
+			s.SetInsertValues("xue", 123456)
+		}
+		sqlStr := s.GetSqlStr()
+		sureSql := `INSERT INTO sys_user (username, password) VALUES ("xue", 123456), ("xue", 123456), ("xue", 123456), ("xue", 123456);`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("duplicate update", func(t *testing.T) {
+		s := NewCacheSql("INSERT INTO sys_user (username, password, age)").SetPrintLog(false)
+		s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
+		s.Append("ON DUPLICATE KEY UPDATE username=VALUES(?v)", "username")
+		sqlStr := s.GetSqlStr()
+		sureSql := `INSERT INTO sys_user (username, password, age) VALUES ("xuesongtao", "123", 20) ON DUPLICATE KEY UPDATE username=VALUES(username);`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+}
+
+// 删除
+func TestNewCacheSql_DELETE(t *testing.T) {
+	t.Run("1", func(t *testing.T) {
+		s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123).SetPrintLog(false)
+		sqlStr := s.GetSqlStr()
+		sureSql := "DELETE FROM sys_user WHERE id = 123;"
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("2", func(t *testing.T) {
+		s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123).SetPrintLog(false)
+		if true {
+			s.SetWhere("age", ">", 10)
+		}
+		sqlStr := s.GetSqlStr()
+		sureSql := "DELETE FROM sys_user WHERE id = 123 AND age > 10;"
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+}
+
+// 修改
+func TestNewCacheSql_UPDATE(t *testing.T) {
+	t.Run("normal", func(t *testing.T) {
+		s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456, "阿涛", 12)
+		s.SetPrintLog(false)
+		sqlStr := s.GetSqlStr()
+		sureSql := `UPDATE sys_user SET username = "test", password = 123456, name = "阿涛" WHERE id = 12;`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("key-value", func(t *testing.T) {
+		idsStr := []string{"1", "2", "3", "4", "5"}
+		s := NewCacheSql("UPDATE sys_user SET")
+		s.SetPrintLog(false)
+		s.SetUpdateValue("name", "xue")
+		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
+		s.SetWhereArgs("id IN (?d) AND age IN (?) AND name = ?", idsStr, []int{18, 20}, "xuesongtao")
+		sqlStr := s.GetSqlStr()
+		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND age IN (18,20) AND name = "xuesongtao";`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("placeholder", func(t *testing.T) {
+		idsStr := []string{"1", "2", "3", "4", "5"}
+		s := NewCacheSql("UPDATE sys_user SET")
+		s.SetPrintLog(false)
+		s.SetUpdateValue("name", "xue")
+		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
+		s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "xuesongtao")
+		sqlStr := s.GetSqlStr()
+		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND name = "xuesongtao";`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+}
+
+func TestNewCacheSql_Select(t *testing.T) {
+	t.Run("list", func(t *testing.T) {
+		s := NewSql("SELECT username, password FROM sys_user WHERE money > ?", 1000.00)
+		s.SetPrintLog(false)
+		if true {
+			s.SetWhereArgs("age > ?d", "12")
+		}
+		if true {
+			s.SetWhere("age", "=", "18 or 1=1") // 测试注入
+		}
+		if true {
+			s.SetWhere("age", "IN", []string{"18 or 1=1"}) // 测试注入
+		}
+		if true {
+			s.SetBetween("create_time", "2022-04-01 01:00:11", "2022-05-01 01:00:11")
+		}
+		if true {
+			s.SetOrWhere("name", "xue")
+		}
+		totalSqlStr := s.GetTotalSqlStr()
+		sureSql := `SELECT COUNT(*) FROM sys_user WHERE money > 1000 AND age > 12 AND age = "18 or 1=1" AND age IN ("18 or 1=1") AND (create_time BETWEEN "2022-04-01 01:00:11" AND "2022-05-01 01:00:11") OR name = "xue";`
+		if !equal(totalSqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+
+		sqlStr := s.SetOrderByStr("create_time DESC").SetLimit(1, 10).GetSqlStr()
+		sureSql = `SELECT username, password FROM sys_user WHERE money > 1000 AND age > 12 AND age = "18 or 1=1" AND age IN ("18 or 1=1") AND (create_time BETWEEN "2022-04-01 01:00:11" AND "2022-05-01 01:00:11") OR name = "xue" ORDER BY create_time DESC LIMIT 0, 10;`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("son select", func(t *testing.T) {
+		s := NewSql("SELECT username, password FROM sys_user WHERE")
+		s.SetPrintLog(false)
+		if true {
+			s.SetWhere("age", "IN", FmtSqlStr("SELECT age FROM user_info WHERE id=?", 10))
+		}
+		if true {
+			s.SetWhereArgs("age IN (?v)", FmtSqlStr("SELECT age FROM user_info WHERE id=?", 10))
+		}
+		sqlStr := s.GetSqlStr()
+		sureSql := `SELECT username, password FROM sys_user WHERE age IN (SELECT age FROM user_info WHERE id=10) AND age IN (SELECT age FROM user_info WHERE id=10);`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("list select", func(t *testing.T) {
+		s := NewSql("SELECT username, password FROM sys_user WHERE")
+		s.SetPrintLog(false)
+		if true {
+			s.SetAllLike("name", "test")
+		}
+		if true {
+			s.SetLeftLike("name", "test")
+		}
+		if true {
+			s.SetRightLike("name", "test")
+		}
+		sqlStr := s.GetSqlStr()
+		sureSql := `SELECT username, password FROM sys_user WHERE name LIKE "%test%" AND name LIKE "%test" AND name LIKE "test%";`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
 }
 
 func TestGetSqlStr(t *testing.T) {
-	GetSqlStr("INSERT INTO doctor_check_record (d_id, is_accept, no_accept_reasons, no_accept_img, check_id) "+
+	sqlStr := GetSqlStr("INSERT INTO doctor_check_record (d_id, is_accept, no_accept_reasons, no_accept_img, check_id) "+
 		"VALUES (?, ?, ?, ?, ?, ?d)", 1, 1, "test", "req.NoAcceptImg", 12, "1")
+	sureSql := `INSERT INTO doctor_check_record (d_id, is_accept, no_accept_reasons, no_accept_img, check_id) VALUES (1, 1, "test", "req.NoAcceptImg", 12, 1);`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
+	}
 }
 
 func TestFmtSqlStr(t *testing.T) {
-	str := FmtSqlStr("SELECT * FROM user_info WHERE id IN (?)", []int{1, 2, 3})
-	t.Log(str)
+	sqlStr := FmtSqlStr("SELECT * FROM user_info WHERE id IN (?)", []int{1, 2, 3})
+	sureSql := `SELECT * FROM user_info WHERE id IN (1,2,3)`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
+	}
 
-	str2 := FmtSqlStr("SELECT * FROM user_info WHERE id IN (?d)", []string{"1", "2", "3"})
-	t.Log(str2)
+	sqlStr = FmtSqlStr("SELECT * FROM user_info WHERE id IN (?d)", []string{"1", "2", "3"})
+	sureSql = `SELECT * FROM user_info WHERE id IN (1,2,3)`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
+	}
 
-	str3 := FmtSqlStr("SELECT account_id FROM (?v) tmp GROUP BY account_id HAVING COUNT(*)>=? ORDER BY NULL",
+	sqlStr = FmtSqlStr("SELECT account_id FROM (?v) tmp GROUP BY account_id HAVING COUNT(*)>=? ORDER BY NULL",
 		"SELECT account_id FROM test1 UNION ALL SELECT account_id FROM test2", 2)
-	t.Log(str3)
+	sureSql = `SELECT account_id FROM (SELECT account_id FROM test1 UNION ALL SELECT account_id FROM test2) tmp GROUP BY account_id HAVING COUNT(*)>=2 ORDER BY NULL`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
+	}
 }
 
 func TestFmtLikeSqlStr(t *testing.T) {
-	str := GetLikeSqlStr(ALK, "SELECT id, username FROM sys_user", "name", "xue")
-	t.Log(str)
-
-	str = GetLikeSqlStr(RLK, "SELECT id, username FROM sys_user", "name", "xue")
-	t.Log(str)
-
-	str = GetLikeSqlStr(LLK, "SELECT id, username FROM sys_user", "name", "xue")
-	t.Log(str)
-}
-
-// ?d 占位符单个字符串
-func TestNewSql(t *testing.T) {
-	s := NewSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?d", "test", "123")
-	t.Log(s.SetPrintLog(false).GetTotalSqlStr("selectUserTotal"))
-	t.Log(s.SetPrintLog(true).GetSqlStr("selectUser"))
-}
-
-// ?d 占位符字符串切片
-func TestNewCacheSql(t *testing.T) {
-	kindIds := []string{"1", "2", "3"}
-	idsStr := "1,2,3,4"
-	s := NewCacheSql("SELECT kind_id, kind_name FROM item_kind WHERE kind_id IN (?d) AND id IN (?d)", kindIds, idsStr)
-	s.SetWhere("id", 1)
-	s.GetSqlStr()
-}
-
-func TestNewCacheSql_INSERT(t *testing.T) {
-	s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (?, ?, ?)", "test", 123456, "阿涛")
-	s.SetInsertValues("xuesongtao", "123456", "阿桃")
-	s.SetInsertValues("xuesongtao", "123456", "阿桃")
-	s.GetSqlStr()
-}
-
-func TestNewCacheSql_UPDATE(t *testing.T) {
-	s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456, "阿涛", 12)
-	s.GetSqlStr()
-}
-
-func TestNewCacheSql_DELETE(t *testing.T) {
-	s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
-	s.GetSqlStr()
-}
-
-// 少参数
-func TestNewCacheSql_ArgNumErr(t *testing.T) {
-	s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456)
-	s.GetSqlStr()
-}
-
-// 普通查询
-func TestSqlStr_SELECT(t *testing.T) {
-	s := NewCacheSql("SELECT username, password FROM sys_user")
-	s.SetWhere("username", "test")
-	s.SetWhere("password", "test OR 1=1#")
-	// like sql 注入测试
-	s.SetWhere("name", "LIKE", "%"+"test\" or 1=1#"+"%")
-	s.GetTotalSqlStr()
-	s.SetLimit(0, 10)
-	s.GetSqlStr()
-}
-
-// 连接 or/and
-func TestMySql_SetOrWhere(t *testing.T) {
-	s := NewCacheSql("SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id")
-	s.SetOrWhere("u.name", "xue")
-	s.SetOrWhereArgs("(r.id IN (?d))", []string{"1", "2"})
-	s.SetWhere("u.age", ">", 20)
-	s.SetWhereArgs("u.addr = ?", "南部")
-	s.GetTotalSqlStr()
-	s.SetLimit(1, 10)
-	s.GetSqlStr()
-}
-
-func TestSqlStr_InWhere(t *testing.T) {
-	s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (?v)", FmtSqlStr("SELECT id FROM user WHERE name=?", "test"))
-	s.SetGroupByStr("u.username")
-	s.GetTotalSqlStr()
-	s.SetLimit(0, 10)
-	s.GetSqlStr()
-}
-
-func TestSetBetween(t *testing.T) {
-	s := NewCacheSql("SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id")
-	s.SetBetween("u.age", 10, 100)
-	s.SetBetween("u.birthday", "2000-01-01 00:00:00", "2001-01-01 23:59:59")
-	s.GetSqlStr()
-}
-
-func TestMySql_SetWhereArgs(t *testing.T) {
-	idsStr := []string{"1", "2", "3", "4", "5"}
-	s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
-	s.SetWhere("u.name", "test")
-	s.SetWhereArgs("u.id IN (?d) AND su.name = ?", idsStr, "xuesongtao")
-	s.SetWhereArgs("update_time between ? and ?", "2021-07-13", "2021-08-30")
-	s.SetWhere("u.name", "test1")
-	s.SetWhereArgs("(temp_name LIKE '%?d%' OR temp_content LIKE '%?d%')", "test", "1")
-	s.SetLimit(0, 10).SetGroupByStr("u.username").SetOrderByStr("id DESC")
-	s.GetTotalSqlStr()
-	s.GetSqlStr()
-}
-
-func TestMySql_SetOrderByStr(t *testing.T) {
-	idsStr := []string{"1", "2", "3", "4", "5"}
-	s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
-	s.SetWhereArgs("(temp_name LIKE '%?d%' OR temp_content LIKE '%?%')", "112", 1)
-	s.SetOrWhereArgs("(id IN (?d) AND name= ?)", idsStr, "xue")
-	s.SetLimit(0, 10).SetGroupByStr("u.username").SetOrderByStr("id DESC")
-	s.GetTotalSqlStr()
-	s.GetSqlStr()
-}
-
-func TestMySql_SetUpdateValueArgs(t *testing.T) {
-	idsStr := []string{"1", "2", "3", "4", "5"}
-	s := NewCacheSql("UPDATE sys_user SET")
-	s.SetUpdateValue("name", "xue")
-	s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
-	s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "xuesongtao")
-	t.Log(s.GetSqlStr())
-}
-
-// 连接查询
-func TestSqlStr_SELECTGetSql1(t *testing.T) {
-	ids := []int{1, 2, 3, 4, 5}
-	idsStr := []string{"1", "2", "3", "4", "5"}
-	s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
-	s.SetWhere("u.username", "test")
-	s.SetWhere("u.password", "test")
-	s.SetWhere("u.password", "IN", "SELECT id FROM t WHERE id = 10")
-	s.SetWhere("u.id", "IN", ids)
-	s.SetWhere("su.id", "IN", idsStr)
-	s.SetLimit(0, 10)
-	s.SetGroupByStr("u.username")
-	s.GetTotalSqlStr()
-	s.GetSqlStr()
-}
-
-// 子查询
-func TestSqlStr_SELECTGetSql2(t *testing.T) {
-	sqlStr := fmt.Sprintf("SELECT ea.account_id,ea.hospital_id, ei.user_name, ea.flag,ea.create_time,ea.account,ei.user_gender,ei.user_phone "+
-		"FROM employee_account_info ea, employee_info ei"+
-		" WHERE ea.hospital_id = %v AND ea.account_id = ei.account_id AND ea.account <> 'admin' AND ea.account <> 'syncuseraccount'", 11)
-	s := NewCacheSql(sqlStr)
-	s.SetWhere("ei.user_dep", "12")
-	s.SetWhere("ea.account_id", "in", "1, 2, 3, 4, 5")
-	s.SetWhere("ei.user_name", "LIKE", "%test%")
-	s.SetOrderByStr("id DESC")
-	s.SetLimit(0, 10)
-	s.SetGroupByStr("ea.account")
-	s.GetTotalSqlStr()
-	s.GetSqlStr()
-}
-
-// 单个插入
-func TestSqlStr_INSERTGetSql(t *testing.T) {
-	s := NewCacheSql("INSERT INTO sys_user (username, password)")
-	s.SetInsertValues("xue", 12)
-	s.GetSqlStr()
-}
-
-// 多个插入
-func TestSqlStr_INSERTGetSql2(t *testing.T) {
-	s := NewCacheSql("INSERT INTO sys_user (username, password)")
-	for i := 0; i < 10; i++ {
-		s.SetInsertValues("xuesongtao", "123")
-	}
-	s.GetSqlStr()
-}
-
-// 多个插入
-func TestSqlStr_INSERTGetSql3(t *testing.T) {
-	s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
-	for i := 0; i < 10; i++ {
-		s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
-	}
-	s.GetSqlStr()
-}
-
-func TestSqlStr_UPATEGetSql(t *testing.T) {
-	s := NewCacheSql("UPDATE sys_user SET")
-	s.SetUpdateValue("name", "xuesongtao")
-	s.SetUpdateValue("password", 123)
-	s.SetWhere("id", "=", 1)
-	s.GetSqlStr()
-}
-
-func TestSqlStr_Append(t *testing.T) {
-	s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
-	s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
-	s.Append("ON DUPLICATE KEY UPDATE username=VALUES(?v)", "username")
-	s.GetSqlStr()
-}
-
-func TestMySql_CloneForCacheSql(t *testing.T) {
-	sqlObj := NewCacheSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
-	totalSqlStr := sqlObj.GetTotalSqlStr()
-	t.Log(totalSqlStr)
-	handleFn := func(obj *SqlStrObj, page, size int32) {
-		sqlStr := obj.SetOrderByStr("id ASC").SetLimit(page, size).SetPrintLog(false).GetSqlStr()
-		t.Log(sqlStr)
+	sqlStr := GetLikeSqlStr(ALK, "SELECT id, username FROM sys_user", "name", "xue")
+	sureSql := `SELECT id, username FROM sys_user WHERE name LIKE "%xue%"`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
 	}
 
-	// 调用并归还
-	sqlObj.GetSqlStr()
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-
-		// 去获取上面归还的对象
-		obj := NewCacheSql("select * from user")
-		obj.GetSqlStr()
-		wg.Done()
-	}()
-	time.Sleep(time.Second)
-	for page := 1; page < 20; page++ {
-		wg.Add(1)
-		go func(page int) {
-			tmpObj := sqlObj.Clone()
-			handleFn(tmpObj, int32(page), 100)
-			wg.Done()
-		}(page)
-	}
-	wg.Wait()
-}
-
-func TestNewCacheSqlHandle(t *testing.T) {
-	sqlObj := NewCacheSql("SELECT * FROM user_info WHERE status = 1")
-	handleFn := func(obj *SqlStrObj, page, size int32) {
-		// 业务代码
-		fmt.Println(obj.SetLimit(page, size).SetPrintLog(false).GetSqlStr())
+	sqlStr = GetLikeSqlStr(RLK, "SELECT id, username FROM sys_user", "name", "xue")
+	sureSql = `SELECT id, username FROM sys_user WHERE name LIKE "xue%"`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
 	}
 
-	// 每次同步大小
-	var (
-		totalNum  int32 = 30
-		page      int32 = 1
-		size      int32 = 10
-		totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
-	)
-	sqlStr := sqlObj.SetPrintLog(false).GetSqlStr("", "")
-	for page <= totalPage {
-		handleFn(NewCacheSql(sqlStr), page, size)
-		page++
+	sqlStr = GetLikeSqlStr(LLK, "SELECT id, username FROM sys_user", "name", "xue")
+	sureSql = `SELECT id, username FROM sys_user WHERE name LIKE "%xue"`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
 	}
-}
-
-func TestNewSqlHandle(t *testing.T) {
-	sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
-	handleFn := func(obj *SqlStrObj, page, size int32) {
-		// 业务代码
-		fmt.Println(obj.SetLimit(page, size).SetPrintLog(false).GetSqlStr())
-	}
-
-	// 每次同步大小
-	var (
-		totalNum  int32 = 30
-		page      int32 = 1
-		size      int32 = 10
-		totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
-	)
-	for page <= totalPage {
-		handleFn(sqlObj.Clone(), page, size)
-		page++
-	}
-}
-
-func TestMySql_CloneForNewSql(t *testing.T) {
-	sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
-	totalSqlStr := sqlObj.GetTotalSqlStr()
-	t.Log(totalSqlStr)
-	handleFn := func(obj *SqlStrObj, page, size int32) {
-		sqlStr := obj.SetOrderByStr("id ASC").SetLimit(page, size).SetPrintLog(false).GetSqlStr()
-		t.Log(sqlStr)
-	}
-	sqlObj.GetSqlStr()
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		obj := NewSql("select * from user")
-		obj.GetSqlStr()
-		wg.Done()
-	}()
-	time.Sleep(time.Second)
-	for page := 1; page < 20; page++ {
-		wg.Add(1)
-		go func(page int) {
-			tmpObj := sqlObj.Clone()
-			handleFn(tmpObj, int32(page), 100)
-			wg.Done()
-		}(page)
-	}
-	wg.Wait()
 }
 
 func TestIndexForBF(t *testing.T) {
 	str := "SELECT kind_id, kind_name FROM item_kind WHERE"
 	i := IndexForBF(true, str, "WHEREb")
-	t.Log(i)
+	if i != -1 {
+		t.Error(noEqErr)
+	}
 
 	// str = "SELECT kind_id, kind_name FROM item_kind WHERE"
 	str = "SELECT kind_id, kind_name FROM item_kind WHERE"
 	i = IndexForBF(false, str, "aSELECT")
-	t.Log(i)
-
+	if i != -1 {
+		t.Error(noEqErr)
+	}
 }
 
 // 去重
 func TestDistinctIdsStr(t *testing.T) {
 	ids := ""
-	for i := 0; i < 1000; i++ {
-		ids += fmt.Sprintf("%d,", i%10)
+	for i := 0; i < 10; i++ {
+		ids += fmt.Sprintf("%d,", i%2)
 	}
 	t.Log("ids: ", ids)
-	t.Log("ids: ", DistinctIdsStr(ids, ","))
+	res := DistinctIdsStr(ids, ",")
+	if res != "0,1" {
+		t.Log("ids: ", res)
+		t.Error(noEqErr)
+	}
 }
 
 func BenchmarkIndexForBF1(b *testing.B) {
@@ -386,16 +331,6 @@ func BenchmarkStringIndex(b *testing.B) {
 		str := "GROUP BY test, test1"
 		_ = strings.Index(str, "GROUP BY")
 	}
-}
-
-func TestSqlStr_DELETEGetSql(t *testing.T) {
-	s := NewSql("DELETE FROM sys_user")
-	s.SetWhere("username", "=", "xue")
-	t.Log(s.GetSqlStr())
-}
-
-func TestRuntimeCaller(t *testing.T) {
-	t.Log(runtime.Caller(0))
 }
 
 func BenchmarkFmtInt2Str(b *testing.B) {
