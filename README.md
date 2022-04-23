@@ -190,7 +190,7 @@
 ```
 
 #### 4 orm 功能介绍
-
+* `spellsql_orm` 能够高效的处理单表 `CURD`. 在查询方面的性能接近原生, 其中做几个性能对比: **原生** >= **spellsql_orm** > **gorm** (orm_test.go 里有测试数据), 可以在 `dev` 分支上测试
 * 支持自定义 `tag`, 默认 `json`
 
 ```
@@ -212,10 +212,6 @@
 	}
 
 	// 1
-	rows, _ := NewTable(db).Insert(m).Exec()
-	t.Log(rows.LastInsertId())
-
-	// 2
 	rows, _ = InsertForObj(db, "man", m)
 	t.Log(rows.LastInsertId())
 
@@ -243,10 +239,6 @@
 	sqlObj := NewCacheSql("DELETE FROM man WHERE id=?", 9)
 	rows, _ = ExecForSql(db, sqlObj)
 	t.Log(rows.LastInsertId())
-
-    // 4
-    rows, _ := NewTable(db, "man").Delete().Where("id=?", 11).Exec()
-	t.Log(rows.LastInsertId())
 ```
 
 ##### 4.3 修改
@@ -263,10 +255,6 @@
 	t.Log(rows.LastInsertId())
 
 	// 2
-	rows, _ = UpdateForObj(db, "man", m, "id=?", 7)
-	t.Log(rows.LastInsertId())
-
-	// 3
 	sqlObj := NewCacheSql("UPDATE man SET name=?,age=?,addr=? WHERE id=?", m.Name, m.Age, m.Addr, 7)
 	rows, _ = ExecForSql(db, sqlObj)
 	t.Log(rows.LastInsertId())
@@ -334,10 +322,8 @@
 
 ###### 4.4.3 其他
 * 使用可以参考 `orm_test.go` 和 `example_orm_test.go`
+* 在连表查询时, 如果两个表的列名相同查询结果会出现错误, 我们可以通过根据别名来区分, 或者直接调用 `Query` 来自行对结果进行处理(注: 调用 `Query` 时需要处理 `Null` 类型) 
 
-#### 4.5 补充
-
-* 其中做几个性能对比: 原生 < spellsql_orm < gorm(orm_test.go里有测试数据, 功能较少, 场景有限, 望大佬莫笑), 如果要测试可以在`dev`分支上
 
 #### 其他
 

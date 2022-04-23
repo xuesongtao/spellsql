@@ -3,11 +3,17 @@ package spellsql
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"testing"
 
 	// _ "github.com/go-sql-driver/mysql"
 	// gmysql "gorm.io/driver/mysql"
 	// "gorm.io/gorm"
+)
+
+const (
+	sureName = "xuesongtao"
+	sureAge  = int32(20)
 )
 
 // CREATE TABLE `man` (
@@ -134,45 +140,48 @@ func TestInsert(t *testing.T) {
 		Addr: "成都市",
 	}
 
-	// 1
-	rows, _ := NewTable(db).Insert(m).Exec()
-	t.Log(rows.LastInsertId())
+	t.Run("insert for obj", func(t *testing.T) {
+		_, err := InsertForObj(db, "man", m)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
-	// 2
-	rows, _ = InsertForObj(db, "man", m)
-	t.Log(rows.LastInsertId())
-
-	// 3
-	sqlObj := NewCacheSql("INSERT INTO man (name,age,addr) VALUES (?, ?, ?)", m.Name, m.Age, m.Addr)
-	rows, _ = ExecForSql(db, sqlObj)
-	t.Log(rows.LastInsertId())
+	t.Run("insert for sql", func(t *testing.T) {
+		sqlObj := NewCacheSql("INSERT INTO man (name,age,addr) VALUES (?, ?, ?)", m.Name, m.Age, m.Addr)
+		_, err := ExecForSql(db, sqlObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestDelete(t *testing.T) {
 	m := Man{
 		Id: 9,
 	}
-	// 1
-	rows, _ := NewTable(db).Delete(m).Exec()
-	t.Log(rows.LastInsertId())
+	t.Run("delete for obj", func(t *testing.T) {
+		_, err := NewTable(db).Delete(m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
-	// 2
-	rows, _ = DeleteWhere(db, "man", "id=?", 9)
-	t.Log(rows.LastInsertId())
+	t.Run("delete for where", func(t *testing.T) {
+		_, err := DeleteWhere(db, "man", "id=?", 9)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
-	// 3
-	sqlObj := NewCacheSql("DELETE FROM man WHERE id=?", 9)
-	rows, _ = ExecForSql(db, sqlObj)
-	t.Log(rows.LastInsertId())
-}
+	t.Run("delete for sql", func(t *testing.T) {
+		sqlObj := NewCacheSql("DELETE FROM man WHERE id=?", 9)
+		_, err := ExecForSql(db, sqlObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
-func TestDelete1(t *testing.T) {
-	rows, err := NewTable(db, "man").Delete().Where("id=?", 11).Exec()
-	if err != nil {
-		t.Log(err)
-		return
-	}
-	t.Log(rows.LastInsertId())
 }
 
 func TestUpdate(t *testing.T) {
@@ -182,206 +191,291 @@ func TestUpdate(t *testing.T) {
 		Addr: "测试",
 	}
 
-	// 1
-	rows, _ := NewTable(db).Update(m, "id=?", 7).Exec()
-	t.Log(rows.LastInsertId())
+	t.Run("update for obj", func(t *testing.T) {
+		_, err := UpdateForObj(db, "man", m, "id=?", 7)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
-	// 2
-	rows, _ = UpdateForObj(db, "man", m, "id=?", 7)
-	t.Log(rows.LastInsertId())
+	t.Run("update for sql", func(t *testing.T) {
+		sqlObj := NewCacheSql("UPDATE man SET name=?,age=?,addr=? WHERE id=?", m.Name, m.Age, m.Addr, 7)
+		_, err := ExecForSql(db, sqlObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 
-	// 3
-	sqlObj := NewCacheSql("UPDATE man SET name=?,age=?,addr=? WHERE id=?", m.Name, m.Age, m.Addr, 7)
-	rows, _ = ExecForSql(db, sqlObj)
-	t.Log(rows.LastInsertId())
 }
 
 func TestFindOne(t *testing.T) {
-	var m Man
+	t.Log("find one test start")
+	t.Run("select 2 struct", func(t *testing.T) {
+		var m Man
+		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	// 1
-	_ = NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
-	t.Log(m)
-
-	// 2
-	_ = NewTable(db).SelectAuto("name,age", "man").Where("id=?", 1).FindOne(&m)
-	t.Log(m)
-
-	// 3
-	_ = FindOne(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m)
-	t.Log(m)
-
-	// 4
-	_ = FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row interface{}) error {
-		v := _row.(*Man)
-		v.Name = "被修改了哦"
-		v.Age = 100000
-		return nil
+		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
+			t.Error(noEqErr)
+		}
 	})
-	t.Log(m)
 
-	// 5
-	_ = FindWhere(db, "man", &m, "id=?", 1)
-	t.Log(m)
-
-	// 6
-	var b map[string]string
-	_ = FindWhere(db, "man", &b, "id=?", 1)
-	t.Log(b)
-}
-
-func TestFindOne1(t *testing.T) {
-	var (
-		name string
-		age  int
-	)
-	_ = NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&name, &age)
-	t.Log(name, age)
-
-	_ = FindOneFn(db, NewCacheSql("SELECT name FROM man WHERE id=?", 1), &name, func(_row interface{}) error {
-		v := _row.(*string)
-		*v = "被修改了哦"
-		return nil
+	t.Run("selectAuto 2 struct", func(t *testing.T) {
+		var m Man
+		err := SelectFindOne(db, m, "man", FmtSqlStr("id=?", 1), &m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
+			t.Error(noEqErr)
+		}
 	})
-	t.Log(name)
-}
 
-func TestFindForJoin(t *testing.T) {
-	var m []Man
-	sqlStr := NewCacheSql("SELECT m.name,m.age,s.nickname FROM man m JOIN student s ON m.id=s.u_id")
-	err := NewTable(db).Raw(sqlStr).FindAll(&m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(m)
-}
+	t.Run("findOne for sql", func(t *testing.T) {
+		var m Man
+		err := FindOne(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
 
-func TestFindWhereForOneFiled(t *testing.T) {
-	var name string
-	err := NewTable(db, "man").Select("name").FindWhere(&name, "id=?", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("findOne one field", func(t *testing.T) {
+		var name string
+		err := NewTable(db, "man").Select("name").FindWhere(&name, "id=?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	t.Logf("%+v", name)
-	
-}
+		if !equal(name, sureName) {
+			t.Error(noEqErr)
+		}
+	})
 
-func TestFindWhereForManyFiled(t *testing.T) {
-	var name, addr, age string
-	err := NewTable(db, "man").Select("name,addr,age").Where("id=?", 6).FindOne(&name, &addr, &age)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(name, addr, age)
-}
+	t.Run("findOne many field", func(t *testing.T) {
+		var (
+			name string
+			age  int32
+		)
+		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&name, &age)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(name, sureName) || !equal(age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
 
-func TestFindWhereForStruct(t *testing.T) {
-	var m Man
-	err := NewTable(db).FindWhere(&m, "id=?", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m)
-}
+	t.Run("findOne 2 map", func(t *testing.T) {
+		var b map[string]string
+		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(b["name"], sureName) || !equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(noEqErr)
+		}
+	})
 
-func TestFindWhereForSliceStruct(t *testing.T) {
-	var m []Man
-	err := NewTable(db).FindWhere(&m, "id>?", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m)
+	t.Run("findOne selectCallBack 2 struct", func(t *testing.T) {
+		var m Man
+		tmpName := "被修改了哦"
+		tmpAge := int32(1000)
+		err := FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row interface{}) error {
+			v := _row.(*Man)
+			v.Name = tmpName
+			v.Age = tmpAge
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(m.Name, tmpName) || !equal(m.Age, tmpAge) {
+			t.Error(noEqErr)
+		}
+	})
 
-	var m1 []*Man
-	err = NewTable(db).FindWhere(&m1, "id>?", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m1)
-	for _, v := range m1 {
-		t.Logf("%+v", v)
-	}
+	t.Run("findOne selectCallBack 2 one field", func(t *testing.T) {
+		var (
+			name string
+			tmp  = "被修改了哦"
+		)
+		err := FindOneFn(db, NewCacheSql("SELECT name FROM man WHERE id=?", 1), &name, func(_row interface{}) error {
+			v := _row.(*string)
+			*v = tmp
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(name, tmp) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findOne selectCallBack map", func(t *testing.T) {
+		var (
+			tmp = "被修改了哦"
+		)
+		var b map[string]string
+		err := NewTable(db).SelectAuto(Man{}).Where("id=1").FindOneFn(&b, func(_row interface{}) error {
+			v := _row.(map[string]string)
+			v["name"] = tmp
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(b["name"], tmp) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Log("find one test end")
 }
 
 func TestFindWhere(t *testing.T) {
-	var m []Man
-	err := FindWhere(db, "man", &m, "id>1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m)
+	t.Log("find where test start")
+	t.Run("findWhere 2 one field", func(t *testing.T) {
+		var name string
+		err := NewTable(db, "man").Select("name").FindWhere(&name, "id=?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(name, sureName) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findWhere 2 struct", func(t *testing.T) {
+		var m Man
+		err := FindWhere(db, "man", &m, "id=?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findWhere 2 struct slice", func(t *testing.T) {
+		var m []Man
+		err := FindWhere(db, "man", &m, "id>0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+
+		// 按 id=1 判断
+		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findWhere 2 map", func(t *testing.T) {
+		var b map[string]string
+		err := FindWhere(db, "man", &b, "id=?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(b["name"], sureName) || !equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findWhere 2 map slice", func(t *testing.T) {
+		var b []map[string]string
+		err := NewTable(db, "man").Select("name,age").FindWhere(&b, "id>0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(b) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+
+		// 按 id=1 判断
+		if !equal(b[0]["name"], sureName) || !equal(b[0]["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(noEqErr)
+		}
+	})
+	t.Log("find where test end")
 }
 
-func TestSelectFindOne(t *testing.T) {
-	var m Man
-	err := SelectFindOne(db, m, "man", FmtSqlStr("id=?", 1), &m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m)
+func TestFindForJoin(t *testing.T) {
+	// 连表查询时, 如果两个表有相同名字查询结果会出现错误, 推荐使用别名来区分/使用Query 对结果我们自己进行处理
+	t.Run("find simple join", func(t *testing.T) {
+		var m []Man
+		sqlStr := NewCacheSql("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id WHERE m.id=1")
+		err := NewTable(db).Raw(sqlStr).FindAll(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("find all join", func(t *testing.T) {
+		sqlStr := NewCacheSql("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id WHERE m.id=1")
+		rows, err := NewTable(db).Raw(sqlStr).Query()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+
+		var m []Man
+		for rows.Next() {
+			var v Man
+			err = rows.Scan(&v.Name, &v.Age)
+			if err != nil {
+				t.Fatal(err)
+			}
+			m = append(m, v)
+		}
+
+		if len(m) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+
+		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
 }
 
 func TestCount(t *testing.T) {
-	var total int32
-	NewTable(db, "man").SelectCount().FindWhere(&total, "id>?", 1)
-	t.Log(total)
-
-	Count(db, "man", &total, "id>1")
-	t.Log(total)
-
-	NewTable(db, "man").SelectAll().Where("id>?", 1).Count(&total)
-	t.Log(total)
-}
-
-func TestSelectFindWhere(t *testing.T) {
-	var m Man
-	SelectFindWhere(db, "name", "man", &m, "id=?", 1)
-	t.Log(m)
-}
-
-func TestSelectRes2Map(t *testing.T) {
-	// 1
-	var m map[string]string
-	err := SelectFindWhere(db, Man{}, "man", &m, "id=1")
+	var (
+		total1, total2, total3 int32
+	)
+	err := NewTable(db, "man").SelectCount().FindWhere(&total1, "id>?", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(m)
-
-	// 2
-	var b map[string]string
-	err = NewTable(db).SelectAuto(Man{}).Where("id=1").FindOneFn(&b, func(_row interface{}) error {
-		v := _row.(map[string]string)
-		v["name"] = "被修改了"
-		return nil
-	})
+	err = Count(db, "man", &total2, "id>1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(b)
-}
-
-func TestSelectRes2SliceMap(t *testing.T) {
-	// 1
-	var m []map[string]string
-	err := SelectFindWhere(db, Man{}, "man", &m, "id<5")
+	err = NewTable(db, "man").SelectAll().Where("id>?", 1).Count(&total3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(m)
-
-	// 2
-	var b []map[string]string
-	err = NewTable(db).SelectAuto(Man{}).Where("id<5").FindAll(&b, func(_row interface{}) error {
-		v := _row.(map[string]string)
-		v["name"] = "被修改了"
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
+	t.Log("total: ", total2)
+	if total1 != total2 || total2 != total3 {
+		t.Error(noEqErr)
 	}
-	t.Log(b)
 }
 
 // FindOne 性能对比, 以下是在 mac11 m1 上测试
@@ -433,49 +527,146 @@ func BenchmarkFindOneOrm(b *testing.B) {
 }
 
 func TestFindAll(t *testing.T) {
-	var m []*Man
-	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m)
-	for _, v := range m {
-		fmt.Println(v)
-	}
-}
-
-func TestFindAll1(t *testing.T) {
-	var m []*Man
-	err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m, func(_row interface{}) error {
-		v := _row.(*Man)
-		if v.Id == 5 {
-			v.Name = "test"
+	t.Log("find all test start")
+	t.Run("findAll 2 struct ptr slice", func(t *testing.T) {
+		var m []*Man
+		err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 0).FindAll(&m)
+		if err != nil {
+			t.Fatal(err)
 		}
-		fmt.Println(v.Id, v.Name, v.Age)
-		return nil
+		if len(m) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+
+		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
+			t.Error(noEqErr)
+		}
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("%+v", m)
-	for _, v := range m {
-		fmt.Println(v)
-	}
+
+	t.Run("findAll 2 map slice", func(t *testing.T) {
+		var m []map[string]string
+		err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 0).FindAll(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+
+		age, _ := strconv.Atoi(m[0]["age"])
+		if !equal(m[0]["name"], sureName) || !equal(int32(age), sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("query", func(t *testing.T) {
+		rows, err := NewTable(db).SelectAuto(Man{}).Where("id>?", 0).Query()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+
+		var m []Man
+		for rows.Next() {
+			var (
+				id, age        int
+				name, nickname string
+				addr           sql.NullString
+			)
+			err = rows.Scan(&id, &name, &age, &addr, &nickname)
+			if err != nil {
+				t.Log(err)
+			}
+			m = append(m, Man{
+				Name:     name,
+				Age:      int32(age),
+			})
+			// t.Log(id, name, age, addr.String, nickname)
+		}
+		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findAll oneField slice", func(t *testing.T) {
+		var names []string
+		err := NewTable(db, "man").Select("name").Where("id>?", 0).FindAll(&names)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(names) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+		if !equal(names[0], sureName) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findAll selectCallBack struct slice", func(t *testing.T) {
+		var m []*Man
+		tmp := "被修改了"
+		err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 0).FindAll(&m, func(_row interface{}) error {
+			v := _row.(*Man)
+			if v.Id == 1 {
+				v.Name = tmp
+
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+
+		if !equal(m[0].Name, tmp) || !equal(m[0].Age, sureAge) || !equal(m[0].Addr, "") {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findAll selectCallBack map slice", func(t *testing.T) {
+		var b []map[string]string
+		tmp := "被修改了"
+		err := NewTable(db).SelectAuto(Man{}).Where("id>0").FindAll(&b, func(_row interface{}) error {
+			v := _row.(map[string]string)
+			if v["id"] == "1" {
+				v["name"] = tmp
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(b) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+		age, _ := strconv.Atoi(b[0]["age"])
+		if !equal(b[0]["name"], tmp) || !equal(int32(age), sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Log("find all test end")
 }
 
-func TestFindAll2(t *testing.T) {
-	var names []string
-	fn := func(_row interface{}) error {
-		n := _row.(string)
-		fmt.Println(n)
-		return nil
-	}
-	err := NewTable(db, "man").Select("addr").Where("id>?", 1).FindAll(&names, fn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(len(names), names)
-}
+// func TestSqlxSelect(t *testing.T) {
+// 	var m []*Man
+// 	sqlStr := FmtSqlStr("SELECT id,name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)
+// 	err := sqlxdb.Select(&m, sqlStr)
+// 	if err != nil { // 没有处理 NULL
+// 		t.Fatal(err)
+// 	}
+// 	t.Log(m)
+// 	for _, v := range m {
+// 		t.Log(v)
+// 	}
+// }
 
 // 以下是在 mac11 m1 上测试
 // go test -benchmem -run=^$ -bench ^BenchmarkFindAll gitee.com/xuesongtao/spellsql -v -count=5
