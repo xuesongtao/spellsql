@@ -42,15 +42,22 @@ var (
 )
 
 type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
+type Marshal func(v interface{}) ([]byte, error)
+type Unmarshal func(data []byte, v interface{}) error
 
-// TableColInfo 表列详情
-type TableColInfo struct {
+// tableColInfo 表列详情
+type tableColInfo struct {
 	Field   string // 字段名
 	Type    string // 数据库类型
 	Null    string // 是否为 NULL
 	Key     string
 	Default sql.NullString
 	Extra   string
+}
+
+type handleColFn struct {
+	marshal   Marshal
+	unmarshal Unmarshal
 }
 
 // Table
@@ -64,7 +71,8 @@ type Table struct {
 	tag              string                   // 记录解析 struct 中字段名的 tag
 	name             string                   // 表名
 	destTypeBitmap   [4]bool                  // 查询时, 用于标记 dest 类型的位图
-	cacheCol2InfoMap map[string]*TableColInfo // 记录该表的所有字段名
+	cacheCol2InfoMap map[string]*tableColInfo // 记录该表的所有字段名
+	handleColMap     map[string]*handleColFn  // 处理 col 的方法
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
@@ -158,7 +166,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 
 	// 先判断下缓存中有没有
 	if info, ok := cacheTableName2ColInfoMap.Load(t.name); ok {
-		t.cacheCol2InfoMap, ok = info.(map[string]*TableColInfo)
+		t.cacheCol2InfoMap, ok = info.(map[string]*tableColInfo)
 		if ok {
 			return nil
 		}
@@ -172,9 +180,9 @@ func (t *Table) initCacheCol2InfoMap() error {
 	defer rows.Close()
 
 	columns, _ := rows.Columns()
-	t.cacheCol2InfoMap = make(map[string]*TableColInfo, len(columns))
+	t.cacheCol2InfoMap = make(map[string]*tableColInfo, len(columns))
 	for rows.Next() {
-		var info TableColInfo
+		var info tableColInfo
 		err = rows.Scan(&info.Field, &info.Type, &info.Null, &info.Key, &info.Default, &info.Extra)
 		if err != nil {
 			return fmt.Errorf("mysql scan is failed, err: %v", err)
@@ -186,14 +194,52 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
+// SetMarshalFn2Col 设置列名的序列化方法
+func (t *Table) SetMarshalFn2Col(fn Marshal, cols ...string) error {
+	if t.handleColMap == nil {
+		t.handleColMap = make(map[string]*handleColFn, len(cols))
+	}
+	for _, col := range cols {
+		if _, ok := t.handleColMap[col]; ok {
+			t.handleColMap[col].marshal = fn
+		} else {
+			t.handleColMap[col] = &handleColFn{marshal: fn}
+		}
+	}
+	return nil
+}
+
+// SetMarshalFn2Col 设置列名的反序列化方法
+func (t *Table) SetUnmarshalFn2Col(fn Unmarshal, cols ...string) error {
+	if t.handleColMap == nil {
+		t.handleColMap = make(map[string]*handleColFn, len(cols))
+	}
+	for _, col := range cols {
+		if _, ok := t.handleColMap[col]; ok {
+			t.handleColMap[col].unmarshal = fn
+		} else {
+			t.handleColMap[col] = &handleColFn{unmarshal: fn}
+		}
+	}
+	return nil
+}
+
 // structNeedSkip 跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
-func (t *Table) structNeedSkip(fieldInfo reflect.StructField) bool {
+func (t *Table) structNeedSkip(fieldInfo reflect.StructField, isSureMarshal ...bool) (skip bool, needMarshal bool) {
 	switch fieldInfo.Type.Kind() {
 	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Struct: // 不处理嵌套
-		return true
+		skip = true
+		if len(isSureMarshal) > 0 && isSureMarshal[0] {
+			if v, ok := t.handleColMap[fieldInfo.Name]; ok {
+				needMarshal = v.marshal != nil
+				skip = !needMarshal
+			}
+		}
+		return
 	}
 
-	return !isExported(fieldInfo.Name)
+	skip = !isExported(fieldInfo.Name)
+	return
 }
 
 // getHandleTableCol2Val 用于新增/删除/修改时, 解析结构体中对应列名和值
@@ -218,7 +264,8 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	values = make([]interface{}, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		structField := ty.Field(i)
-		if t.structNeedSkip(structField) {
+		skip, needMarshal := t.structNeedSkip(structField, true)
+		if skip {
 			continue
 		}
 
@@ -246,7 +293,15 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 			continue
 		}
 		columns = append(columns, column)
-		values = append(values, val.Interface())
+		if needMarshal {
+			dataBytes, err := t.handleColMap[column].marshal(val.Interface())
+			if err != nil {
+				return nil, nil, err
+			}
+			values = append(values, string(dataBytes))
+		} else {
+			values = append(values, val.Interface())
+		}
 	}
 
 	if len(columns) == 0 || len(values) == 0 {
@@ -519,7 +574,7 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2Field
 	sortCol = make([]string, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		structField := ty.Field(i)
-		if t.structNeedSkip(structField) {
+		if skip, _ := t.structNeedSkip(structField); skip {
 			continue
 		}
 		val := structField.Tag.Get(t.tag)
@@ -755,10 +810,15 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 }
 
 // nullScan 空值scan
-func (t *Table) nullScan(dest, src interface{}) (err error) {
+func (t *Table) nullScan(dest, src interface{}, needUnmarshalCol ...string) (err error) {
 	switch val := src.(type) {
 	case *sql.NullString:
-		err = convertAssign(dest, val.String)
+		if len(needUnmarshalCol) > 0 && needUnmarshalCol[0] != "" {
+			handleColFn := t.handleColMap[needUnmarshalCol[0]]
+			err = handleColFn.unmarshal([]byte(val.String), dest)
+		} else {
+			err = convertAssign(dest, val.String)
+		}
 		val.String = ""
 		cacheNullString.Put(val)
 	case *sql.NullInt64:
@@ -777,6 +837,12 @@ func (t *Table) nullScan(dest, src interface{}) (err error) {
 func (t *Table) setDest(dest reflect.Value, colTypes []*sql.ColumnType, fieldIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
 	if t.destTypeBitmap[structNo] {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
+			if _, ok := t.handleColMap[colTypes[nullIndex].Name()]; ok {
+				if err := t.nullScan(dest.Field(fieldIndex).Addr().Interface(), scanResult[nullIndex], colTypes[nullIndex].Name()); err != nil {
+					return err
+				}
+				continue
+			}
 			if err := t.nullScan(dest.Field(fieldIndex).Addr().Interface(), scanResult[nullIndex]); err != nil {
 				return err
 			}
