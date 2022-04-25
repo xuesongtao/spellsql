@@ -888,6 +888,8 @@ func (t *Table) GroupBy(sqlStr string) *Table {
 
 // Raw 执行原生操作
 // sql sqlStr 或 *SqlStrObj
+// 说明: 在使用时, 设置了 tableName 时性能更好, 因为在调用 getScanValues 前需要
+// 通过 tableName 获取表元信息, 再判断字段是否为 NULL, 在没有表元信息时会将所有查询结果都按 NULL 类型处理
 func (t *Table) Raw(sql interface{}) *Table {
 	switch val := sql.(type) {
 	case string:
