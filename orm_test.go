@@ -222,6 +222,8 @@ func TestUpdate(t *testing.T) {
 
 }
 
+// find 单元测试: go test -run ^TestFind
+
 func TestFindOne(t *testing.T) {
 	t.Log("find one test start")
 	t.Run("select 2 struct", func(t *testing.T) {
