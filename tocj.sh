@@ -52,6 +52,7 @@ function updateCjGoFile() {
 
 function gitHandle() {
     # $1 项目路径
+    # $2 commit 信息
 
     projectDir=$1
     cd $projectDir
@@ -65,8 +66,8 @@ function gitHandle() {
     git add $waitGitAdd
     checkIsOk "git add ${waitGitAdd}"
 
-    git commit -m "update getsqlstr"
-    checkIsOk "git commit"
+    git commit -m $2
+    checkIsOk "git commit ${2}"
 
     git push
     checkIsOk "git push"
@@ -74,6 +75,7 @@ function gitHandle() {
 
 function startHandle() {
     # $1 gofile
+    # $2 git commit msg
 
     goFile=$1
     goFilePathDir="/app/model/mysql"
@@ -92,15 +94,22 @@ function startHandle() {
         "${goFilePathDir}/getsqlstr_test.go" \
         "${goFilePathDir}/orm.go" \
         "${goFilePathDir}/orm_test.go"
-    gitHandle $projectDir
+    gitHandle $projectDir "${2}"
     printf "======= 处理成功: %s ===========\n" $projectDir
 }
 
 function main() {
     # $1 gofile 有值只处理此项目中的内容 getsqlstr.go 和 getsqlstr_test.go
 
+    gitCommitMsg=""
+    printf "git commit msg(默认, update getsqlstr): "
+    read gitCommitMsg
+    if [[ $gitCommitMsg == "" ]]; then 
+        gitCommitMsg="update getsqlstr"
+    fi
+
     if [[ $1 != "" ]]; then
-        startHandle $1
+        startHandle $1 "${gitCommitMsg}"
         return
     fi
 
@@ -111,7 +120,7 @@ function main() {
             continue
         fi
         sleep 1
-        startHandle $goFile
+        startHandle $goFile "${gitCommitMsg}"
     done
 }
 
