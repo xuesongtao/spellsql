@@ -2,6 +2,8 @@ package spellsql
 
 import (
 	"database/sql"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"strconv"
 	"testing"
@@ -23,17 +25,30 @@ const (
 // 	`age` int NOT NULL,
 // 	`addr` varchar(50) DEFAULT NULL,
 // 	`hobby` varchar(255) DEFAULT '',
-// 	`ext` text,
+// 	`json_txt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
 // 	`nickname` varchar(30) DEFAULT '',
+// 	`xml_txt` text,
+// 	`json1_txt` varchar(255),
 // 	PRIMARY KEY (`id`)
-// )
+//   )
 
 type Man struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
 	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
 	Age      int32  `json:"age,omitempty" gorm:"age" db:"age"`
 	Addr     string `json:"addr,omitempty" gorm:"addr" db:"addr"`
-	NickName string `json:"nickname" gorm:"nickname" db:"nickname"`
+	NickName string `json:"nickname,omitempty" gorm:"nickname" db:"nickname"`
+	JsonTxt  Tmp    `json:"json_txt,omitempty"`
+	XmlTxt   Tmp    `json:"xml_txt,omitempty"`
+	Json1Txt Tmp    `json:"json1_txt,omitempty"`
+}
+
+type ManCopy struct {
+	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
+	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
+	Age      int32  `json:"age,omitempty" gorm:"age" db:"age"`
+	Addr     string `json:"addr,omitempty" gorm:"addr" db:"addr"`
+	NickName string `json:"nickname,omitempty" gorm:"nickname" db:"nickname"`
 }
 
 type Student struct {
@@ -45,7 +60,8 @@ type Student struct {
 }
 
 type Tmp struct {
-	Name string
+	Name string `json:"name,omitempty" xml:"name"`
+	Data string `json:"data,omitempty" xml:"data"`
 }
 
 var (
@@ -152,6 +168,18 @@ func TestInsert(t *testing.T) {
 		Name: "xue1234",
 		Age:  18,
 		Addr: "成都市",
+		JsonTxt: Tmp{
+			Name: "json",
+			Data: "test json marshal",
+		},
+		XmlTxt: Tmp{
+			Name: "xml",
+			Data: "test xml marshal",
+		},
+		Json1Txt: Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		},
 	}
 
 	t.Run("insert for obj", func(t *testing.T) {
@@ -166,6 +194,23 @@ func TestInsert(t *testing.T) {
 		_, err := ExecForSql(db, sqlObj)
 		if err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("insert marshal", func(t *testing.T) {
+		tableObj := NewTable(db, "man")
+		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
+		res, err := tableObj.Insert(m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
 		}
 	})
 }
@@ -203,6 +248,18 @@ func TestUpdate(t *testing.T) {
 		Name: "xue12",
 		Age:  20,
 		Addr: "测试",
+		JsonTxt: Tmp{
+			Name: "json",
+			Data: "test json marshal",
+		},
+		XmlTxt: Tmp{
+			Name: "xml",
+			Data: "test xml marshal",
+		},
+		Json1Txt: Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		},
 	}
 
 	t.Run("update for obj", func(t *testing.T) {
@@ -215,6 +272,15 @@ func TestUpdate(t *testing.T) {
 	t.Run("update for sql", func(t *testing.T) {
 		sqlObj := NewCacheSql("UPDATE man SET name=?,age=?,addr=? WHERE id=?", m.Name, m.Age, m.Addr, 7)
 		_, err := ExecForSql(db, sqlObj)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("update marshal", func(t *testing.T) {
+		tableObj := NewTable(db, "man")
+		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+		_, err := tableObj.Update(m, "id=?", 7).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -234,6 +300,34 @@ func TestFindOne(t *testing.T) {
 		}
 
 		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findOne unmarshal", func(t *testing.T) {
+		var m Man
+		tableObj := NewTable(db)
+		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
+		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
+		err := tableObj.SelectAuto(Man{}).Where("id=1").FindOneFn(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		jsonTxt := Tmp{
+			Name: "json",
+			Data: "test json marshal",
+		}
+		xmlTxt := Tmp{
+			Name: "xml",
+			Data: "test xml marshal",
+		}
+		json1Txt := Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		}
+		t.Logf("%+v", m)
+		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) || !structValEqual(m.JsonTxt, jsonTxt) || !structValEqual(m.XmlTxt, xmlTxt) || !structValEqual(m.Json1Txt, json1Txt) {
 			t.Error(noEqErr)
 		}
 	})
@@ -354,6 +448,34 @@ func TestFindOne(t *testing.T) {
 	t.Log("find one test end")
 }
 
+func TestTmp(t *testing.T) {
+	var m Man
+	tableObj := NewTable(db).SelectAuto(Man{})
+	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
+	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
+	err := tableObj.Where("id=1").FindOneFn(&m)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	jsonTxt := Tmp{
+		Name: "json",
+		Data: "test json marshal",
+	}
+	xmlTxt := Tmp{
+		Name: "xml",
+		Data: "test xml marshal",
+	}
+	json1Txt := Tmp{
+		Name: "json1",
+		Data: "test json1 marshal",
+	}
+	t.Logf("%+v", m)
+	if !equal(m.Name, sureName) || !equal(m.Age, sureAge) || !structValEqual(m.JsonTxt, jsonTxt) || !structValEqual(m.XmlTxt, xmlTxt) || !structValEqual(m.Json1Txt, json1Txt) {
+		t.Error(noEqErr)
+	}
+}
+
 func TestFindWhere(t *testing.T) {
 	t.Log("find where test start")
 	t.Run("findWhere 2 one field", func(t *testing.T) {
@@ -419,6 +541,34 @@ func TestFindWhere(t *testing.T) {
 
 		// 按 id=1 判断
 		if !equal(b[0]["name"], sureName) || !equal(b[0]["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findWhere unmarshal", func(t *testing.T) {
+		var m Man
+		tableObj := NewTable(db)
+		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
+		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
+		err := tableObj.SelectAuto(Man{}).FindWhere(&m, "id=?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		jsonTxt := Tmp{
+			Name: "json",
+			Data: "test json marshal",
+		}
+		xmlTxt := Tmp{
+			Name: "xml",
+			Data: "test xml marshal",
+		}
+		json1Txt := Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		}
+		// t.Logf("%+v", m)
+		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) || !structValEqual(m.JsonTxt, jsonTxt) || !structValEqual(m.XmlTxt, xmlTxt) || !structValEqual(m.Json1Txt, json1Txt) {
 			t.Error(noEqErr)
 		}
 	})
@@ -500,7 +650,7 @@ func TestCount(t *testing.T) {
 func BenchmarkFindOneGorm(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m Man
+		var m ManCopy
 		gdb.Table("man").Find(&m, "id=?", 1)
 	}
 	b.StopTimer()
@@ -585,7 +735,6 @@ func TestFindAll(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-
 		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
 			t.Error(noEqErr)
 		}
@@ -601,7 +750,6 @@ func TestFindAll(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-
 		age, _ := strconv.Atoi(m[0]["age"])
 		if !equal(m[0]["name"], sureName) || !equal(int32(age), sureAge) {
 			t.Error(noEqErr)
@@ -699,6 +847,40 @@ func TestFindAll(t *testing.T) {
 		}
 	})
 
+	t.Run("findWhere unmarshal", func(t *testing.T) {
+		var m []Man
+		var err error
+		tableObj := NewTable(db)
+		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
+		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
+		err = tableObj.SelectAuto(Man{}).FindWhere(&m, "id>0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) == 0 {
+			t.Error("res is null")
+			return
+		}
+
+		jsonTxt := Tmp{
+			Name: "json",
+			Data: "test json marshal",
+		}
+		xmlTxt := Tmp{
+			Name: "xml",
+			Data: "test xml marshal",
+		}
+		json1Txt := Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		}
+		// t.Logf("%+v", m)
+		first := m[0]
+		if !equal(first.Name, sureName) || !equal(first.Age, sureAge) || !structValEqual(first.JsonTxt, jsonTxt) || !structValEqual(first.XmlTxt, xmlTxt) || !structValEqual(first.Json1Txt, json1Txt) {
+			t.Error(noEqErr)
+		}
+	})
+
 	t.Log("find all test end")
 }
 
@@ -721,7 +903,7 @@ func TestSqlxSelect(t *testing.T) {
 func BenchmarkFindAllGorm(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m []*Man
+		var m []*ManCopy
 		// sqlStr := FmtSqlStr("SELECT * FROM man WHERE id>?", 1)
 		gdb.Table("man").Limit(10).Find(&m, "id>?", 1)
 		// b.Log(m)

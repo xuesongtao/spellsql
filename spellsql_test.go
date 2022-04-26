@@ -11,6 +11,22 @@ const (
 	noEqErr = "src, dest is not eq"
 )
 
+func structValEqual(dest, src interface{}) bool {
+	destVal := removeValuePtr(reflect.ValueOf(dest))
+	srcVal := removeValuePtr(reflect.ValueOf(src))
+	if destVal.NumField() != srcVal.NumField() {
+		fmt.Printf("dest: %v\n", dest)
+		fmt.Printf("src: %v\n", src)
+		return false
+	}
+	for i := 0; i < destVal.NumField(); i++ {
+		if ok := equal(destVal.Field(i).Interface(), srcVal.Field(i).Interface()); !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func equal(dest, src interface{}) bool {
 	ok := reflect.DeepEqual(dest, src)
 	if !ok {
