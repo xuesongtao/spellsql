@@ -778,9 +778,10 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		}
 
 		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
+		// canNull, _ := colType.Nullable() // 根据此获取的 NULL 值不准确, 但如果有值的话会是准确的
 		colInfo := t.cacheCol2InfoMap[colName]
-		// fmt.Printf("colInfo: %+v\n", colInfo)
-		if (colInfo != nil && colInfo.Null == "YES") || colInfo == nil { // colInfo == nil 说明初始化表失败, 就直接通过空处理, 查询的时候只会在 t.Query 里
+		// fmt.Printf("canNull: %v colInfo: %+v\n", canNull, colInfo) canNull || colInfo == nil ||
+		if colInfo == nil || (colInfo != nil && colInfo.Null == "YES") { // colInfo == nil 说明初始化表失败, 就直接通过空处理, 查询的时候只会在 Query 里初始化
 			// fmt.Println(colName)
 			switch colType.ScanType().Name() {
 			case "NullInt64":
@@ -997,7 +998,7 @@ func (t *Table) GroupBy(sqlStr string) *Table {
 
 // Raw 执行原生操作
 // sql sqlStr 或 *SqlStrObj
-// 说明: 在使用时, 设置了 tableName 时性能更好, 因为在调用 getScanValues 前需要
+// 说明: 在使用时, 设置了 tableName 时查询性能更好, 因为在调用 getScanValues 前需要
 // 通过 tableName 获取表元信息, 再判断字段是否为 NULL, 在没有表元信息时会将所有查询结果都按 NULL 类型处理
 func (t *Table) Raw(sql interface{}) *Table {
 	switch val := sql.(type) {
@@ -1068,7 +1069,8 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	return err
 }
 
-// Query 多行查询, 返回的 sql.Rows 需要调用 Close
+// Query 多行查询
+// 注: 返回的 sql.Rows 需要调用 Close
 func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 	defaultNeedCache := true
 	if len(isNeedCache) > 0 {
@@ -1177,6 +1179,18 @@ func SelectFindWhere(db DBer, fields interface{}, tableName string, dest interfa
 // fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
 func SelectFindOne(db DBer, fields interface{}, tableName string, where string, dest ...interface{}) error {
 	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindOne(dest...)
+}
+
+// SelectFindOneFn 单行指定内容查询
+// fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+func SelectFindOneFn(db DBer, fields interface{}, tableName string, where string, dest interface{}, fn ...SelectCallBackFn) error {
+	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindOneFn(dest, fn...)
+}
+
+// SelectFindAll 多行指定内容查询
+// fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+func SelectFindAll(db DBer, fields interface{}, tableName string, where string, dest interface{}, fn ...SelectCallBackFn) error {
+	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindAll(dest, fn...)
 }
 
 // FindOne 单查询
