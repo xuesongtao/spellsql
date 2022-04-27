@@ -450,7 +450,7 @@ func TestFindOne(t *testing.T) {
 
 func TestTmp(t *testing.T) {
 	var m Man
-	tableObj := NewTable(db).SelectAuto(Man{})
+	tableObj := NewTable(db).Raw("SELECT id, name, age, addr, nickname FROM man WHERE id=1")
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
 	err := tableObj.Where("id=1").FindOneFn(&m)
