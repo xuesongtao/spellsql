@@ -1181,6 +1181,18 @@ func SelectFindOne(db DBer, fields interface{}, tableName string, where string, 
 	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindOne(dest...)
 }
 
+// SelectFindOneFn 单行指定内容查询
+// fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+func SelectFindOneFn(db DBer, fields interface{}, tableName string, where string, dest interface{}, fn ...SelectCallBackFn) error {
+	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindOneFn(dest, fn...)
+}
+
+// SelectFindAll 多行指定内容查询
+// fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+func SelectFindAll(db DBer, fields interface{}, tableName string, where string, dest interface{}, fn ...SelectCallBackFn) error {
+	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindAll(dest, fn...)
+}
+
 // FindOne 单查询
 // sql sqlStr 或 *SqlStrObj
 func FindOne(db DBer, sql interface{}, dest ...interface{}) error {
