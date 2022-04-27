@@ -66,7 +66,7 @@ function gitHandle() {
     git add $waitGitAdd
     checkIsOk "git add ${waitGitAdd}"
 
-    git commit -m $2
+    git commit -m "${2}"
     checkIsOk "git commit ${2}"
 
     git push
@@ -114,7 +114,7 @@ function main() {
     fi
 
     for goFile in $(find "/Users/xuesongtao/goProject/src/workGo" -name "getsqlstr.go"); do
-        skipFile=$(awk 'BEGIN {print index("'${goFile}'", "aist/management")}') # 不更新的
+        skipFile=$(awk 'BEGIN {print index("'${goFile}'", "aist")}') # 不更新的
         if [[ $skipFile > 0 ]]; then
             printf "${goFile} is skip\n"
             continue
@@ -124,8 +124,5 @@ function main() {
     done
 }
 
-main
-# main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr.go"
-# main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/getsqlstr_test.go"
-# main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/orm.go"
-# main "/Users/xuesongtao/goProject/src/workGo/aesm/appside_server/app/model/mysql/orm_test.go"
+# main
+main "/Users/xuesongtao/goProject/src/workGo/aist/EOS_SERVER/app/model/mysql/getsqlstr.go "
