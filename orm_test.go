@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	sureName = "xuesongtao"
+	sureName = "测试1"
 	sureAge  = int32(20)
 )
 
@@ -97,7 +97,7 @@ func InitMyDb(...uint8) {
 func TestParseTable(t *testing.T) {
 	m := Man{
 		Id:       1,
-		Name:     "xuesongtao",
+		Name:     "测试",
 		Age:      20,
 		Addr:     "四川成都",
 		NickName: "a-tao",
@@ -435,31 +435,6 @@ func TestFindOne(t *testing.T) {
 }
 
 func TestTmp(t *testing.T) {
-	var m Man
-	tableObj := NewTable(db).Raw("SELECT id, name, age, addr, nickname FROM man WHERE id=1")
-	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
-	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-	err := tableObj.Where("id=1").FindOneFn(&m)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	jsonTxt := Tmp{
-		Name: "json",
-		Data: "test json marshal",
-	}
-	xmlTxt := Tmp{
-		Name: "xml",
-		Data: "test xml marshal",
-	}
-	json1Txt := Tmp{
-		Name: "json1",
-		Data: "test json1 marshal",
-	}
-	t.Logf("%+v", m)
-	if !equal(m.Name, sureName) || !equal(m.Age, sureAge) || !structValEqual(m.JsonTxt, jsonTxt) || !structValEqual(m.XmlTxt, xmlTxt) || !structValEqual(m.Json1Txt, json1Txt) {
-		t.Error(noEqErr)
-	}
 }
 
 func TestFindWhere(t *testing.T) {
