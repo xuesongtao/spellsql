@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	sureName = "xuesongtao"
+	sureName = "测试1"
 	sureAge  = int32(20)
 )
 
@@ -111,7 +111,7 @@ func init() {
 func TestParseTable(t *testing.T) {
 	m := Man{
 		Id:       1,
-		Name:     "xuesongtao",
+		Name:     "测试",
 		Age:      20,
 		Addr:     "四川成都",
 		NickName: "a-tao",
