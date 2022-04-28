@@ -244,8 +244,7 @@ func (t *Table) parseStructField2Col(fieldInfo reflect.StructField, args ...uint
 	// 去除 tag 中的干扰, 如: json:"xxx,omitempty"
 	col = t.parseTag2Col(col)
 
-	switch fieldInfo.Type.Kind() {
-	case reflect.Ptr, reflect.Slice, reflect.Struct: // 默认不处理嵌套, 如果有序列化操作就需要处理
+	if t.needSkipObj(fieldInfo.Type.Kind()) {
 		if len(args) == 0 {
 			col = "" // 没有的话就直接跳过
 			return
@@ -256,17 +255,27 @@ func (t *Table) parseStructField2Col(fieldInfo reflect.StructField, args ...uint
 			col = "" // 没有的话就直接跳过
 			return
 		}
+
 		switch args[0] {
 		case sureMarshal:
 			need = v.marshal != nil
 		case sureUnmarshal:
 			need = v.unmarshal != nil
-		default:
+		}
+		if !need {
 			col = "" // 没有的话就直接跳过
 		}
-		return
 	}
 	return
+}
+
+// needSkipObj 默认不处理嵌套对象
+func (t *Table) needSkipObj(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Struct, reflect.Ptr, reflect.Slice, reflect.Array:
+		return true
+	}
+	return false
 }
 
 // getHandleTableCol2Val 用于新增/删除/修改时, 解析结构体中对应列名和值
@@ -664,7 +673,10 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	}
 
 	t.loadDestTypeBitmap(ty)
-	colTypes, _ := rows.ColumnTypes()
+	colTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return err
+	}
 	colLen := len(colTypes)
 	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
@@ -711,7 +723,10 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 // scanOne 处理单个结果集
 func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
 	// t.loadDestTypeBitmap(ty) // 这里可以不用再处理
-	colTypes, _ := rows.ColumnTypes()
+	colTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return err
+	}
 	colLen := len(colTypes)
 	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
 	values := make([]interface{}, colLen)
@@ -777,11 +792,13 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			continue
 		}
 
-		// NULL 值处理, 防止 sql 报错, 否则就直接 scan 到 struct 字段值
-		// canNull, _ := colType.Nullable() // 根据此获取的 NULL 值不准确, 但如果有值的话会是准确的
+		// NULL 值处理, 防止 sql 报错, 否则就直接 Scan 到输入的 dest addr
+		// canNull, _ := colType.Nullable() // 根据此获取的 NULL 值不准确
 		colInfo := t.cacheCol2InfoMap[colName]
-		// fmt.Printf("canNull: %v colInfo: %+v\n", canNull, colInfo) canNull || colInfo == nil ||
-		if colInfo == nil || (colInfo != nil && colInfo.Null == "YES") { // colInfo == nil 说明初始化表失败, 就直接通过空处理, 查询的时候只会在 Query 里初始化
+		// fmt.Printf("canNull: %v colInfo: %+v\n", canNull, colInfo)
+
+		// colInfo == nil 说明初始化表失败(只要 tableName 存在就不会为空), 就直接通过 NULL 值处理, 查询的时候只会在 Query 里初始化
+		if colInfo == nil || (colInfo != nil && colInfo.Null == "YES") {
 			// fmt.Println(colName)
 			switch colType.ScanType().Name() {
 			case "NullInt64":
@@ -839,7 +856,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 func (t *Table) nullScan(dest, src interface{}, needUnmarshalCol ...string) (err error) {
 	switch val := src.(type) {
 	case *sql.NullString:
-		if len(needUnmarshalCol) > 0 && needUnmarshalCol[0] != "" { // 判断下是否需要反序列化
+		if len(needUnmarshalCol) > 0 { // 判断下是否需要反序列化
 			handleColFn := t.handleColFnMap[needUnmarshalCol[0]]
 			if val.String != "" {
 				err = handleColFn.unmarshal([]byte(val.String), dest)
@@ -861,13 +878,17 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalCol ...string) (err
 	return
 }
 
-// setDestIsSkip 设置值得时候判断是否跳过
-func (t *Table) setDestIsSkip(kind reflect.Kind) bool {
-	switch kind {
-	case reflect.Ptr, reflect.Slice, reflect.Struct:
-		return true
+// destFieldNeedUnmarshal 判断是否需要反序列化
+func (t *Table) destFieldNeedUnmarshal(kind reflect.Kind, col string) (bool, error) {
+	if t.needSkipObj(kind) {
+		if fn, ok := t.handleColFnMap[col]; ok { // 需要反序列化的
+			if fn.unmarshal != nil {
+				return true, nil
+			}
+		}
+		return false, fmt.Errorf("col %q to dest struct is (struct/ptr/slice/array), you should set unmarshal, you can call SetUnmarshalFn", col)
 	}
-	return false
+	return false, nil
 }
 
 // setDest 设置值
@@ -875,18 +896,17 @@ func (t *Table) setDest(dest reflect.Value, colTypes []*sql.ColumnType, fieldInd
 	if t.destTypeBitmap[structNo] {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
 			destFieldValue := dest.Field(fieldIndex)
-			if _, ok := t.handleColFnMap[colTypes[nullIndex].Name()]; ok { // 需要反序列化的
-				if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex], colTypes[nullIndex].Name()); err != nil {
+			col := colTypes[nullIndex].Name()
+			needUnmarshal, err := t.destFieldNeedUnmarshal(destFieldValue.Kind(), col)
+			if err != nil {
+				return err
+			}
+			if needUnmarshal {
+				if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex], col); err != nil {
 					return err
 				}
 				continue
 			}
-
-			// 防止如果 destFieldValue 能反序列化, 但又没有设置反序列化方法, 就跳过赋值操作
-			if t.setDestIsSkip(destFieldValue.Kind()) {
-				continue
-			}
-
 			if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex]); err != nil {
 				return err
 			}
@@ -1045,7 +1065,10 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		return nullRowErr
 	}
 
-	colTypes, _ := rows.ColumnTypes()
+	colTypes, err := rows.ColumnTypes()
+	if err != nil {
+		return err
+	}
 	colLen := len(colTypes)
 	if colLen != len(dest) {
 		return fmt.Errorf("select res len %d, dest len %d", colLen, len(dest))
