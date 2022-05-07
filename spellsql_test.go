@@ -321,6 +321,14 @@ func TestDistinctIdsStr(t *testing.T) {
 	}
 }
 
+func TestDistinctIds(t *testing.T) {
+	ids := []string{"0", "1", "2", "1", "0", "2"}
+	res := DistinctIds(ids)
+	if !equal([]string{"0", "1", "2"}, res) {
+		t.Error(noEqErr)
+	}
+}
+
 func BenchmarkIndexForBF1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		str := "SELECT kind_id, kind_name FROM item_kind WHERE"
