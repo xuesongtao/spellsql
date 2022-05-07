@@ -114,7 +114,7 @@ function main() {
     fi
 
     for goFile in $(find "/Users/xuesongtao/goProject/src/workGo" -name "getsqlstr.go"); do
-        skipFile=$(awk 'BEGIN {print index("'${goFile}'", "aist")}') # 不更新的
+        skipFile=$(awk 'BEGIN {print index("'${goFile}'", "aist/management")}') # 不更新的
         if [[ $skipFile > 0 ]]; then
             printf "${goFile} is skip\n"
             continue
@@ -124,5 +124,5 @@ function main() {
     done
 }
 
-# main
-main "/Users/xuesongtao/goProject/src/workGo/aist/EOS_SERVER/app/model/mysql/getsqlstr.go "
+main
+# main "/Users/xuesongtao/goProject/src/workGo/aist/EOS_SERVER/app/model/mysql/getsqlstr.go "

@@ -1189,6 +1189,7 @@ func DistinctIdsStr(s string, split string) string {
 func DistinctIds(ids []string) []string {
 	tmp := make(map[string]struct{}, len(ids))
 	res := make([]string, 0, len(ids))
+	
 	for _, id := range ids {
 		if _, ok := tmp[id]; !ok {
 			tmp[id] = struct{}{}
