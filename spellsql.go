@@ -1185,6 +1185,19 @@ func DistinctIdsStr(s string, split string) string {
 	return buf.String()
 }
 
+// DistinctIds 去重
+func DistinctIds(ids []string) []string {
+	tmp := make(map[string]struct{}, len(ids))
+	res := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := tmp[id]; !ok {
+			tmp[id] = struct{}{}
+			res = append(res, id)
+		}
+	}
+	return res
+}
+
 // ========================================= 以下为常用操作的封装 ==================================
 
 // GetSqlStr 适用直接获取 sqlStr, 每次会自动打印日志
