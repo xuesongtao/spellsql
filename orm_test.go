@@ -433,12 +433,16 @@ func TestFindOne(t *testing.T) {
 
 	t.Run("findOneIgnoreRes", func(t *testing.T) {
 		var (
-			id2InfoMap = make(map[int32]*Man)
+			id2InfoMap = make(map[int32]Man)
+			tmp        = "被修改了哦"
 			m          Man
 		)
 		err := NewTable(db).SelectAuto(m).Where("id>0").Limit(0, 10).FindOneIgnoreResult(&m, func(_row interface{}) error {
 			v := _row.(*Man)
-			id2InfoMap[v.Id] = v
+			if v.Id == 1 {
+				v.Name = tmp
+			}
+			id2InfoMap[v.Id] = *v
 			return nil
 		})
 		if err != nil {
@@ -448,7 +452,7 @@ func TestFindOne(t *testing.T) {
 		// 	t.Logf("%d>%+v", id, info)
 		// }
 		id1Info := id2InfoMap[1]
-		if !equal(id1Info.Name, sureName) || !equal(id1Info.Age, sureAge) {
+		if !equal(id1Info.Name, tmp) || !equal(id1Info.Age, sureAge) {
 			t.Error(noEqErr)
 		}
 	})
