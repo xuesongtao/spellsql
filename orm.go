@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	
 	// "github.com/gogf/gf/os/glog"
 )
 
@@ -527,7 +526,11 @@ func (t *Table) FindOne(dest ...interface{}) error {
 		t.tmpSqlObj.SetLimit(0, 1)
 	}
 	if len(dest) == 1 {
-		return t.find(dest[0])
+		ty, err := t.parseDestType(dest[0], []reflect.Kind{reflect.Struct, reflect.Map}, errors.New("dest should is struct/oneField/map"))
+		if err != nil && !t.isOneField(ty.Kind()) {
+			return err
+		}
+		return t.find(dest[0], ty, false)
 	}
 	t.printSqlCallSkip += 1
 	return t.QueryRowScan(dest...)
@@ -543,7 +546,26 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, 1)
 	}
-	return t.find(dest, fn...)
+	ty, err := t.parseDestType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, errors.New("dest should is struct/oneField/map"))
+	if err != nil && !t.isOneField(ty.Kind()) {
+		return err
+	}
+	return t.find(dest, ty, false, fn...)
+}
+
+// FindOneIgnoreResult 查询结果支持多个, 此使用场景为需要使用 SelectCallBackFn 对每行进行处理
+// 注: 因为查询的结果集为多个, dest 不为切片, 所有这个结果是不准确的
+// dest 支持 struct/map
+// fn 支持将查询结果行进行修改
+func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) error {
+	if t.sqlObjIsNil() {
+		t.SelectAll()
+	}
+	ty, err := t.parseDestType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, errors.New("dest should is struct/oneField/map"))
+	if err != nil && !t.isOneField(ty.Kind()) {
+		return err
+	}
+	return t.find(dest, ty, true, fn...)
 }
 
 // FindAll 多行查询
@@ -557,7 +579,11 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.tmpSqlObj.LimitIsEmpty() && t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
-	return t.find(dest, fn...)
+	ty, err := t.parseDestType(dest, []reflect.Kind{reflect.Slice}, errors.New("dest should is struct/oneField/map slice"))
+	if err != nil {
+		return err
+	}
+	return t.find(dest, ty, false, fn...)
 }
 
 // FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询
@@ -572,7 +598,12 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 	if t.tmpSqlObj.LimitIsEmpty() && t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
-	return t.find(dest)
+
+	ty, err := t.parseDestType(dest, nil, nil)
+	if err != nil {
+		return err
+	}
+	return t.find(dest, ty, false)
 }
 
 // parseCol2FieldIndex 通过解析输入结构体, 返回 map[tag 名]字段偏移量, 同时缓存起来
@@ -629,30 +660,62 @@ func (t *Table) loadDestTypeBitmap(dest reflect.Type) {
 		t.destTypeBitmap[i] = false
 	}
 
-	switch dest.Kind() {
+	switch kind := dest.Kind(); kind {
 	case reflect.Struct:
 		t.destTypeBitmap[structNo] = true
 	case reflect.Slice:
 		t.destTypeBitmap[sliceNo] = true
 	case reflect.Map:
 		t.destTypeBitmap[mapNo] = true
-	case reflect.Bool,
+	default:
+		if t.isOneField(kind) {
+			t.destTypeBitmap[oneFieldNo] = true
+		}
+	}
+
+}
+
+// isOneField 是否为单字段
+func (t *Table) isOneField(kind reflect.Kind) bool {
+	oneFieldKinds := []reflect.Kind{
+		reflect.Bool, reflect.String,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Float32, reflect.Float64, reflect.String:
-		t.destTypeBitmap[oneFieldNo] = true
+		reflect.Float32, reflect.Float64,
 	}
+	for _, v := range oneFieldKinds {
+		if v == kind {
+			return true
+		}
+	}
+	return false
+}
+
+// parseDestType 解析 dest kind
+func (t *Table) parseDestType(dest interface{}, shouldInKinds []reflect.Kind, outErr error) (ty reflect.Type, err error) {
+	ty = reflect.TypeOf(dest)
+	if ty.Kind() != reflect.Ptr {
+		err = errors.New("dest should is ptr")
+		return
+	}
+	ty = removeTypePtr(ty)
+	isIn := false
+	for _, kind := range shouldInKinds {
+		if ty.Kind() == kind {
+			isIn = true
+			break
+		}
+	}
+	if !isIn {
+		err = outErr
+		return
+	}
+	return
 }
 
 // find 查询处理入口, 根据 dest 类型进行分配处理
-func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) find(dest interface{}, ty reflect.Type, ignoreRes bool, fn ...SelectCallBackFn) error {
 	defer t.free()
-	ty := reflect.TypeOf(dest)
-	if ty.Kind() != reflect.Ptr {
-		return errors.New("dest should is ptr")
-	}
-	ty = removeTypePtr(ty)
-	t.loadDestTypeBitmap(ty)
 	t.printSqlCallSkip += 2
 
 	rows, err := t.Query(false)
@@ -661,8 +724,9 @@ func (t *Table) find(dest interface{}, fn ...SelectCallBackFn) error {
 	}
 	defer rows.Close()
 
+	t.loadDestTypeBitmap(ty)
 	if t.destTypeBitmap[structNo] || t.destTypeBitmap[mapNo] || t.destTypeBitmap[oneFieldNo] {
-		return t.scanOne(rows, ty, dest, fn...)
+		return t.scanOne(rows, ty, dest, ignoreRes, fn...)
 	} else if t.destTypeBitmap[sliceNo] {
 		return t.scanAll(rows, ty.Elem(), dest, fn...)
 	} else {
@@ -726,7 +790,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 }
 
 // scanOne 处理单个结果集
-func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignoreRes bool, fn ...SelectCallBackFn) error {
 	// t.loadDestTypeBitmap(ty) // 这里可以不用再处理
 	colTypes, err := rows.ColumnTypes()
 	if err != nil {
@@ -737,35 +801,43 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	values := make([]interface{}, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
-	base := reflect.New(ty).Elem()
-	if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
-		return err
-	}
+	haveNoData := true
+	for rows.Next() {
+		haveNoData = false
+		base := reflect.New(ty).Elem()
+		if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+			return err
+		}
 
-	if !rows.Next() { // 没有数据
-		return nullRowErr
-	}
+		if err := rows.Scan(values...); err != nil {
+			return err
+		}
 
-	if err := rows.Scan(values...); err != nil {
-		return err
-	}
+		if err := t.setDest(base, colTypes, fieldIndex2NullIndexMap, values); err != nil {
+			return err
+		}
 
-	if err := t.setDest(base, colTypes, fieldIndex2NullIndexMap, values); err != nil {
-		return err
-	}
-
-	if len(fn) == 1 { // 回调方法, 方便修改
-		if t.destTypeBitmap[mapNo] {
-			if err := fn[0](base.Interface()); err != nil {
-				return err
-			}
-		} else {
-			if err := fn[0](base.Addr().Interface()); err != nil {
-				return err
+		if len(fn) == 1 { // 回调方法, 方便修改
+			if t.destTypeBitmap[mapNo] {
+				if err := fn[0](base.Interface()); err != nil {
+					return err
+				}
+			} else {
+				if err := fn[0](base.Addr().Interface()); err != nil {
+					return err
+				}
 			}
 		}
+
+		if !ignoreRes { // 不忽略结果, 那只能出现在单行查询
+			destReflectValue.Set(base)
+			break
+		}
 	}
-	destReflectValue.Set(base)
+
+	if haveNoData {
+		return nullRowErr
+	}
 	return nil
 }
 
