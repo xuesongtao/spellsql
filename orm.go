@@ -482,6 +482,10 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 			}
 			selectFields = append(selectFields, col)
 		}
+		if len(selectFields) == 0 {
+			cjLog.Error("parse col is failed, you need to confirm whether to add tag(defaultTag: json)")
+			// glog.Error("parse col is failed, you need to confirm whether to add tag(defaultTag: json)")
+		}
 		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ", "), t.name)
 	default:
 		cjLog.Warning("src kind is not struct or slice struct")
