@@ -875,7 +875,9 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		colInfo := t.cacheCol2InfoMap[colName]
 		// fmt.Printf("canNull: %v colInfo: %+v\n", canNull, colInfo)
 
-		// colInfo == nil 说明初始化表失败(只要 tableName 存在就不会为空), 就直接通过 NULL 值处理, 查询的时候只会在 Query 里初始化
+		// 当 colInfo == nil 就直接通过 NULL 值处理, 如以下情况:
+		// 1. 说明初始化表失败(只要 tableName 存在就不会为空), 查询的时候只会在 Query 里初始化
+		// 2. sql 语句中使用了字段别名与表元信息字段名不一致
 		if colInfo == nil || (colInfo != nil && colInfo.Null == "YES") {
 			// fmt.Println(colName)
 			switch colType.ScanType().Name() {
