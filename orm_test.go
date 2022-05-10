@@ -646,7 +646,7 @@ func TestCount(t *testing.T) {
 	}
 }
 
-// FindOne 性能对比, 以下是在 mac12 m1 上测试
+// FindOne 性能对比, 以下是在 mac11 pro m1 上测试
 // go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindOneGorm(b *testing.B) {
@@ -899,7 +899,7 @@ func TestSqlxSelect(t *testing.T) {
 	}
 }
 
-// 以下是在 mac11 m1 上测试
+// 以下是在 mac11 pro m1 上测试
 // go test -benchmem -run=^$ -bench ^BenchmarkFindAll gitee.com/xuesongtao/spellsql -v -count=5
 
 func BenchmarkFindAllGorm(b *testing.B) {
