@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	
 	// "github.com/gogf/gf/os/glog"
 )
 
@@ -33,6 +34,8 @@ var (
 	sqlObjErr             = errors.New("tmpSqlObj is nil")
 	tableNameIsUnknownErr = errors.New("table name is unknown")
 	nullRowErr            = errors.New("row is null")
+	findOneDestTypeErr    = errors.New("dest should is struct/oneField/map")
+	findAllDestTypeErr    = errors.New("dest should is struct/oneField/map slice")
 )
 
 var (
@@ -526,8 +529,8 @@ func (t *Table) FindOne(dest ...interface{}) error {
 		t.tmpSqlObj.SetLimit(0, 1)
 	}
 	if len(dest) == 1 {
-		ty, err := t.parseDestType(dest[0], []reflect.Kind{reflect.Struct, reflect.Map}, errors.New("dest should is struct/oneField/map"))
-		if err != nil && !t.isOneField(ty.Kind()) {
+		ty, err := t.getDestReflectType(dest[0], []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
+		if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
 			return err
 		}
 		return t.find(dest[0], ty, false)
@@ -538,7 +541,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 
 // FindOneFn 单行查询
 // dest 支持 struct/单字段/map
-// fn 支持将查询结果行进行修改
+// fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为指针对象才能处理
 func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -546,8 +549,8 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, 1)
 	}
-	ty, err := t.parseDestType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, errors.New("dest should is struct/oneField/map"))
-	if err != nil && !t.isOneField(ty.Kind()) {
+	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
+	if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
 		return err
 	}
 	return t.find(dest, ty, false, fn...)
@@ -556,13 +559,13 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 // FindOneIgnoreResult 查询结果支持多个, 此使用场景为需要使用 SelectCallBackFn 对每行进行处理
 // 注: 因为查询的结果集为多个, dest 不为切片, 所有这个结果是不准确的
 // dest 支持 struct/map
-// fn 支持将查询结果行进行修改
+// fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为指针对象才能处理
 func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
 	}
-	ty, err := t.parseDestType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, errors.New("dest should is struct/oneField/map"))
-	if err != nil && !t.isOneField(ty.Kind()) {
+	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
+	if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
 		return err
 	}
 	return t.find(dest, ty, true, fn...)
@@ -571,7 +574,7 @@ func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) er
 // FindAll 多行查询
 // 如果没有指定查询条数, 默认 defaultBatchSelectSize
 // dest 支持(struct/单字段/map)切片
-// fn 支持将查询结果行进行处理
+// fn 支持将查询结果行进行处理, 需要处理每行内容时, fn 回调的 _row 需要类型断言为切片中的类型
 func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -579,7 +582,7 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.tmpSqlObj.LimitIsEmpty() && t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
-	ty, err := t.parseDestType(dest, []reflect.Kind{reflect.Slice}, errors.New("dest should is struct/oneField/map slice"))
+	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Slice}, findAllDestTypeErr)
 	if err != nil {
 		return err
 	}
@@ -599,7 +602,7 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
 
-	ty, err := t.parseDestType(dest, nil, nil)
+	ty, err := t.getDestReflectType(dest, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -677,22 +680,20 @@ func (t *Table) loadDestTypeBitmap(dest reflect.Type) {
 
 // isOneField 是否为单字段
 func (t *Table) isOneField(kind reflect.Kind) bool {
-	oneFieldKinds := []reflect.Kind{
-		reflect.Bool, reflect.String,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+	// 将常用的类型放在前面
+	switch kind {
+	case reflect.String,
+		reflect.Int64, reflect.Int32, reflect.Int, reflect.Int16, reflect.Int8,
+		reflect.Uint64, reflect.Uint32, reflect.Uint, reflect.Uint16, reflect.Uint8,
 		reflect.Float32, reflect.Float64,
-	}
-	for _, v := range oneFieldKinds {
-		if v == kind {
-			return true
-		}
+		reflect.Bool:
+		return true
 	}
 	return false
 }
 
-// parseDestType 解析 dest kind
-func (t *Table) parseDestType(dest interface{}, shouldInKinds []reflect.Kind, outErr error) (ty reflect.Type, err error) {
+// getDestReflectType 解析 dest kind
+func (t *Table) getDestReflectType(dest interface{}, shouldInKinds []reflect.Kind, outErr error) (ty reflect.Type, err error) {
 	ty = reflect.TypeOf(dest)
 	if ty.Kind() != reflect.Ptr {
 		err = errors.New("dest should is ptr")
@@ -835,7 +836,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 		}
 	}
 
-	if haveNoData {
+	if haveNoData && !ignoreRes {
 		return nullRowErr
 	}
 	return nil
@@ -1285,6 +1286,12 @@ func SelectFindOne(db DBer, fields interface{}, tableName string, where string, 
 // fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
 func SelectFindOneFn(db DBer, fields interface{}, tableName string, where string, dest interface{}, fn ...SelectCallBackFn) error {
 	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindOneFn(dest, fn...)
+}
+
+// SelectFindOneIgnoreResult 查询结果支持多个, 此使用场景为需要使用 SelectCallBackFn 对每行进行处理
+// fields 可以字符串(如: "name,age,addr"), 同时也可以为 struct/struct slice(如: Man/[]Man), 会将 struct 的字段解析为查询内容
+func SelectFindOneIgnoreResult(db DBer, fields interface{}, tableName string, where string, dest interface{}, fn ...SelectCallBackFn) error {
+	return NewTable(db).PrintSqlCallSkip(3).SelectAuto(fields, tableName).Where(where).FindOneIgnoreResult(dest, fn...)
 }
 
 // SelectFindAll 多行指定内容查询
