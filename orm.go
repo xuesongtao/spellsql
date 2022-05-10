@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	
 	// "github.com/gogf/gf/os/glog"
 )
 
@@ -209,9 +208,7 @@ func (t *Table) SetMarshalFn(fn Marshal, cols ...string) *Table {
 		t.handleColFnMap = make(map[string]*handleColFn, len(cols))
 	}
 	for _, col := range cols {
-		if _, ok := t.handleColFnMap[col]; ok {
-			t.handleColFnMap[col].marshal = fn
-		} else {
+		if _, ok := t.handleColFnMap[col]; !ok {
 			t.handleColFnMap[col] = &handleColFn{marshal: fn}
 		}
 	}
@@ -225,9 +222,7 @@ func (t *Table) SetUnmarshalFn(fn Unmarshal, cols ...string) *Table {
 		t.handleColFnMap = make(map[string]*handleColFn, len(cols))
 	}
 	for _, col := range cols {
-		if _, ok := t.handleColFnMap[col]; ok {
-			t.handleColFnMap[col].unmarshal = fn
-		} else {
+		if _, ok := t.handleColFnMap[col]; !ok {
 			t.handleColFnMap[col] = &handleColFn{unmarshal: fn}
 		}
 	}
@@ -281,7 +276,8 @@ func (t *Table) needSkipObj(kind reflect.Kind) bool {
 	return false
 }
 
-// getHandleTableCol2Val 用于新增/删除/修改时, 解析结构体中对应列名和值
+// getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
+// 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
 func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableName ...string) (columns []string, values []interface{}, err error) {
 	tv := removeValuePtr(reflect.ValueOf(v))
 	if tv.Kind() != reflect.Struct {
@@ -447,6 +443,10 @@ func (t *Table) Select(fields string) *Table {
 }
 
 // SelectAuto 根据输入类型进行自动推断要查询的字段值
+// src 如下:
+// 	1. 为 str 的话会被直接解析成查询字段
+// 	2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
+// 	3. 其他情况会被解析为查询所有
 func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	if len(tableName) > 0 {
 		t.name = tableName[0]
@@ -541,7 +541,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 
 // FindOneFn 单行查询
 // dest 支持 struct/单字段/map
-// fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为指针对象才能处理
+// fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
 func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -559,7 +559,7 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 // FindOneIgnoreResult 查询结果支持多个, 此使用场景为需要使用 SelectCallBackFn 对每行进行处理
 // 注: 因为查询的结果集为多个, dest 不为切片, 所有这个结果是不准确的
 // dest 支持 struct/map
-// fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为指针对象才能处理
+// fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
 func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -574,7 +574,7 @@ func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) er
 // FindAll 多行查询
 // 如果没有指定查询条数, 默认 defaultBatchSelectSize
 // dest 支持(struct/单字段/map)切片
-// fn 支持将查询结果行进行处理, 需要处理每行内容时, fn 回调的 _row 需要类型断言为切片中的类型
+// fn 支持将查询结果行进行处理, 需要处理每行内容时, fn 回调的 _row 需要类型断言为[切片中的类型]
 func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 	if t.sqlObjIsNil() {
 		t.SelectAll()
@@ -609,7 +609,7 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 	return t.find(dest, ty, false)
 }
 
-// parseCol2FieldIndex 通过解析输入结构体, 返回 map[tag 名]字段偏移量, 同时缓存起来
+// parseCol2FieldIndex 通过解析输入结构体, 返回 map[tag名]字段偏移量, 同时缓存起来
 func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2FieldIndexMap map[string]int, sortCol []string) {
 	// 非结构体就返回空
 	if ty.Kind() != reflect.Struct {
@@ -871,15 +871,18 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		}
 
 		// NULL 值处理, 防止 sql 报错, 否则就直接 Scan 到输入的 dest addr
-		// canNull, _ := colType.Nullable() // 根据此获取的 NULL 值不准确
-		colInfo := t.cacheCol2InfoMap[colName]
-		// fmt.Printf("canNull: %v colInfo: %+v\n", canNull, colInfo)
+		mayIsNull, _ := colType.Nullable() // 根据此获取的 NULL 值不准确(不同的 drive 返回不同), 但如果为 true 的话就没有问题
+		if !mayIsNull {                    // 防止误判, 再判断下
+			colInfo := t.cacheCol2InfoMap[colName]
 
-		// 当 colInfo == nil 就直接通过 NULL 值处理, 如以下情况:
-		// 1. 说明初始化表失败(只要 tableName 存在就不会为空), 查询的时候只会在 Query 里初始化
-		// 2. sql 语句中使用了字段别名与表元信息字段名不一致
-		if colInfo == nil || (colInfo != nil && colInfo.Null == "YES") {
-			// fmt.Println(colName)
+			// 当 colInfo == nil 就直接通过 NULL 值处理, 如以下情况:
+			// 1. 说明初始化表失败(只要 tableName 存在就不会为空), 查询的时候只会在 Query 里初始化
+			// 2. sql 语句中使用了字段别名与表元信息字段名不一致
+			mayIsNull = colInfo == nil || (colInfo != nil && colInfo.Null == "YES")
+			// fmt.Printf("mayIsNull: %v colInfo: %+v\n", mayIsNull, colInfo)
+		}
+		if mayIsNull {
+			// fmt.Println(colName, colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
 				values[i] = cacheNullInt64.Get().(*sql.NullInt64)
@@ -1063,6 +1066,25 @@ func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
 	return t
 }
 
+// WhereLike like 查询
+// likeType ALK-全模糊 RLK-右模糊 LLK-左模糊
+func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	} 
+	switch likeType {
+	case ALK:
+		t.tmpSqlObj.SetAllLike(filedName, value)
+	case RLK:
+		t.tmpSqlObj.SetRightLike(filedName, value)
+	case LLK:
+		t.tmpSqlObj.SetLeftLike(filedName, value)
+	}
+	return t
+}
+
 // OrderBy
 func (t *Table) OrderBy(sqlStr string) *Table {
 	if t.sqlObjIsNil() {
@@ -1085,7 +1107,7 @@ func (t *Table) Limit(page int32, size int32) *Table {
 	return t
 }
 
-// Group
+// GroupBy
 func (t *Table) GroupBy(sqlStr string) *Table {
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
@@ -1125,7 +1147,7 @@ func (t *Table) Exec() (sql.Result, error) {
 	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
 }
 
-// QueryRowScan 单行查询
+// QueryRowScan 单行多值查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
 	defer t.free()
 	if t.sqlObjIsNil() {
@@ -1173,7 +1195,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 }
 
 // Query 多行查询
-// 注: 返回的 sql.Rows 需要调用 Close
+// 注: 返回的 sql.Rows 需要调用 Close, 防止 goroutine 泄露
 func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 	defaultNeedCache := true
 	if len(isNeedCache) > 0 {
@@ -1189,7 +1211,7 @@ func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 		// glog.Error(sqlObjErr)
 		return nil, nil
 	}
-	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表面, 所有需要忽略错误
+	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
 	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
 }
 
