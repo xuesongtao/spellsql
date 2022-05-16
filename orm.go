@@ -136,8 +136,8 @@ func (t *Table) free() {
 	cacheTabObj.Put(t)
 }
 
-// Name 设置表名
-func (t *Table) Name(tableName string) *Table {
+// From 设置表名
+func (t *Table) From(tableName string) *Table {
 	t.name = tableName
 	return t
 }
@@ -1073,7 +1073,7 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
 		return nil
-	} 
+	}
 	switch likeType {
 	case ALK:
 		t.tmpSqlObj.SetAllLike(filedName, value)
@@ -1085,13 +1085,13 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 	return t
 }
 
-// Between 
+// Between
 func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
 		return nil
-	} 
+	}
 	t.tmpSqlObj.SetBetween(filedName, leftVal, rightVal)
 	return t
 }
