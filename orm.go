@@ -1086,13 +1086,13 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 }
 
 // Between 
-func (t *Table) Between(filedName string, l, r interface{}) *Table {
+func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
 	if t.sqlObjIsNil() {
 		cjLog.Error(sqlObjErr)
 		// glog.Error(sqlObjErr)
 		return nil
 	} 
-	t.tmpSqlObj.SetBetween(filedName, l, r)
+	t.tmpSqlObj.SetBetween(filedName, leftVal, rightVal)
 	return t
 }
 
