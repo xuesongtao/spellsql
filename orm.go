@@ -1085,6 +1085,17 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 	return t
 }
 
+// Between 
+func (t *Table) Between(filedName string, l, r interface{}) *Table {
+	if t.sqlObjIsNil() {
+		cjLog.Error(sqlObjErr)
+		// glog.Error(sqlObjErr)
+		return nil
+	} 
+	t.tmpSqlObj.SetBetween(filedName, l, r)
+	return t
+}
+
 // OrderBy
 func (t *Table) OrderBy(sqlStr string) *Table {
 	if t.sqlObjIsNil() {
