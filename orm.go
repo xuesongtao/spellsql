@@ -68,17 +68,18 @@ type handleColFn struct {
 
 // Table
 type Table struct {
-	db               DBer
-	printSqlCallSkip uint8                    // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
-	isPrintSql       bool                     // 标记是否打印 sql
-	haveFree         bool                     // 标记 table 释放已释放
-	needSetSize      bool                     // 标记批量查询的时候是否需要设置默认返回条数
-	tmpSqlObj        *SqlStrObj               // 暂存 SqlStrObj 对象
-	tag              string                   // 记录解析 struct 中字段名的 tag
-	name             string                   // 表名
-	destTypeBitmap   [4]bool                  // 查询时, 用于标记 dest 类型的位图
-	cacheCol2InfoMap map[string]*tableColInfo // 记录该表的所有字段名
-	handleColFnMap   map[string]*handleColFn  // 处理 col 的方法
+	db                DBer
+	printSqlCallSkip  uint8                    // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
+	isPrintSql        bool                     // 标记是否打印 sql
+	haveFree          bool                     // 标记 table 释放已释放
+	needSetSize       bool                     // 标记批量查询的时候是否需要设置默认返回条数
+	destTypeBitmap    [4]bool                  // 查询时, 用于标记 dest 类型的位图
+	tag               string                   // 记录解析 struct 中字段名的 tag
+	name              string                   // 表名
+	tmpSqlObj         *SqlStrObj               // 暂存 SqlStrObj 对象
+	cacheCol2InfoMap  map[string]*tableColInfo // 记录该表的所有字段名
+	handleColFnMap    map[string]*handleColFn  // 处理 col 的方法
+	needExcludeColMap map[string]bool          // 需要排除的字段, 用户 INSERT/UPDATE/DELETE
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
@@ -131,6 +132,7 @@ func (t *Table) free() {
 	t.name = ""
 	t.cacheCol2InfoMap = nil
 	t.handleColFnMap = nil
+	t.needExcludeColMap = nil
 
 	// 存放缓存
 	cacheTabObj.Put(t)
@@ -157,6 +159,19 @@ func (t *Table) NeedSetSize(need bool) *Table {
 // PrintSqlCallSkip 用于 sql 打印时候显示调用处的信息
 func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
 	t.printSqlCallSkip = skip
+	return t
+}
+
+// Exclude 对于 INSERT/UPDATE/DELETE 操作中解析时需要过滤的字段
+// fields 多个通过逗号隔开
+func (t *Table) Exclude(fields string) *Table {
+	if t.needExcludeColMap == nil {
+		t.needExcludeColMap = make(map[string]bool)
+	}
+
+	for _, field := range strings.Split(fields, ",") {
+		t.needExcludeColMap[field] = true
+	}
 	return t
 }
 
@@ -310,6 +325,10 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 		}
 
 		if isExcludePri && tableField.Key == "PRI" { // 主键, 防止更新
+			continue
+		}
+
+		if t.needExcludeColMap[col] { // 需要排除的
 			continue
 		}
 
