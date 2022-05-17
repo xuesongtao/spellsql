@@ -213,6 +213,21 @@ func TestInsert(t *testing.T) {
 			t.Error("insert is failed")
 		}
 	})
+
+	t.Run("insert exclude", func(t *testing.T) {
+		tableObj := NewTable(db, "man").Exclude("addr,json_txt,xml_txt,json1_txt")
+		res, err := tableObj.Insert(m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
 }
 
 func TestDelete(t *testing.T) {
