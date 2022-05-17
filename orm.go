@@ -370,6 +370,7 @@ func (t *Table) parseTag2Col(tag string) (column string) {
 }
 
 // Insert 提交, 支持批量提交
+// 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	if len(insertObjs) == 0 {
 		cjLog.Error("insertObjs is empty")
@@ -379,7 +380,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
-		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, false, t.name)
 		if err != nil {
 			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
 			// glog.Error("getHandleTableCol2Val is failed, err:", err)
@@ -423,6 +424,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 }
 
 // Update 会更新输入的值
+// 默认排除更新主键, 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
 	columns, values, err := t.getHandleTableCol2Val(updateObj, true, t.name)
 	if err != nil {

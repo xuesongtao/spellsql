@@ -124,20 +124,24 @@ func TestParseTable(t *testing.T) {
 }
 
 func TestGetNullType(t *testing.T) {
-	// CREATE TABLE test_col (
-	// 	id INT auto_increment PRIMARY KEY,
-	// 	l_tinyint TINYINT,
-	// 	l_int int,
-	// 	l_long LONG,
-	// 	l_float FLOAT,
-	// 	l_dec DECIMAL,
-	// 	l_char CHAR(10),
-	// 	l_varchar VARCHAR(10),
-	// 	l_text LONGTEXT
-	// ) COMMENT '测试字段';
+	// DROP TABLE IF EXISTS test_col;
+	// CREATE TABLE `test_col` (
+	// 	`id` int NOT NULL AUTO_INCREMENT,
+	// 	`id1` varchar(10) NOT NULL,
+	// 	`l_tinyint` tinyint DEFAULT NULL,
+	// 	`l_int` int DEFAULT NULL,
+	// 	`l_long` mediumtext,
+	// 	`l_float` float DEFAULT NULL,
+	// 	`l_dec` decimal(10,0) DEFAULT NULL,
+	// 	`l_char` char(10) DEFAULT NULL,
+	// 	`l_varchar` varchar(10) DEFAULT NULL,
+	// 	`l_text` longtext,
+	// 	PRIMARY KEY (`id`,`id1`)
+	//   )
 
 	type TestColInfo struct {
 		Id       int32  `json:"id,omitempty"`
+		Id1      int  `json:"id1,omitempty"`
 		LTinyint int8   `json:"l_tinyint,omitempty"`
 		LInt     int32  `json:"l_int,omitempty"`
 		LLong    string `json:"l_long,omitempty"`
@@ -152,7 +156,7 @@ func TestGetNullType(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(data)
+	t.Logf("%+v", data)
 
 	for i := 0; i < 1; i++ {
 		tab := NewTable(db, "test_col")
