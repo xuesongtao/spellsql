@@ -205,7 +205,7 @@ func TestInsert(t *testing.T) {
 	})
 
 	t.Run("insert exclude", func(t *testing.T) {
-		tableObj := NewTable(db, "man").Exclude("addr,json_txt,xml_txt,json1_txt")
+		tableObj := NewTable(db, "man").Exclude("addr")
 		res, err := tableObj.Insert(m).Exec()
 		if err != nil {
 			t.Fatal(err)

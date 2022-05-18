@@ -62,24 +62,24 @@ type tableColInfo struct {
 }
 
 type handleColFn struct {
-	marshal   Marshal
-	unmarshal Unmarshal
+	needExclude bool      // 是否需要排除
+	marshal     Marshal   // 序列化方法
+	unmarshal   Unmarshal // 反序列化方法
 }
 
 // Table
 type Table struct {
-	db                DBer
-	printSqlCallSkip  uint8                    // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
-	isPrintSql        bool                     // 标记是否打印 sql
-	haveFree          bool                     // 标记 table 释放已释放
-	needSetSize       bool                     // 标记批量查询的时候是否需要设置默认返回条数
-	destTypeBitmap    [4]bool                  // 查询时, 用于标记 dest 类型的位图
-	tag               string                   // 记录解析 struct 中字段名的 tag
-	name              string                   // 表名
-	tmpSqlObj         *SqlStrObj               // 暂存 SqlStrObj 对象
-	cacheCol2InfoMap  map[string]*tableColInfo // 记录该表的所有字段名
-	handleColFnMap    map[string]*handleColFn  // 处理 col 的方法
-	needExcludeColMap map[string]bool          // 需要排除的字段, 用户 INSERT/UPDATE/DELETE
+	db               DBer
+	printSqlCallSkip uint8                    // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
+	isPrintSql       bool                     // 标记是否打印 sql
+	haveFree         bool                     // 标记 table 释放已释放
+	needSetSize      bool                     // 标记批量查询的时候是否需要设置默认返回条数
+	destTypeBitmap   [4]bool                  // 查询时, 用于标记 dest 类型的位图
+	tag              string                   // 记录解析 struct 中字段名的 tag
+	name             string                   // 表名
+	tmpSqlObj        *SqlStrObj               // 暂存 SqlStrObj 对象
+	cacheCol2InfoMap map[string]*tableColInfo // 记录该表的所有字段名
+	handleColFnMap   map[string]*handleColFn  // 处理 col 的方法
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
@@ -132,7 +132,6 @@ func (t *Table) free() {
 	t.name = ""
 	t.cacheCol2InfoMap = nil
 	t.handleColFnMap = nil
-	t.needExcludeColMap = nil
 
 	// 存放缓存
 	cacheTabObj.Put(t)
@@ -159,19 +158,6 @@ func (t *Table) NeedSetSize(need bool) *Table {
 // PrintSqlCallSkip 用于 sql 打印时候显示调用处的信息
 func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
 	t.printSqlCallSkip = skip
-	return t
-}
-
-// Exclude 对于 INSERT/UPDATE/DELETE 操作中解析时需要过滤的字段
-// fields 多个通过逗号隔开
-func (t *Table) Exclude(fields string) *Table {
-	if t.needExcludeColMap == nil {
-		t.needExcludeColMap = make(map[string]bool)
-	}
-
-	for _, field := range strings.Split(fields, ",") {
-		t.needExcludeColMap[field] = true
-	}
 	return t
 }
 
@@ -216,14 +202,36 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
+// initHandleColFnMap 初始化
+func (t *Table) initHandleColFnMap(l int) {
+	if t.handleColFnMap != nil {
+		return
+	}
+	t.handleColFnMap = make(map[string]*handleColFn, l)
+}
+
+// Exclude 对于 INSERT/UPDATE/DELETE 操作中解析时需要过滤的字段
+// fields 多个通过逗号隔开
+func (t *Table) Exclude(cols ...string) *Table {
+	t.initHandleColFnMap(len(cols))
+	for _, col := range cols {
+		if _, ok := t.handleColFnMap[col]; ok {
+			t.handleColFnMap[col].needExclude = true
+		} else {
+			t.handleColFnMap[col] = &handleColFn{needExclude: true}
+		}
+	}
+	return t
+}
+
 // SetMarshalFn 设置列名的序列化方法
 // 注: 调用必须优先 Insert/Update 操作的方法, 防止通过对象解析字段时被排除
 func (t *Table) SetMarshalFn(fn Marshal, cols ...string) *Table {
-	if t.handleColFnMap == nil {
-		t.handleColFnMap = make(map[string]*handleColFn, len(cols))
-	}
+	t.initHandleColFnMap(len(cols))
 	for _, col := range cols {
-		if _, ok := t.handleColFnMap[col]; !ok {
+		if _, ok := t.handleColFnMap[col]; ok {
+			t.handleColFnMap[col].marshal = fn
+		} else {
 			t.handleColFnMap[col] = &handleColFn{marshal: fn}
 		}
 	}
@@ -233,11 +241,11 @@ func (t *Table) SetMarshalFn(fn Marshal, cols ...string) *Table {
 // SetMarshalFn 设置列名的反序列化方法
 // 注: 调用必须优先于 SelectAuto, 防止 SelectAuto 解析时查询字段被排除
 func (t *Table) SetUnmarshalFn(fn Unmarshal, cols ...string) *Table {
-	if t.handleColFnMap == nil {
-		t.handleColFnMap = make(map[string]*handleColFn, len(cols))
-	}
+	t.initHandleColFnMap(len(cols))
 	for _, col := range cols {
-		if _, ok := t.handleColFnMap[col]; !ok {
+		if _, ok := t.handleColFnMap[col]; ok {
+			t.handleColFnMap[col].unmarshal = fn
+		} else {
 			t.handleColFnMap[col] = &handleColFn{unmarshal: fn}
 		}
 	}
@@ -328,7 +336,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 			continue
 		}
 
-		if t.needExcludeColMap[col] { // 需要排除的
+		if handleColFn, ok := t.handleColFnMap[col]; ok && handleColFn.needExclude { // 需要排除的
 			continue
 		}
 
