@@ -118,24 +118,31 @@ func TestGetNullType(t *testing.T) {
 	// 	`l_int` int DEFAULT NULL,
 	// 	`l_long` mediumtext,
 	// 	`l_float` float DEFAULT NULL,
-	// 	`l_dec` decimal(10,0) DEFAULT NULL,
+	// 	`l_dec` decimal(10, 0) DEFAULT NULL,
 	// 	`l_char` char(10) DEFAULT NULL,
 	// 	`l_varchar` varchar(10) DEFAULT NULL,
 	// 	`l_text` longtext,
-	// 	PRIMARY KEY (`id`,`id1`)
+	// 	`l_tint` tinyint unsigned NOT NULL,
+	// 	`l_bint` bigint unsigned NOT NULL,
+	// 	`l_tfloat` decimal(65, 0) unsigned NOT NULL,
+	// 	PRIMARY KEY (`id`, `id1`),
+	// 	KEY `a` (`l_int`)
 	//   )
 
 	type TestColInfo struct {
-		Id       int32  `json:"id,omitempty"`
-		Id1      int    `json:"id1,omitempty"`
-		LTinyint int8   `json:"l_tinyint,omitempty"`
-		LInt     int32  `json:"l_int,omitempty"`
-		LLong    string `json:"l_long,omitempty"`
-		LFloat   string `json:"l_float,omitempty"`
-		LDec     string `json:"l_dec,omitempty"`
-		LChar    string `json:"l_char,omitempty"`
+		Id int32 `json:"id,omitempty"`
+		Id1 string `json:"id1,omitempty"`
+		LTinyint int8 `json:"l_tinyint,omitempty"`
+		LInt int32 `json:"l_int,omitempty"`
+		LLong string `json:"l_long,omitempty"`
+		LFloat string `json:"l_float,omitempty"`
+		LDec string `json:"l_dec,omitempty"`
+		LChar string `json:"l_char,omitempty"`
 		LVarchar string `json:"l_varchar,omitempty"`
-		LText    string `json:"l_text,omitempty"`
+		LText string `json:"l_text,omitempty"`
+		LTint int8 `json:"l_tint,omitempty"`
+		LBint int64 `json:"l_bint,omitempty"`
+		LTfloat string `json:"l_tfloat,omitempty"`
 	}
 	var data TestColInfo
 	err := FindWhere(db, "test_col", &data, "id=1")
@@ -173,17 +180,24 @@ func TestInsert(t *testing.T) {
 	}
 
 	t.Run("insert for obj", func(t *testing.T) {
-		_, err := InsertForObj(db, "man", m)
+		r, err := InsertForObj(db, "man", m)
 		if err != nil {
 			t.Fatal(err)
+		}
+		if rr, _ := r.RowsAffected(); rr == 0 {
+			t.Error("inset failed")
 		}
 	})
 
 	t.Run("insert for sql", func(t *testing.T) {
 		sqlObj := NewCacheSql("INSERT INTO man (name,age,addr) VALUES (?, ?, ?)", m.Name, m.Age, m.Addr)
-		_, err := ExecForSql(db, sqlObj)
+		r, err := ExecForSql(db, sqlObj)
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		if rr, _ := r.RowsAffected(); rr == 0 {
+			t.Error("inset failed")
 		}
 	})
 
@@ -206,6 +220,32 @@ func TestInsert(t *testing.T) {
 
 	t.Run("insert exclude", func(t *testing.T) {
 		tableObj := NewTable(db, "man").Exclude("addr")
+		res, err := tableObj.Insert(m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
+
+	t.Run("insert tag alias", func(t *testing.T) {
+		type Tmp struct {
+			Id    int32  `json:"id,omitempty"`
+			Name1 string `json:"name,omitempty"`
+			Age1  int32  `json:"age_1,omitempty"`
+			Addr1 string `json:"addr_1,omitempty"`
+		}
+		m := Tmp{
+			Name1: "xue1234",
+			Age1:  18,
+			Addr1: "成都市",
+		}
+		tableObj := NewTable(db, "man").TagAlias(map[string]string{"age_1": "age", "addr_1": "addr"})
 		res, err := tableObj.Insert(m).Exec()
 		if err != nil {
 			t.Fatal(err)
@@ -291,6 +331,24 @@ func TestUpdate(t *testing.T) {
 		}
 	})
 
+	t.Run("update alias", func(t *testing.T) {
+		type Tmp struct {
+			Id    int32  `json:"id,omitempty"`
+			Name1 string `json:"name,omitempty"`
+			Age1  int32  `json:"age_1,omitempty"`
+			Addr1 string `json:"addr_1,omitempty"`
+		}
+		m := Tmp{
+			Name1: "xue1234",
+			Age1:  18,
+			Addr1: "成都市",
+		}
+		tableObj := NewTable(db, "man").TagAlias(map[string]string{"age_1": "age", "addr_1": "addr"})
+		_, err := tableObj.Update(m, "id=?", 7).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 // find 单元测试: go test -run ^TestFind
@@ -476,25 +534,31 @@ func TestFindOne(t *testing.T) {
 		}
 	})
 
+	t.Run("findOne alias", func(t *testing.T) {
+		type Tmp struct {
+			Name1 string `json:"name_1,omitempty"`
+			Age1  int32    `json:"age_1,omitempty"`
+		}
+		var m Tmp
+		err := NewTable(db).
+			TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
+			Select("name,age").
+			From("man").
+			Where("id=?", 1).
+			FindOne(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
 	t.Log("find one test end")
 }
 
 func TestTmp(t *testing.T) {
-	var (
-		tmp = "被修改了哦"
-	)
-	var b map[string]string
-	err := NewTable(db).Exclude("name").SelectAuto(Man{}).Where("id=1").FindOneFn(&b, func(_row interface{}) error {
-		v := _row.(map[string]string)
-		v["name"] = tmp
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !equal(b["name"], tmp) {
-		t.Error(noEqErr)
-	}
+	
 }
 
 func TestFindWhere(t *testing.T) {
@@ -590,6 +654,25 @@ func TestFindWhere(t *testing.T) {
 		}
 		// t.Logf("%+v", m)
 		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) || !structValEqual(m.JsonTxt, jsonTxt) || !structValEqual(m.XmlTxt, xmlTxt) || !structValEqual(m.Json1Txt, json1Txt) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findWhere alias", func(t *testing.T) {
+		type Tmp struct {
+			Name1 string `json:"name_1,omitempty"`
+			Age1  int32    `json:"age_1,omitempty"`
+		}
+		var m Tmp
+		err := NewTable(db).
+			TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
+			Select("name,age").
+			From("man").
+			FindWhere(&m, "id=?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
 			t.Error(noEqErr)
 		}
 	})
@@ -898,6 +981,26 @@ func TestFindAll(t *testing.T) {
 		}
 	})
 
+	t.Run("findAll alias", func(t *testing.T) {
+		type Tmp struct {
+			Name1 string `json:"name_1,omitempty"`
+			Age1  int32    `json:"age_1,omitempty"`
+		}
+		var m []Tmp
+		err := NewTable(db).
+			TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
+			Select("name,age").
+			From("man").
+			Limit(0, 10).
+			FindAll(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !equal(m[0].Name1, sureName) || !equal(m[0].Age1, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
 	t.Log("find all test end")
 }
 
@@ -961,9 +1064,9 @@ func BenchmarkFindAllQuery(b *testing.B) {
 			return
 		}
 
-		var res []*Man
+		var res []*ManCopy
 		for rows.Next() {
-			var info Man
+			var info ManCopy
 			var addr sql.NullString
 			err = rows.Scan(&info.Name, &info.Age, &addr)
 			if err != nil {
@@ -985,8 +1088,8 @@ func BenchmarkFindAllQuery(b *testing.B) {
 func BenchmarkFindAllOrm(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m []*Man
-		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 10).FindAll(&m)
+		var m []*ManCopy
+		_ = NewTable(db).IsPrintSql(false).Select("name,age,addr").From("man").Where("id>?", 1).Limit(0, 10).FindAll(&m)
 	}
 
 	// BenchmarkFindAllOrm-8              21327             57296 ns/op            3235 B/op        115 allocs/op
@@ -999,7 +1102,7 @@ func BenchmarkFindAllOrm(b *testing.B) {
 func BenchmarkFindAllOrmForRawHaveTableName(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m []*Man
+		var m []*ManCopy
 		_ = NewTable(db, "man").IsPrintSql(false).Raw(NewCacheSql("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)).FindAll(&m)
 	}
 
@@ -1013,7 +1116,7 @@ func BenchmarkFindAllOrmForRawHaveTableName(b *testing.B) {
 func BenchmarkFindAllOrmForRawHaveNoTableName(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m []*Man
+		var m []*ManCopy
 		_ = NewTable(db).IsPrintSql(false).Raw(NewCacheSql("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)).FindAll(&m)
 	}
 

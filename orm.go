@@ -38,8 +38,8 @@ var (
 )
 
 var (
-	cacheTableName2ColInfoMap    = sync.Map{} // 缓存表的字段元信息
-	cacheStructTag2FieldIndexMap = sync.Map{} // 缓存结构体 tag 对应的 field index
+	cacheTableName2ColInfoMap      = sync.Map{} // 缓存表的字段元信息, key: tableName, value: tableColInfo
+	cacheStructType2StructFieldMap = sync.Map{} // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
 
 	// 常用就缓存下
 	cacheTabObj     = sync.Pool{New: func() interface{} { return new(Table) }}
@@ -61,25 +61,34 @@ type tableColInfo struct {
 	Extra   string
 }
 
-type handleColFn struct {
+// handleStructFieldFn 用于记录 struct 字段的处理方法
+type handleStructFieldFn struct {
 	needExclude bool      // 是否需要排除
+	tagAlias    string    // 别名, 便于将数据库的字段映射到 struct
 	marshal     Marshal   // 序列化方法
 	unmarshal   Unmarshal // 反序列化方法
 }
 
+// structField 结构体字段信息
+type structField struct {
+	offsetIndex int
+	tagName     string
+}
+
 // Table
 type Table struct {
-	db               DBer
-	printSqlCallSkip uint8                    // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
-	isPrintSql       bool                     // 标记是否打印 sql
-	haveFree         bool                     // 标记 table 释放已释放
-	needSetSize      bool                     // 标记批量查询的时候是否需要设置默认返回条数
-	destTypeBitmap   [4]bool                  // 查询时, 用于标记 dest 类型的位图
-	tag              string                   // 记录解析 struct 中字段名的 tag
-	name             string                   // 表名
-	tmpSqlObj        *SqlStrObj               // 暂存 SqlStrObj 对象
-	cacheCol2InfoMap map[string]*tableColInfo // 记录该表的所有字段名
-	handleColFnMap   map[string]*handleColFn  // 处理 col 的方法
+	db                         DBer
+	printSqlCallSkip           uint8                           // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
+	isPrintSql                 bool                            // 标记是否打印 sql
+	haveFree                   bool                            // 标记 table 释放已释放
+	needSetSize                bool                            // 标记批量查询的时候是否需要设置默认返回条数
+	destTypeBitmap             [4]bool                         // 查询时, 用于标记 dest 类型的位图
+	tag                        string                          // 记录解析 struct 中字段名的 tag
+	name                       string                          // 表名
+	handleCols                 string                          // Insert/Update/Delete/Select 操作的表字段名
+	tmpSqlObj                  *SqlStrObj                      // 暂存 SqlStrObj 对象
+	cacheCol2InfoMap           map[string]*tableColInfo        // 记录该表的所有字段名
+	waitHandleStructFieldFnMap map[string]*handleStructFieldFn // 处理 struct 字段的方法, key: tag, value: 处理方法集
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
@@ -130,8 +139,9 @@ func (t *Table) free() {
 	t.db = nil
 	t.tmpSqlObj = nil
 	t.name = ""
+	t.handleCols = ""
 	t.cacheCol2InfoMap = nil
-	t.handleColFnMap = nil
+	t.waitHandleStructFieldFnMap = nil
 
 	// 存放缓存
 	cacheTabObj.Put(t)
@@ -140,6 +150,13 @@ func (t *Table) free() {
 // From 设置表名
 func (t *Table) From(tableName string) *Table {
 	t.name = tableName
+	if t.sqlObjIsNil() {
+		if t.handleCols != "" {
+			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", t.handleCols, tableName)
+		} else {
+			t.tmpSqlObj = NewCacheSql("SELECT * FROM ?v", tableName)
+		}
+	}
 	return t
 }
 
@@ -202,93 +219,121 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
-// initHandleColFnMap 初始化
-func (t *Table) initHandleColFnMap(l int) {
-	if t.handleColFnMap != nil {
+// initStructFieldFnMap 初始化 waitHandleStructFieldFnMap
+func (t *Table) initStructFieldFnMap(l int) {
+	if t.waitHandleStructFieldFnMap != nil {
 		return
 	}
-	t.handleColFnMap = make(map[string]*handleColFn, l)
+	t.waitHandleStructFieldFnMap = make(map[string]*handleStructFieldFn, l)
 }
 
 // Exclude 对于 INSERT/UPDATE/DELETE/SELECT 操作中通过解析对象需要过滤的字段
-// 注: 调用必须优先 Insert/Update/SelectAuto 操作的方法, 防止通过对象解析字段时失效
-func (t *Table) Exclude(cols ...string) *Table {
-	t.initHandleColFnMap(len(cols))
-	for _, col := range cols {
-		if _, ok := t.handleColFnMap[col]; ok {
-			t.handleColFnMap[col].needExclude = true
+// 注: 调用必须优先 Insert/Update/Delete/SelectAuto 操作的方法, 防止通过对象解析字段时失效
+func (t *Table) Exclude(tags ...string) *Table {
+	t.initStructFieldFnMap(len(tags))
+	for _, tag := range tags {
+		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
+			t.waitHandleStructFieldFnMap[tag].needExclude = true
 		} else {
-			t.handleColFnMap[col] = &handleColFn{needExclude: true}
+			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{needExclude: true}
 		}
 	}
 	return t
 }
 
-// SetMarshalFn 设置列名的序列化方法
+// TagAlias 设置 struct 字段别名, 默认是按字段的 tag 名
+// tag2AliasMap key: 字段别名, value: 表的列名
+// 注: 调用必须优先 Insert/Update/Delete/SelectAuto 操作的方法, 防止通过对象解析字段时失效
+func (t *Table) TagAlias(tag2AliasMap map[string]string) *Table {
+	t.initStructFieldFnMap(len(tag2AliasMap))
+	for tag, alias := range tag2AliasMap {
+		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
+			t.waitHandleStructFieldFnMap[tag].tagAlias = alias
+		} else {
+			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{tagAlias: alias}
+		}
+	}
+	return t
+}
+
+// SetMarshalFn 设置 struct 字段待序列化方法
 // 注: 调用必须优先 Insert/Update 操作的方法, 防止通过对象解析字段时被排除
-func (t *Table) SetMarshalFn(fn Marshal, cols ...string) *Table {
-	t.initHandleColFnMap(len(cols))
-	for _, col := range cols {
-		if _, ok := t.handleColFnMap[col]; ok {
-			t.handleColFnMap[col].marshal = fn
+func (t *Table) SetMarshalFn(fn Marshal, tags ...string) *Table {
+	t.initStructFieldFnMap(len(tags))
+	for _, tag := range tags {
+		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
+			t.waitHandleStructFieldFnMap[tag].marshal = fn
 		} else {
-			t.handleColFnMap[col] = &handleColFn{marshal: fn}
+			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{marshal: fn}
 		}
 	}
 	return t
 }
 
-// SetMarshalFn 设置列名的反序列化方法
+// SetMarshalFn 设置 struct 字段待反序列化方法
 // 注: 调用必须优先于 SelectAuto, 防止 SelectAuto 解析时查询字段被排除
-func (t *Table) SetUnmarshalFn(fn Unmarshal, cols ...string) *Table {
-	t.initHandleColFnMap(len(cols))
-	for _, col := range cols {
-		if _, ok := t.handleColFnMap[col]; ok {
-			t.handleColFnMap[col].unmarshal = fn
+func (t *Table) SetUnmarshalFn(fn Unmarshal, tags ...string) *Table {
+	t.initStructFieldFnMap(len(tags))
+	for _, tag := range tags {
+		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
+			t.waitHandleStructFieldFnMap[tag].unmarshal = fn
 		} else {
-			t.handleColFnMap[col] = &handleColFn{unmarshal: fn}
+			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{unmarshal: fn}
 		}
 	}
 	return t
 }
 
-// parseStructField2Col 从结构体的 tag 中解析出列名, 同时跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
-func (t *Table) parseStructField2Col(fieldInfo reflect.StructField, args ...uint8) (col string, need bool) {
+// parseStructField 从结构体的 tag 中解析出列名, 同时跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
+func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (col, tag string, need bool) {
 	if !isExported(fieldInfo.Name) {
 		return
 	}
 
-	col = fieldInfo.Tag.Get(t.tag)
-	if col == "" {
+	// 解析 tag 中的列名
+	tag = fieldInfo.Tag.Get(t.tag)
+	if tag == "" {
 		return
 	}
+
 	// 去除 tag 中的干扰, 如: json:"xxx,omitempty"
-	col = t.parseTag2Col(col)
-	if handleColFn, ok := t.handleColFnMap[col]; ok && handleColFn.needExclude { // 需要排除的
-		col = ""
-		return
-	}
-	if t.needSkipObj(fieldInfo.Type.Kind()) {
-		if len(args) == 0 {
-			col = "" // 没有的话就直接跳过
+	tag = t.parseTag2Col(tag)
+
+	// 处理下 tag
+	var alias string
+	handleStructFieldFn, needHandleField := t.waitHandleStructFieldFnMap[tag]
+	if needHandleField {
+		if handleStructFieldFn.needExclude { // 需要排除
 			return
 		}
 
-		v, ok := t.handleColFnMap[col]
-		if !ok {
-			col = "" // 没有的话就直接跳过
+		alias = handleStructFieldFn.tagAlias // tag 的别名, 用于待解析 col 名
+	}
+
+	// 跳过嵌套/对象等, 同时需要判断下是否有序列化/反序列
+	if t.needSkipObj(fieldInfo.Type.Kind()) {
+		if len(args) == 0 {
+			return
+		}
+
+		if !needHandleField {
 			return
 		}
 
 		switch args[0] {
 		case sureMarshal:
-			need = v.marshal != nil
+			need = handleStructFieldFn.marshal != nil
 		case sureUnmarshal:
-			need = v.unmarshal != nil
+			need = handleStructFieldFn.unmarshal != nil
 		}
 		if !need {
-			col = "" // 没有的话就直接跳过
+			return
 		}
+	}
+
+	col = tag
+	if alias != "" {
+		col = alias
 	}
 	return
 }
@@ -324,7 +369,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	columns = make([]string, 0, fieldNum)
 	values = make([]interface{}, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
-		col, needMarshal := t.parseStructField2Col(ty.Field(i), sureMarshal)
+		col, tag, needMarshal := t.parseStructField(ty.Field(i), sureMarshal)
 		if col == "" {
 			continue
 		}
@@ -347,7 +392,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 
 		columns = append(columns, col)
 		if needMarshal {
-			dataBytes, err := t.handleColFnMap[col].marshal(val.Interface())
+			dataBytes, err := t.waitHandleStructFieldFnMap[tag].marshal(val.Interface())
 			if err != nil {
 				return nil, nil, err
 			}
@@ -460,13 +505,11 @@ func (t *Table) Select(fields string) *Table {
 		return nil
 	}
 
-	if t.name == "" {
-		cjLog.Error(tableNameIsUnknownErr)
-		// glog.Error(tableNameIsUnknownErr)
-		return nil
+	if t.name != "" {
+		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fields, t.name)
+	} else {
+		t.handleCols = fields
 	}
-
-	t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fields, t.name)
 	return t
 }
 
@@ -504,7 +547,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 			return nil
 		}
 
-		_, sortCol := t.parseCol2FieldIndex(ty, true)
+		_, sortCol := t.parseCol2StructField(ty, true)
 		for _, col := range sortCol {
 			// 排除结构体中的字段, 数据库没有
 			if _, ok := t.cacheCol2InfoMap[col]; !ok {
@@ -512,11 +555,12 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 			}
 			selectFields = append(selectFields, col)
 		}
+
 		if len(selectFields) == 0 {
-			cjLog.Error("parse col is failed, you need to confirm whether to add tag(defaultTag: json)")
-			// glog.Error("parse col is failed, you need to confirm whether to add tag(defaultTag: json)")
+			cjLog.Error("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
+			// glog.Error("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
 		}
-		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", strings.Join(selectFields, ", "), t.name)
+		t.Select(strings.Join(selectFields, ", "))
 	default:
 		cjLog.Warning("src kind is not struct or slice struct")
 		// glog.Warning("src kind is not struct or slice struct")
@@ -538,6 +582,9 @@ func (t *Table) SelectCount() *Table {
 // Count 获取总数
 func (t *Table) Count(total interface{}) error {
 	if t.sqlObjIsNil() {
+		if t.name == "" {
+			return tableNameIsUnknownErr
+		}
 		t.SelectCount()
 	}
 
@@ -550,12 +597,14 @@ func (t *Table) Count(total interface{}) error {
 // dest 长度 > 1 时, 支持多个字段查询
 // dest 长度 == 1 时, 支持 struct/单字段/map
 func (t *Table) FindOne(dest ...interface{}) error {
-	if t.sqlObjIsNil() {
-		t.SelectAll()
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
+
 	if t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, 1)
 	}
+
 	if len(dest) == 1 {
 		ty, err := t.getDestReflectType(dest[0], []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
 		if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
@@ -571,12 +620,14 @@ func (t *Table) FindOne(dest ...interface{}) error {
 // dest 支持 struct/单字段/map
 // fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
 func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
-	if t.sqlObjIsNil() {
-		t.SelectAll()
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
+
 	if t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, 1)
 	}
+
 	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
 	if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
 		return err
@@ -589,9 +640,10 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 // dest 支持 struct/map
 // fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
 func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) error {
-	if t.sqlObjIsNil() {
-		t.SelectAll()
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
+
 	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
 	if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
 		return err
@@ -604,12 +656,14 @@ func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) er
 // dest 支持(struct/单字段/map)切片
 // fn 支持将查询结果行进行处理, 需要处理每行内容时, fn 回调的 _row 需要类型断言为[切片中的类型]
 func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
-	if t.sqlObjIsNil() {
-		t.SelectAll()
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
+
 	if t.tmpSqlObj.LimitIsEmpty() && t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
+
 	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Slice}, findAllDestTypeErr)
 	if err != nil {
 		return err
@@ -624,8 +678,8 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 	if t.sqlObjIsNil() {
 		t.SelectAuto(dest)
 	}
-	t.tmpSqlObj.SetWhereArgs(where, args...)
 
+	t.tmpSqlObj.SetWhereArgs(where, args...)
 	if t.tmpSqlObj.LimitIsEmpty() && t.needSetSize {
 		t.tmpSqlObj.SetLimit(0, defaultBatchSelectSize)
 	}
@@ -637,25 +691,25 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 	return t.find(dest, ty, false)
 }
 
-// parseCol2FieldIndex 通过解析输入结构体, 返回 map[tag名]字段偏移量, 同时缓存起来
-func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2FieldIndexMap map[string]int, sortCol []string) {
+// parseCol2StructField 通过解析输入结构体, 返回 map[tag名]字段偏移量, 同时缓存起来
+func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2StructFieldMap map[string]structField, sortCol []string) {
 	// 非结构体就返回空
 	if ty.Kind() != reflect.Struct {
 		return nil, nil
 	}
 
 	// 通过地址来取, 防止出现重复
-	// 当 t.handleColFnMap != nil 不等于空时, 为了防止解析 selectFields 缺少, 不能走缓存中取
-	if t.handleColFnMap == nil {
-		if cacheVal, ok := cacheStructTag2FieldIndexMap.Load(ty); ok { // 需要排除再包含 t.handleColFnMap 不为空的
-			col2FieldIndexMap = cacheVal.(map[string]int)
+	// 当 t.waitHandleStructFieldFnMap != nil 不等于空时, 为了防止解析 selectFields 缺少, 不能走缓存中取
+	if t.waitHandleStructFieldFnMap == nil {
+		if cacheVal, ok := cacheStructType2StructFieldMap.Load(ty); ok { // 需要排除再包含 t.waitHandleStructFieldFnMap 不为空的
+			col2StructFieldMap = cacheVal.(map[string]structField)
 			if isNeedSort { // 按照col2FieldIndexMap的value进行排序
-				l := len(col2FieldIndexMap)
+				l := len(col2StructFieldMap)
 				tmpMap := make(map[int]string, l)
 				tmpSortVal := make([]int, 0, l)
-				for col, fieldIndex := range col2FieldIndexMap {
-					tmpMap[fieldIndex] = col
-					tmpSortVal = append(tmpSortVal, fieldIndex)
+				for col, field := range col2StructFieldMap {
+					tmpMap[field.offsetIndex] = col
+					tmpSortVal = append(tmpSortVal, field.offsetIndex)
 				}
 				sort.Ints(tmpSortVal)
 				sortCol = make([]string, 0, l)
@@ -668,19 +722,23 @@ func (t *Table) parseCol2FieldIndex(ty reflect.Type, isNeedSort bool) (col2Field
 	}
 
 	fieldNum := ty.NumField()
-	col2FieldIndexMap = make(map[string]int, fieldNum)
+	col2StructFieldMap = make(map[string]structField, fieldNum)
 	sortCol = make([]string, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
-		col, _ := t.parseStructField2Col(ty.Field(i), sureUnmarshal)
+		col, tag, _ := t.parseStructField(ty.Field(i), sureUnmarshal)
 		if col == "" {
 			continue
 		}
-		col2FieldIndexMap[col] = i
+
+		col2StructFieldMap[col] = structField{
+			offsetIndex: i,
+			tagName:     tag,
+		}
 		sortCol = append(sortCol, col)
 	}
 
-	if t.handleColFnMap == nil {
-		cacheStructTag2FieldIndexMap.Store(ty, col2FieldIndexMap)
+	if t.waitHandleStructFieldFnMap == nil {
+		cacheStructType2StructFieldMap.Store(ty, col2StructFieldMap)
 	}
 	return
 }
@@ -703,7 +761,6 @@ func (t *Table) loadDestTypeBitmap(dest reflect.Type) {
 			t.destTypeBitmap[oneFieldNo] = true
 		}
 	}
-
 }
 
 // isOneField 是否为单字段
@@ -727,6 +784,7 @@ func (t *Table) getDestReflectType(dest interface{}, shouldInKinds []reflect.Kin
 		err = errors.New("dest should is ptr")
 		return
 	}
+
 	ty = removeTypePtr(ty)
 	isIn := false
 	for _, kind := range shouldInKinds {
@@ -735,6 +793,7 @@ func (t *Table) getDestReflectType(dest interface{}, shouldInKinds []reflect.Kin
 			break
 		}
 	}
+
 	if !isIn {
 		err = outErr
 		return
@@ -775,8 +834,9 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	if err != nil {
 		return err
 	}
+
 	colLen := len(colTypes)
-	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
+	col2StructFieldMap, _ := t.parseCol2StructField(ty, false)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	values := make([]interface{}, colLen)
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
@@ -785,7 +845,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	}
 	for rows.Next() {
 		base := reflect.New(ty).Elem()
-		if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+		if err := t.getScanValues(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 			return err
 		}
 
@@ -793,7 +853,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 			return fmt.Errorf("rows scan is failed, err: %v", err)
 		}
 
-		if err := t.setDest(base, colTypes, fieldIndex2NullIndexMap, values); err != nil {
+		if err := t.setDest(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 			return err
 		}
 
@@ -825,8 +885,9 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 	if err != nil {
 		return err
 	}
+
 	colLen := len(colTypes)
-	col2FieldIndexMap, _ := t.parseCol2FieldIndex(ty, false)
+	col2StructFieldMap, _ := t.parseCol2StructField(ty, false)
 	values := make([]interface{}, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
@@ -834,7 +895,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 	for rows.Next() {
 		haveNoData = false
 		base := reflect.New(ty).Elem()
-		if err := t.getScanValues(base, col2FieldIndexMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+		if err := t.getScanValues(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 			return err
 		}
 
@@ -842,7 +903,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 			return err
 		}
 
-		if err := t.setDest(base, colTypes, fieldIndex2NullIndexMap, values); err != nil {
+		if err := t.setDest(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 			return err
 		}
 
@@ -871,7 +932,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 }
 
 // getScanValues 获取待 Scan 的内容
-func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]int, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
+func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
 	var (
 		isStruct         = t.destTypeBitmap[structNo]   // struct
 		isMap            = t.destTypeBitmap[mapNo]      // map
@@ -882,11 +943,15 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 	for i, colType := range colTypes {
 		var (
 			fieldIndex       int
-			structFieldExist bool = true
-			colName               = colType.Name()
+			tagName          string
+			colName          = colType.Name()
+			structFieldExist = true
 		)
-		if isStruct && col2FieldIndexMap != nil {
-			fieldIndex, structFieldExist = col2FieldIndexMap[colName]
+		if isStruct && col2StructFieldMap != nil {
+			var tmp structField
+			tmp, structFieldExist = col2StructFieldMap[colName]
+			fieldIndex = tmp.offsetIndex
+			tagName = tmp.tagName
 		}
 
 		// 说明结构里查询的值不存在
@@ -909,8 +974,8 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 			mayIsNull = colInfo == nil || (colInfo != nil && colInfo.Null == "YES")
 			// fmt.Printf("mayIsNull: %v colInfo: %+v\n", mayIsNull, colInfo)
 		}
+		// fmt.Println(colName, colType.ScanType().Name())
 		if mayIsNull {
-			// fmt.Println(colName, colType.ScanType().Name())
 			switch colType.ScanType().Name() {
 			case "NullInt64":
 				values[i] = cacheNullInt64.Get().(*sql.NullInt64)
@@ -933,7 +998,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 		// 处理数据库字段非 NULL 部分
 		if isStruct { // 结构体
 			// 在非 NULL 的时候, 也判断下是否需要反序列化
-			if handleCol, ok := t.handleColFnMap[colName]; ok && handleCol.unmarshal != nil {
+			if handleStructFieldFn, ok := t.waitHandleStructFieldFnMap[tagName]; ok && handleStructFieldFn.unmarshal != nil {
 				values[i] = cacheNullString.Get().(*sql.NullString)
 				fieldIndex2NullIndexMap[fieldIndex] = i
 				continue
@@ -964,13 +1029,13 @@ func (t *Table) getScanValues(dest reflect.Value, col2FieldIndexMap map[string]i
 }
 
 // nullScan 空值scan
-func (t *Table) nullScan(dest, src interface{}, needUnmarshalCol ...string) (err error) {
+func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (err error) {
 	switch val := src.(type) {
 	case *sql.NullString:
-		if len(needUnmarshalCol) > 0 { // 判断下是否需要反序列化
-			handleColFn := t.handleColFnMap[needUnmarshalCol[0]]
+		if len(needUnmarshalField) > 0 { // 判断下是否需要反序列化
+			handleStructFieldFn := t.waitHandleStructFieldFnMap[needUnmarshalField[0]]
 			if val.String != "" {
-				err = handleColFn.unmarshal([]byte(val.String), dest)
+				err = handleStructFieldFn.unmarshal([]byte(val.String), dest)
 			}
 		} else {
 			err = convertAssign(dest, val.String)
@@ -990,9 +1055,9 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalCol ...string) (err
 }
 
 // destFieldNeedUnmarshal 判断是否需要反序列化
-func (t *Table) destFieldNeedUnmarshal(kind reflect.Kind, col string) (bool, error) {
+func (t *Table) destFieldNeedUnmarshal(kind reflect.Kind, tag, col string) (bool, error) {
 	if t.needSkipObj(kind) {
-		if fn, ok := t.handleColFnMap[col]; ok { // 需要反序列化的
+		if fn, ok := t.waitHandleStructFieldFnMap[tag]; ok { // 需要反序列化的
 			if fn.unmarshal != nil {
 				return true, nil
 			}
@@ -1003,17 +1068,18 @@ func (t *Table) destFieldNeedUnmarshal(kind reflect.Kind, col string) (bool, err
 }
 
 // setDest 设置值
-func (t *Table) setDest(dest reflect.Value, colTypes []*sql.ColumnType, fieldIndex2NullIndexMap map[int]int, scanResult []interface{}) error {
+func (t *Table) setDest(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, scanResult []interface{}) error {
 	if t.destTypeBitmap[structNo] {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
-			destFieldValue := dest.Field(fieldIndex)
 			col := colTypes[nullIndex].Name()
-			needUnmarshal, err := t.destFieldNeedUnmarshal(destFieldValue.Kind(), col)
+			tag := col2StructFieldMap[col].tagName
+			destFieldValue := dest.Field(fieldIndex)
+			needUnmarshal, err := t.destFieldNeedUnmarshal(destFieldValue.Kind(), tag, col)
 			if err != nil {
 				return err
 			}
 			if needUnmarshal {
-				if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex], col); err != nil {
+				if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex], tag); err != nil {
 					return err
 				}
 				continue
@@ -1068,13 +1134,24 @@ func (t *Table) sqlObjIsNil() bool {
 	return t.tmpSqlObj == nil
 }
 
+// prevCheck 查询预检查
+func (t *Table) prevCheck() error {
+	if t.sqlObjIsNil() {
+		if t.name == "" {
+			return tableNameIsUnknownErr
+		}
+		return sqlObjErr
+	}
+	return nil
+}
+
 // Where 支持占位符
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
 		return nil
 	}
 	t.tmpSqlObj.SetWhereArgs(sqlStr, args...)
@@ -1085,9 +1162,9 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
 		return nil
 	}
 	t.tmpSqlObj.SetOrWhereArgs(sqlStr, args...)
@@ -1097,9 +1174,9 @@ func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
 // WhereLike like 查询
 // likeType ALK-全模糊 RLK-右模糊 LLK-左模糊
 func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
 		return nil
 	}
 	switch likeType {
@@ -1115,9 +1192,9 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 
 // Between
 func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
 		return nil
 	}
 	t.tmpSqlObj.SetBetween(filedName, leftVal, rightVal)
@@ -1126,9 +1203,9 @@ func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table 
 
 // OrderBy
 func (t *Table) OrderBy(sqlStr string) *Table {
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
 		return nil
 	}
 	t.tmpSqlObj.SetOrderByStr(sqlStr)
@@ -1137,9 +1214,9 @@ func (t *Table) OrderBy(sqlStr string) *Table {
 
 // Limit
 func (t *Table) Limit(page int32, size int32) *Table {
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
 		return nil
 	}
 	t.tmpSqlObj.SetLimit(page, size)
@@ -1148,9 +1225,9 @@ func (t *Table) Limit(page int32, size int32) *Table {
 
 // GroupBy
 func (t *Table) GroupBy(sqlStr string) *Table {
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
 		return nil
 	}
 	t.tmpSqlObj.SetGroupByStr(sqlStr)
@@ -1178,10 +1255,8 @@ func (t *Table) Raw(sql interface{}) *Table {
 // Exec 执行
 func (t *Table) Exec() (sql.Result, error) {
 	defer t.free()
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
-		return nil, nil
+	if err := t.prevCheck(); err != nil {
+		return nil, err
 	}
 	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
 }
@@ -1189,10 +1264,9 @@ func (t *Table) Exec() (sql.Result, error) {
 // QueryRowScan 单行多值查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
 	defer t.free()
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
-		return nil
+	
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
 	t.printSqlCallSkip += 1
 
@@ -1227,7 +1301,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		return err
 	}
 
-	if err := t.setDest(destsReflectValue, colTypes, fieldIndex2NullIndexMap, values); err != nil {
+	if err := t.setDest(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
 	}
 	return err
@@ -1245,10 +1319,8 @@ func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 		defer t.free()
 	}
 
-	if t.sqlObjIsNil() {
-		cjLog.Error(sqlObjErr)
-		// glog.Error(sqlObjErr)
-		return nil, nil
+	if err := t.prevCheck(); err != nil {
+		return nil, err
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
 	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
