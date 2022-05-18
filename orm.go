@@ -150,7 +150,7 @@ func (t *Table) free() {
 // From 设置表名
 func (t *Table) From(tableName string) *Table {
 	t.name = tableName
-	if t.tmpSqlObj == nil {
+	if t.sqlObjIsNil() {
 		if t.handleCols != "" {
 			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", t.handleCols, tableName)
 		} else {
@@ -597,7 +597,7 @@ func (t *Table) Count(total interface{}) error {
 // dest 长度 > 1 时, 支持多个字段查询
 // dest 长度 == 1 时, 支持 struct/单字段/map
 func (t *Table) FindOne(dest ...interface{}) error {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		return err
 	}
 
@@ -620,7 +620,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 // dest 支持 struct/单字段/map
 // fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
 func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		return err
 	}
 
@@ -640,7 +640,7 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 // dest 支持 struct/map
 // fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
 func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) error {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		return err
 	}
 
@@ -656,7 +656,7 @@ func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) er
 // dest 支持(struct/单字段/map)切片
 // fn 支持将查询结果行进行处理, 需要处理每行内容时, fn 回调的 _row 需要类型断言为[切片中的类型]
 func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		return err
 	}
 
@@ -1134,8 +1134,8 @@ func (t *Table) sqlObjIsNil() bool {
 	return t.tmpSqlObj == nil
 }
 
-// selectPrevCheck 查询预检查
-func (t *Table) selectPrevCheck() error {
+// prevCheck 查询预检查
+func (t *Table) prevCheck() error {
 	if t.sqlObjIsNil() {
 		if t.name == "" {
 			return tableNameIsUnknownErr
@@ -1149,7 +1149,7 @@ func (t *Table) selectPrevCheck() error {
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		cjLog.Error(err)
 		// glog.Error(err)
 		return nil
@@ -1162,7 +1162,7 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		cjLog.Error(err)
 		// glog.Error(err)
 		return nil
@@ -1174,7 +1174,7 @@ func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
 // WhereLike like 查询
 // likeType ALK-全模糊 RLK-右模糊 LLK-左模糊
 func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		cjLog.Error(err)
 		// glog.Error(err)
 		return nil
@@ -1192,7 +1192,7 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 
 // Between
 func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		cjLog.Error(err)
 		// glog.Error(err)
 		return nil
@@ -1203,7 +1203,7 @@ func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table 
 
 // OrderBy
 func (t *Table) OrderBy(sqlStr string) *Table {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		cjLog.Error(err)
 		// glog.Error(err)
 		return nil
@@ -1214,7 +1214,7 @@ func (t *Table) OrderBy(sqlStr string) *Table {
 
 // Limit
 func (t *Table) Limit(page int32, size int32) *Table {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		cjLog.Error(err)
 		// glog.Error(err)
 		return nil
@@ -1225,7 +1225,7 @@ func (t *Table) Limit(page int32, size int32) *Table {
 
 // GroupBy
 func (t *Table) GroupBy(sqlStr string) *Table {
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		cjLog.Error(err)
 		// glog.Error(err)
 		return nil
@@ -1255,7 +1255,7 @@ func (t *Table) Raw(sql interface{}) *Table {
 // Exec 执行
 func (t *Table) Exec() (sql.Result, error) {
 	defer t.free()
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
 	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
@@ -1265,7 +1265,7 @@ func (t *Table) Exec() (sql.Result, error) {
 func (t *Table) QueryRowScan(dest ...interface{}) error {
 	defer t.free()
 	
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		return err
 	}
 	t.printSqlCallSkip += 1
@@ -1319,7 +1319,7 @@ func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 		defer t.free()
 	}
 
-	if err := t.selectPrevCheck(); err != nil {
+	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误

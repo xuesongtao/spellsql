@@ -1100,7 +1100,7 @@ func BenchmarkFindAllOrm(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var m []*ManCopy
-		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 10).FindAll(&m)
+		_ = NewTable(db).IsPrintSql(false).Select("name,age,addr").From("man").Where("id>?", 1).Limit(0, 10).FindAll(&m)
 	}
 
 	// BenchmarkFindAllOrm-8              21327             57296 ns/op            3235 B/op        115 allocs/op
