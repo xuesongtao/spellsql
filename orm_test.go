@@ -141,7 +141,7 @@ func TestGetNullType(t *testing.T) {
 
 	type TestColInfo struct {
 		Id       int32  `json:"id,omitempty"`
-		Id1      int  `json:"id1,omitempty"`
+		Id1      int    `json:"id1,omitempty"`
 		LTinyint int8   `json:"l_tinyint,omitempty"`
 		LInt     int32  `json:"l_int,omitempty"`
 		LLong    string `json:"l_long,omitempty"`
@@ -494,7 +494,21 @@ func TestFindOne(t *testing.T) {
 }
 
 func TestTmp(t *testing.T) {
-
+	var (
+		tmp = "被修改了哦"
+	)
+	var b map[string]string
+	err := NewTable(db).Exclude("name").SelectAuto(Man{}).Where("id=1").FindOneFn(&b, func(_row interface{}) error {
+		v := _row.(map[string]string)
+		v["name"] = tmp
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equal(b["name"], tmp) {
+		t.Error(noEqErr)
+	}
 }
 
 func TestFindWhere(t *testing.T) {
@@ -674,7 +688,6 @@ func BenchmarkFindOneGorm(b *testing.B) {
 		var m ManCopy
 		gdb.Table("man").Find(&m, "id=?", 1)
 	}
-	
 
 	// BenchmarkFindOneGorm-8                     16958             66604 ns/op            4364 B/op         78 allocs/op
 	// BenchmarkFindOneGorm-8                     18019             66307 ns/op            4365 B/op         78 allocs/op
@@ -689,7 +702,6 @@ func BenchmarkFindOneOrmQueryRowScan(b *testing.B) {
 		var m Man
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 1).QueryRowScan(&m.Id, &m.Age, &m.Addr)
 	}
-	
 
 	// BenchmarkFindOneOrmQueryRowScan-8          30986             38634 ns/op            1645 B/op         38 allocs/op
 	// BenchmarkFindOneOrmQueryRowScan-8          30747             38706 ns/op            1645 B/op         38 allocs/op
@@ -705,7 +717,6 @@ func BenchmarkFindOneQueryRowScan(b *testing.B) {
 		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id=?", 1)
 		_ = db.QueryRow(sqlStr).Scan(&m.Id, &m.Age, &m.Addr)
 	}
-	
 
 	// BenchmarkFindOneQueryRowScan-8             32281             37144 ns/op            1187 B/op         29 allocs/op
 	// BenchmarkFindOneQueryRowScan-8             32155             37214 ns/op            1187 B/op         29 allocs/op
@@ -720,7 +731,6 @@ func BenchmarkFindOneOrm(b *testing.B) {
 		var m Man
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 1).FindOne(&m)
 	}
-	
 
 	// BenchmarkFindOneOrm-8                      31676             38230 ns/op            1329 B/op         32 allocs/op
 	// BenchmarkFindOneOrm-8                      31736             37573 ns/op            1329 B/op         32 allocs/op
@@ -735,7 +745,6 @@ func BenchmarkFindOneOrmForRaw(b *testing.B) {
 		var m Man
 		_ = NewTable(db).IsPrintSql(false).Raw(NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1)).FindOne(&m)
 	}
-	
 
 	// BenchmarkFindOneOrmForRaw-8                31778             37649 ns/op            1337 B/op         33 allocs/op
 	// BenchmarkFindOneOrmForRaw-8                31771             37633 ns/op            1337 B/op         33 allocs/op
@@ -929,7 +938,6 @@ func BenchmarkFindAllGorm(b *testing.B) {
 		gdb.Table("man").Limit(10).Find(&m, "id>?", 1)
 		// b.Log(m)
 	}
-	
 
 	// BenchmarkFindAllGorm-8             11581             92114 ns/op            8962 B/op        273 allocs/op
 	// BenchmarkFindAllGorm-8             12896             91718 ns/op            8962 B/op        273 allocs/op
@@ -946,7 +954,6 @@ func BenchmarkFindAllSqlx(b *testing.B) {
 		sqlxdb.Select(&m, sqlStr)
 		// b.Log(m)
 	}
-	
 
 	// 说明: sqlx 不能自动处理 null 这里的查询结果不全
 	// BenchmarkFindAllSqlx-8             23478             51939 ns/op            2057 B/op         64 allocs/op
@@ -978,7 +985,6 @@ func BenchmarkFindAllQuery(b *testing.B) {
 		}
 		rows.Close()
 	}
-	
 
 	// BenchmarkFindAllQuery-8            23402             51492 ns/op            2769 B/op         99 allocs/op
 	// BenchmarkFindAllQuery-8            23434             51465 ns/op            2769 B/op         99 allocs/op
@@ -993,7 +999,6 @@ func BenchmarkFindAllOrm(b *testing.B) {
 		var m []*Man
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id>?", 1).Limit(0, 10).FindAll(&m)
 	}
-	
 
 	// BenchmarkFindAllOrm-8              21327             57296 ns/op            3235 B/op        115 allocs/op
 	// BenchmarkFindAllOrm-8              21588             55743 ns/op            3235 B/op        115 allocs/op
@@ -1008,7 +1013,6 @@ func BenchmarkFindAllOrmForRawHaveTableName(b *testing.B) {
 		var m []*Man
 		_ = NewTable(db, "man").IsPrintSql(false).Raw(NewCacheSql("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)).FindAll(&m)
 	}
-	
 
 	// BenchmarkFindAllOrmForRawHaveTableName-8           21619             55702 ns/op            3259 B/op        113 allocs/op
 	// BenchmarkFindAllOrmForRawHaveTableName-8           21435             55492 ns/op            3259 B/op        113 allocs/op
@@ -1023,7 +1027,6 @@ func BenchmarkFindAllOrmForRawHaveNoTableName(b *testing.B) {
 		var m []*Man
 		_ = NewTable(db).IsPrintSql(false).Raw(NewCacheSql("SELECT name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)).FindAll(&m)
 	}
-	
 
 	// BenchmarkFindAllOrmForRawHaveNoTableName-8         20707             57362 ns/op            3580 B/op        133 allocs/op
 	// BenchmarkFindAllOrmForRawHaveNoTableName-8         20935             57278 ns/op            3580 B/op        133 allocs/op
