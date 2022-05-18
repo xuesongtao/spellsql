@@ -210,8 +210,8 @@ func (t *Table) initHandleColFnMap(l int) {
 	t.handleColFnMap = make(map[string]*handleColFn, l)
 }
 
-// Exclude 对于 INSERT/UPDATE/DELETE 操作中解析时需要过滤的字段
-// fields 多个通过逗号隔开
+// Exclude 对于 INSERT/UPDATE/DELETE/SELECT 操作中通过解析对象需要过滤的字段
+// 注: 调用必须优先 Insert/Update/SelectAuto 操作的方法, 防止通过对象解析字段时失效
 func (t *Table) Exclude(cols ...string) *Table {
 	t.initHandleColFnMap(len(cols))
 	for _, col := range cols {
@@ -264,7 +264,10 @@ func (t *Table) parseStructField2Col(fieldInfo reflect.StructField, args ...uint
 	}
 	// 去除 tag 中的干扰, 如: json:"xxx,omitempty"
 	col = t.parseTag2Col(col)
-
+	if handleColFn, ok := t.handleColFnMap[col]; ok && handleColFn.needExclude { // 需要排除的
+		col = ""
+		return
+	}
 	if t.needSkipObj(fieldInfo.Type.Kind()) {
 		if len(args) == 0 {
 			col = "" // 没有的话就直接跳过
@@ -333,10 +336,6 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 		}
 
 		if isExcludePri && tableField.Key == "PRI" { // 主键, 防止更新
-			continue
-		}
-
-		if handleColFn, ok := t.handleColFnMap[col]; ok && handleColFn.needExclude { // 需要排除的
 			continue
 		}
 
