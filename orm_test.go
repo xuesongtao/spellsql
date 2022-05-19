@@ -130,19 +130,19 @@ func TestGetNullType(t *testing.T) {
 	//   )
 
 	type TestColInfo struct {
-		Id int32 `json:"id,omitempty"`
-		Id1 string `json:"id1,omitempty"`
-		LTinyint int8 `json:"l_tinyint,omitempty"`
-		LInt int32 `json:"l_int,omitempty"`
-		LLong string `json:"l_long,omitempty"`
-		LFloat string `json:"l_float,omitempty"`
-		LDec string `json:"l_dec,omitempty"`
-		LChar string `json:"l_char,omitempty"`
+		Id       int32  `json:"id,omitempty"`
+		Id1      string `json:"id1,omitempty"`
+		LTinyint int8   `json:"l_tinyint,omitempty"`
+		LInt     int32  `json:"l_int,omitempty"`
+		LLong    string `json:"l_long,omitempty"`
+		LFloat   string `json:"l_float,omitempty"`
+		LDec     string `json:"l_dec,omitempty"`
+		LChar    string `json:"l_char,omitempty"`
 		LVarchar string `json:"l_varchar,omitempty"`
-		LText string `json:"l_text,omitempty"`
-		LTint int8 `json:"l_tint,omitempty"`
-		LBint int64 `json:"l_bint,omitempty"`
-		LTfloat string `json:"l_tfloat,omitempty"`
+		LText    string `json:"l_text,omitempty"`
+		LTint    int8   `json:"l_tint,omitempty"`
+		LBint    int64  `json:"l_bint,omitempty"`
+		LTfloat  string `json:"l_tfloat,omitempty"`
 	}
 	var data TestColInfo
 	err := FindWhere(db, "test_col", &data, "id=1")
@@ -537,7 +537,7 @@ func TestFindOne(t *testing.T) {
 	t.Run("findOne alias", func(t *testing.T) {
 		type Tmp struct {
 			Name1 string `json:"name_1,omitempty"`
-			Age1  int32    `json:"age_1,omitempty"`
+			Age1  int32  `json:"age_1,omitempty"`
 		}
 		var m Tmp
 		err := NewTable(db).
@@ -558,7 +558,6 @@ func TestFindOne(t *testing.T) {
 }
 
 func TestTmp(t *testing.T) {
-	
 }
 
 func TestFindWhere(t *testing.T) {
@@ -661,7 +660,7 @@ func TestFindWhere(t *testing.T) {
 	t.Run("findWhere alias", func(t *testing.T) {
 		type Tmp struct {
 			Name1 string `json:"name_1,omitempty"`
-			Age1  int32    `json:"age_1,omitempty"`
+			Age1  int32  `json:"age_1,omitempty"`
 		}
 		var m Tmp
 		err := NewTable(db).
@@ -984,7 +983,7 @@ func TestFindAll(t *testing.T) {
 	t.Run("findAll alias", func(t *testing.T) {
 		type Tmp struct {
 			Name1 string `json:"name_1,omitempty"`
-			Age1  int32    `json:"age_1,omitempty"`
+			Age1  int32  `json:"age_1,omitempty"`
 		}
 		var m []Tmp
 		err := NewTable(db).

@@ -14,16 +14,19 @@ import (
 const (
 	defaultTableTag        = "json"
 	defaultBatchSelectSize = 10 // 批量查询默认条数
+)
 
+const (
+	_ uint8 = iota
 	// 查询时, 用于标记查询的 dest type
-	structNo   = 0
-	sliceNo    = 1
-	mapNo      = 2
-	oneFieldNo = 3
+	structNo
+	sliceNo
+	mapNo
+	oneFieldNo
 
 	// 标记是否需要对字段进行序列化处理
-	sureMarshal   uint8 = 1
-	sureUnmarshal uint8 = 2
+	sureMarshal
+	sureUnmarshal
 )
 
 var (
@@ -82,7 +85,7 @@ type Table struct {
 	isPrintSql                 bool                            // 标记是否打印 sql
 	haveFree                   bool                            // 标记 table 释放已释放
 	needSetSize                bool                            // 标记批量查询的时候是否需要设置默认返回条数
-	destTypeBitmap             [4]bool                         // 查询时, 用于标记 dest 类型的位图
+	destTypeFlag               uint8                           // 查询时, 用于标记 dest 类型的
 	tag                        string                          // 记录解析 struct 中字段名的 tag
 	name                       string                          // 表名
 	handleCols                 string                          // Insert/Update/Delete/Select 操作的表字段名
@@ -743,22 +746,20 @@ func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2Stru
 	return
 }
 
-// loadDestTypeBitmap 记录 dest 的类型, 因为对应的操作不会同时调用所有不存在数据竞争
-func (t *Table) loadDestTypeBitmap(dest reflect.Type) {
-	for i := 0; i < len(t.destTypeBitmap); i++ {
-		t.destTypeBitmap[i] = false
-	}
+// loadDestType 记录 dest 的类型, 因为对应的操作不会同时调用所有不存在数据竞争
+func (t *Table) loadDestType(dest reflect.Type) {
+	t.destTypeFlag = 0
 
 	switch kind := dest.Kind(); kind {
 	case reflect.Struct:
-		t.destTypeBitmap[structNo] = true
+		t.destTypeFlag = structNo
 	case reflect.Slice:
-		t.destTypeBitmap[sliceNo] = true
+		t.destTypeFlag = sliceNo
 	case reflect.Map:
-		t.destTypeBitmap[mapNo] = true
+		t.destTypeFlag = mapNo
 	default:
 		if t.isOneField(kind) {
-			t.destTypeBitmap[oneFieldNo] = true
+			t.destTypeFlag = oneFieldNo
 		}
 	}
 }
@@ -812,10 +813,10 @@ func (t *Table) find(dest interface{}, ty reflect.Type, ignoreRes bool, fn ...Se
 	}
 	defer rows.Close()
 
-	t.loadDestTypeBitmap(ty)
-	if t.destTypeBitmap[structNo] || t.destTypeBitmap[mapNo] || t.destTypeBitmap[oneFieldNo] {
+	t.loadDestType(ty)
+	if t.destTypeFlag == structNo || t.destTypeFlag == mapNo || t.destTypeFlag == oneFieldNo {
 		return t.scanOne(rows, ty, dest, ignoreRes, fn...)
-	} else if t.destTypeBitmap[sliceNo] {
+	} else if t.destTypeFlag == sliceNo {
 		return t.scanAll(rows, ty.Elem(), dest, fn...)
 	} else {
 		return errors.New("dest kind nonsupport")
@@ -829,7 +830,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 		ty = removeTypePtr(ty) // 去指针
 	}
 
-	t.loadDestTypeBitmap(ty)
+	t.loadDestType(ty)
 	colTypes, err := rows.ColumnTypes()
 	if err != nil {
 		return err
@@ -858,7 +859,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 		}
 
 		if len(fn) == 1 { // 回调方法
-			if isPtr && !t.destTypeBitmap[mapNo] { // 指针类型
+			if isPtr && t.destTypeFlag != mapNo { // 指针类型
 				if err := fn[0](base.Addr().Interface()); err != nil {
 					return err
 				}
@@ -880,7 +881,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 
 // scanOne 处理单个结果集
 func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignoreRes bool, fn ...SelectCallBackFn) error {
-	// t.loadDestTypeBitmap(ty) // 这里可以不用再处理
+	// t.loadDestType(ty) // 这里可以不用再处理
 	colTypes, err := rows.ColumnTypes()
 	if err != nil {
 		return err
@@ -908,7 +909,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 		}
 
 		if len(fn) == 1 { // 回调方法, 方便修改
-			if t.destTypeBitmap[mapNo] {
+			if t.destTypeFlag == mapNo {
 				if err := fn[0](base.Interface()); err != nil {
 					return err
 				}
@@ -934,10 +935,10 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 // getScanValues 获取待 Scan 的内容
 func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
 	var (
-		isStruct         = t.destTypeBitmap[structNo]   // struct
-		isMap            = t.destTypeBitmap[mapNo]      // map
-		isOneField       = t.destTypeBitmap[oneFieldNo] // 单字段
-		isSliceField     = t.destTypeBitmap[sliceNo]    // 用于 QueryRowScan, 单行多字段查询
+		isStruct         = t.destTypeFlag == structNo   // struct
+		isMap            = t.destTypeFlag == mapNo      // map
+		isOneField       = t.destTypeFlag == oneFieldNo // 单字段
+		isSliceField     = t.destTypeFlag == sliceNo    // 用于 QueryRowScan, 单行多字段查询
 		structMissFields []string
 	)
 	for i, colType := range colTypes {
@@ -1033,13 +1034,17 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (e
 	switch val := src.(type) {
 	case *sql.NullString:
 		if len(needUnmarshalField) > 0 { // 判断下是否需要反序列化
-			handleStructFieldFn := t.waitHandleStructFieldFnMap[needUnmarshalField[0]]
-			if val.String != "" {
-				err = handleStructFieldFn.unmarshal([]byte(val.String), dest)
+			handleStructFieldFn, ok := t.waitHandleStructFieldFnMap[needUnmarshalField[0]]
+			if ok && handleStructFieldFn.unmarshal != nil {
+				if val.String != "" {
+					err = handleStructFieldFn.unmarshal([]byte(val.String), dest)
+				}
+				val.String = ""
+				cacheNullString.Put(val)
+				return
 			}
-		} else {
-			err = convertAssign(dest, val.String)
 		}
+		err = convertAssign(dest, val.String)
 		val.String = ""
 		cacheNullString.Put(val)
 	case *sql.NullInt64:
@@ -1054,41 +1059,18 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (e
 	return
 }
 
-// destFieldNeedUnmarshal 判断是否需要反序列化
-func (t *Table) destFieldNeedUnmarshal(kind reflect.Kind, tag, col string) (bool, error) {
-	if t.needSkipObj(kind) {
-		if fn, ok := t.waitHandleStructFieldFnMap[tag]; ok { // 需要反序列化的
-			if fn.unmarshal != nil {
-				return true, nil
-			}
-		}
-		return false, fmt.Errorf("col %q to dest struct is (struct/ptr/slice/array), you should set unmarshal, you can call SetUnmarshalFn", col)
-	}
-	return false, nil
-}
-
 // setDest 设置值
 func (t *Table) setDest(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, scanResult []interface{}) error {
-	if t.destTypeBitmap[structNo] {
+	if t.destTypeFlag == structNo {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
 			col := colTypes[nullIndex].Name()
 			tag := col2StructFieldMap[col].tagName
 			destFieldValue := dest.Field(fieldIndex)
-			needUnmarshal, err := t.destFieldNeedUnmarshal(destFieldValue.Kind(), tag, col)
-			if err != nil {
-				return err
-			}
-			if needUnmarshal {
-				if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex], tag); err != nil {
-					return err
-				}
-				continue
-			}
-			if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex]); err != nil {
+			if err := t.nullScan(destFieldValue.Addr().Interface(), scanResult[nullIndex], tag); err != nil {
 				return err
 			}
 		}
-	} else if t.destTypeBitmap[mapNo] {
+	} else if t.destTypeFlag == mapNo {
 		destType := dest.Type()
 		if destType.Key().Kind() != reflect.String {
 			return errors.New("map key must is string")
@@ -1110,11 +1092,11 @@ func (t *Table) setDest(dest reflect.Value, col2StructFieldMap map[string]struct
 			}
 			dest.SetMapIndex(key, val.Elem())
 		}
-	} else if t.destTypeBitmap[oneFieldNo] {
+	} else if t.destTypeFlag == oneFieldNo {
 		if _, ok := fieldIndex2NullIndexMap[0]; ok {
 			return t.nullScan(dest.Addr().Interface(), scanResult[0])
 		}
-	} else if t.destTypeBitmap[sliceNo] { // QueryRowScan 方法会用, 单行多字段查询
+	} else if t.destTypeFlag == sliceNo { // QueryRowScan 方法会用, 单行多字段查询
 		for _, nullIndex := range fieldIndex2NullIndexMap {
 			if err := t.nullScan(dest.Index(nullIndex).Interface(), scanResult[nullIndex]); err != nil {
 				return err
@@ -1264,7 +1246,7 @@ func (t *Table) Exec() (sql.Result, error) {
 // QueryRowScan 单行多值查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
 	defer t.free()
-	
+
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
@@ -1292,7 +1274,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	// 将 dest 转为 []dest
 	destsReflectValue := reflect.ValueOf(append([]interface{}{}, dest...))
-	t.loadDestTypeBitmap(destsReflectValue.Type())
+	t.loadDestType(destsReflectValue.Type())
 	if err := t.getScanValues(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
 	}
