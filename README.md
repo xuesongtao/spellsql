@@ -320,6 +320,23 @@
 * 查询结果支持的切片类型: `struct`, `map`, `单字段`
 * 数据库返回的 `NULL` 类型, 不需要处理, `orm` 会自行处理, 如果传入空类型值会报错(如: sql.NullString)
 
+###### 4.4.3 别名查询
+```
+	type Tmp struct {
+		Name1 string `json:"name_1,omitempty"`
+		Age1  int32  `json:"age_1,omitempty"`
+	}
+	var m Tmp
+	err := NewTable(db).
+		TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
+		Select("name,age").
+		From("man").
+		FindWhere(&m, "id=?", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+```
+
 ###### 4.4.3 其他
 * 使用可以参考 `orm_test.go` 和 `example_orm_test.go`
 * 在连表查询时, 如果两个表的列名相同查询结果会出现错误, 我们可以通过根据别名来区分, 或者直接调用 `Query` 来自行对结果进行处理(注: 调用 `Query` 时需要处理 `Null` 类型) 
