@@ -155,9 +155,9 @@ func (t *Table) From(tableName string) *Table {
 	t.name = tableName
 	if t.sqlObjIsNil() {
 		if t.handleCols != "" {
-			t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", t.handleCols, tableName)
+			t.Select(t.handleCols)
 		} else {
-			t.tmpSqlObj = NewCacheSql("SELECT * FROM ?v", tableName)
+			t.SelectAll()
 		}
 	}
 	return t
