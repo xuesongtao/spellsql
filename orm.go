@@ -132,6 +132,7 @@ func NewTable(db DBer, args ...string) *Table {
 	return t
 }
 
+// free 释放
 func (t *Table) free() {
 	if t.haveFree {
 		cjLog.Panic("table have free, you can't again use")
@@ -245,8 +246,8 @@ func (t *Table) Exclude(tags ...string) *Table {
 }
 
 // TagAlias 设置 struct 字段别名, 默认是按字段的 tag 名
-// tag2AliasMap key: 字段别名, value: 表的列名
 // 注: 调用必须优先 Insert/Update/Delete/SelectAuto 操作的方法, 防止通过对象解析字段时失效
+// tag2AliasMap key: struct 的 tag 名, value: 表的列名
 func (t *Table) TagAlias(tag2AliasMap map[string]string) *Table {
 	t.initStructFieldFnMap(len(tag2AliasMap))
 	for tag, alias := range tag2AliasMap {
@@ -313,7 +314,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 		alias = handleStructFieldFn.tagAlias // tag 的别名, 用于待解析 col 名
 	}
 
-	// 跳过嵌套/对象等, 同时需要判断下是否有序列化/反序列
+	// 如果是跳过嵌套/对象等, 同时需要判断下是否有序列化/反序列
 	if t.needSkipObj(fieldInfo.Type.Kind()) {
 		if len(args) == 0 {
 			return
@@ -451,6 +452,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 }
 
 // Delete 会以对象中有值得为条件进行删除
+// 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
 		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], false, t.name)
@@ -518,7 +520,7 @@ func (t *Table) Select(fields string) *Table {
 
 // SelectAuto 根据输入类型进行自动推断要查询的字段值
 // src 如下:
-// 	1. 为 str 的话会被直接解析成查询字段
+// 	1. 为 string 的话会被直接解析成查询字段
 // 	2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
 // 	3. 其他情况会被解析为查询所有
 func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
@@ -597,6 +599,7 @@ func (t *Table) Count(total interface{}) error {
 }
 
 // FindOne 单行查询
+// 注: 如果为空的话, 会返回 nullRowErr
 // dest 长度 > 1 时, 支持多个字段查询
 // dest 长度 == 1 时, 支持 struct/单字段/map
 func (t *Table) FindOne(dest ...interface{}) error {
@@ -620,6 +623,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 }
 
 // FindOneFn 单行查询
+// 注: 如果为空的话, 会返回 nullRowErr
 // dest 支持 struct/单字段/map
 // fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
 func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
@@ -675,6 +679,7 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 }
 
 // FindWhere 如果没有添加查询字段内容, 会根据输入对象进行解析查询
+// 注: 如果为单行查询的话, 当为空的话, 会返回 nullRowErr
 // 如果没有指定查询条数, 默认 defaultBatchSelectSize
 // dest 支持 struct/slice/单字段/map
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
