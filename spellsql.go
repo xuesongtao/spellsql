@@ -278,24 +278,27 @@ func (s *SqlStrObj) setWhere(filedName string, args ...interface{}) *SqlStrObj {
 }
 
 // SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
-func (s *SqlStrObj) SetRightLike(filedName string, val string) {
+func (s *SqlStrObj) SetRightLike(filedName string, val string) *SqlStrObj {
 	s.initWhere()
 	str := s.filedName2Val(filedName, "rlk", val)
 	s.whereBuf.WriteString(str)
+	return s
 }
 
 // SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
-func (s *SqlStrObj) SetLeftLike(filedName string, val string) {
+func (s *SqlStrObj) SetLeftLike(filedName string, val string) *SqlStrObj {
 	s.initWhere()
 	str := s.filedName2Val(filedName, "llk", val)
 	s.whereBuf.WriteString(str)
+	return s
 }
 
 // SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
-func (s *SqlStrObj) SetAllLike(filedName string, val string) {
+func (s *SqlStrObj) SetAllLike(filedName string, val string) *SqlStrObj {
 	s.initWhere()
 	str := s.filedName2Val(filedName, "alk", val)
 	s.whereBuf.WriteString(str)
+	return s
 }
 
 // SetBetween 设置 BETWEEN ? AND ?
@@ -1190,6 +1193,7 @@ func DistinctIdsStr(s string, split string) string {
 func DistinctIds(ids []string) []string {
 	tmp := make(map[string]struct{}, len(ids))
 	res := make([]string, 0, len(ids))
+	
 	for _, id := range ids {
 		if _, ok := tmp[id]; !ok {
 			tmp[id] = struct{}{}
