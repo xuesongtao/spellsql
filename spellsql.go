@@ -47,7 +47,7 @@ type SqlStrObj struct {
 	isPutPooled     bool   // 标记是否已被回收了
 	needAddJoinStr  bool   // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
 	needAddComma    bool   // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
-	needAddbracket  bool   // 标记 INSERT 时, 是否添加括号
+	needAddBracket  bool   // 标记 INSERT 时, 是否添加括号
 	isPrintSqlLog   bool   // 标记是否打印 生成的 sqlStr log
 	isCallCacheInit bool   // 标记是否为 NewCacheSql 初始化生产的对象
 	actionNum       uint8  // INSERT/DELETE/SELECT/UPDATE
@@ -187,7 +187,7 @@ func (s *SqlStrObj) init() {
 	s.needAddJoinStr = false
 	s.needAddComma = false
 	s.isCallCacheInit = false
-	s.needAddbracket = false
+	s.needAddBracket = false
 	s.callerSkip = 1
 	s.systemSplit = "/"
 	if runtime.GOOS == "windows" {
@@ -471,13 +471,13 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 // 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
 func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *SqlStrObj {
 	s.initValues()
-	if !s.needAddbracket { // 防止重复处理
+	if !s.needAddBracket { // 防止重复处理
 		if IndexForBF(true, sqlStr, "(") == -1 && IndexForBF(false, sqlStr, ")") == -1 {
-			s.needAddbracket = true
+			s.needAddBracket = true
 		}
 	}
 
-	if s.needAddbracket {
+	if s.needAddBracket {
 		sqlStr = "(" + sqlStr + ")"
 	}
 	s.writeSqlStr2Buf(&s.valuesBuf, " "+sqlStr, args...)
