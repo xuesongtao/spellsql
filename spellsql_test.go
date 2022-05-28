@@ -36,6 +36,8 @@ func equal(dest, src interface{}) bool {
 	return ok
 }
 
+// go test -timeout 30s -run ^TestNewCacheSql gitee.com/xuesongtao/spellsql -v -count=1
+
 // 新增
 func TestNewCacheSql_INSERT(t *testing.T) {
 	t.Run("no have values", func(t *testing.T) {
@@ -389,20 +391,6 @@ func BenchmarkSqlStr_GetSql(b *testing.B) {
 func BenchmarkSqlStr_GetSql2(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
-		s.SetWhere("u.username", "test")
-		s.SetWhere("u.password", "test")
-		s.SetWhere("u.password", "IN", "SELECT id FROM t WHERE id = 10")
-		s.SetLimit(0, 10)
-		s.SetGroupByStr("u.username, u.password")
-		s.SetPrintLog(false).GetTotalSqlStr()
-		s.GetSqlStr()
-	}
-}
-
-func BenchmarkSqlStr_GetSql3(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
 		s := "SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE"
 		s1 := "SELECT count(*) FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE"
 
@@ -420,6 +408,8 @@ func BenchmarkSqlStr_GetSql3(b *testing.B) {
 
 		s += "GROUP BY u.username, u.password"
 		s1 += "GROUP BY u.username, u.password"
+		_ = s
+		_ = s1
 		// b.Log(s)
 	}
 }
