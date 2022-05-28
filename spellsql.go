@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	
 	// "github.com/gogf/gf/os/glog"
 )
 
@@ -47,7 +46,7 @@ type SqlStrObj struct {
 	isPutPooled     bool   // 标记是否已被回收了
 	needAddJoinStr  bool   // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
 	needAddComma    bool   // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
-	needAddbracket  bool   // 标记 INSERT 时, 是否添加括号
+	needAddBracket  bool   // 标记 INSERT 时, 是否添加括号
 	isPrintSqlLog   bool   // 标记是否打印 生成的 sqlStr log
 	isCallCacheInit bool   // 标记是否为 NewCacheSql 初始化生产的对象
 	actionNum       uint8  // INSERT/DELETE/SELECT/UPDATE
@@ -187,7 +186,7 @@ func (s *SqlStrObj) init() {
 	s.needAddJoinStr = false
 	s.needAddComma = false
 	s.isCallCacheInit = false
-	s.needAddbracket = false
+	s.needAddBracket = false
 	s.callerSkip = 1
 	s.systemSplit = "/"
 	if runtime.GOOS == "windows" {
@@ -244,20 +243,21 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 // SetWhere 设置过滤条件, 连接符为 AND
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SqlStrObj) SetWhere(filedName string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetWhere(fieldName string, args ...interface{}) *SqlStrObj {
 	s.initWhere()
-	return s.setWhere(filedName, args...)
+	return s.setWhere(fieldName, args...)
 }
 
 // SetOrWhere 设置过滤条件, 连接符为 OR
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SqlStrObj) SetOrWhere(filedName string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetOrWhere(fieldName string, args ...interface{}) *SqlStrObj {
 	s.initWhere("OR")
-	return s.setWhere(filedName, args...)
+	return s.setWhere(fieldName, args...)
 }
 
-func (s *SqlStrObj) setWhere(filedName string, args ...interface{}) *SqlStrObj {
+// setWhere 转换参数
+func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
 	argsLen := len(args)
 	if argsLen == 0 {
 		args = []interface{}{"NULL"}
@@ -268,42 +268,65 @@ func (s *SqlStrObj) setWhere(filedName string, args ...interface{}) *SqlStrObj {
 	arg := args[0]
 	// 如果参数个数大于等于 2 的话, 就会包含操作符, 所以这里需要替换下
 	if argsLen >= 2 {
-		opSymbol = args[0].(string)
+		tmpOpSymbol, ok := args[0].(string)
+		if ok {
+			opSymbol = tmpOpSymbol
+		}
 		arg = args[1]
 	}
 
-	str := s.filedName2Val(filedName, opSymbol, arg)
-	s.whereBuf.WriteString(str)
+	// 处理字段, 如: fieldName = "test"
+	sqlStr := fieldName + " " + opSymbol
+	needAdd := true // 标记是否需要添加占位符
+	switch opSymbol {
+	case "IN", "in":
+		sqlStr += " ("
+		if v, ok := arg.(string); ok {
+			// 子查询就原样输入
+			if len(v) > 6 && toUpper(v[:6]) == "SELECT" {
+				sqlStr += "?v"
+				needAdd = false
+			}
+		}
+
+		if needAdd {
+			sqlStr += "?"
+			needAdd = false
+		}
+		sqlStr += ")"
+	}
+
+	if needAdd {
+		sqlStr += " ?"
+	}
+	s.writeSqlStr2Buf(&s.whereBuf, " "+sqlStr, arg)
 	return s
 }
 
 // SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
-func (s *SqlStrObj) SetRightLike(filedName string, val string) *SqlStrObj {
+func (s *SqlStrObj) SetRightLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	str := s.filedName2Val(filedName, "rlk", val)
-	s.whereBuf.WriteString(str)
+	s.setWhere(fieldName, "LIKE", val+"%")
 	return s
 }
 
 // SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
-func (s *SqlStrObj) SetLeftLike(filedName string, val string) *SqlStrObj {
+func (s *SqlStrObj) SetLeftLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	str := s.filedName2Val(filedName, "llk", val)
-	s.whereBuf.WriteString(str)
+	s.setWhere(fieldName, "LIKE", "%"+val)
 	return s
 }
 
 // SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
-func (s *SqlStrObj) SetAllLike(filedName string, val string) *SqlStrObj {
+func (s *SqlStrObj) SetAllLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	str := s.filedName2Val(filedName, "alk", val)
-	s.whereBuf.WriteString(str)
+	s.setWhere(fieldName, "LIKE", "%"+val+"%")
 	return s
 }
 
 // SetBetween 设置 BETWEEN ? AND ?
-func (s *SqlStrObj) SetBetween(filedName string, leftVal, rightVal interface{}) *SqlStrObj {
-	return s.SetWhereArgs("(?v BETWEEN ? AND ?)", filedName, leftVal, rightVal)
+func (s *SqlStrObj) SetBetween(fieldName string, leftVal, rightVal interface{}) *SqlStrObj {
+	return s.SetWhereArgs("(?v BETWEEN ? AND ?)", fieldName, leftVal, rightVal)
 }
 
 // SetWhereArgs 支持占位符
@@ -391,10 +414,9 @@ func (s *SqlStrObj) initValues() {
 }
 
 // SetUpdateValue update 语句中, 设置字段值
-func (s *SqlStrObj) SetUpdateValue(filedName string, arg interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetUpdateValue(fieldName string, arg interface{}) *SqlStrObj {
 	s.initValues()
-	str := s.filedName2Val(filedName, "=", arg)
-	s.valuesBuf.WriteString(str)
+	s.writeSqlStr2Buf(&s.valuesBuf, " "+fieldName+" = ?", arg)
 	return s
 }
 
@@ -420,49 +442,16 @@ func (s *SqlStrObj) SetUpdateValueArgs(sqlStr string, arg ...interface{}) *SqlSt
 // SetInsertValues 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
 func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 	s.initValues()
-
-	s.valuesBuf.WriteString(" (")
-	lastIndex := len(args) - 1
-
-	// 因为 reflect 会影响性能, 所有没有用, 这样写法繁多, 只处理了常用的, 有需要再添加
-	for index, arg := range args {
-		switch v := arg.(type) {
-		case int8:
-			s.valuesBuf.WriteString(s.Int2Str(int64(v)))
-		case int:
-			s.valuesBuf.WriteString(s.Int2Str(int64(v)))
-		case int32:
-			s.valuesBuf.WriteString(s.Int2Str(int64(v)))
-		case int64:
-			s.valuesBuf.WriteString(s.Int2Str(v))
-		case uint8:
-			s.valuesBuf.WriteString(s.UInt2Str(uint64(v)))
-		case uint:
-			s.valuesBuf.WriteString(s.UInt2Str(uint64(v)))
-		case uint32:
-			s.valuesBuf.WriteString(s.UInt2Str(uint64(v)))
-		case uint64:
-			s.valuesBuf.WriteString(s.UInt2Str(v))
-		case string:
-			s.valuesBuf.WriteByte('"')
-			s.valuesBuf.WriteString(s.toEscape(v, false))
-			s.valuesBuf.WriteByte('"')
-		case []byte:
-			s.valuesBuf.WriteString("\"" + s.toEscape(string(v), false) + "\"")
-		case float32:
-			s.valuesBuf.WriteString(strconv.FormatFloat(float64(v), 'g', -1, 32))
-		case float64:
-			s.valuesBuf.WriteString(strconv.FormatFloat(v, 'g', -1, 64))
-		default:
-			s.valuesBuf.WriteString("undefined")
-		}
-
-		// 多个通过逗号隔开
-		if index < lastIndex {
-			s.valuesBuf.WriteString(", ")
-		}
+	l := len(args)
+	sqlStr := "("
+	if l > 0 {
+		sqlStr += "?"
 	}
-	s.valuesBuf.WriteString(")")
+	for i := 1; i < len(args); i++ {
+		sqlStr += ", ?"
+	}
+	sqlStr += ")"
+	s.writeSqlStr2Buf(&s.valuesBuf, " "+sqlStr, args...)
 	return s
 }
 
@@ -471,13 +460,13 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 // 批量插入拼接, 如: xxx VALUES (xxx, xxx), (xxx, xxx)
 func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *SqlStrObj {
 	s.initValues()
-	if !s.needAddbracket { // 防止重复处理
+	if !s.needAddBracket { // 防止重复处理
 		if IndexForBF(true, sqlStr, "(") == -1 && IndexForBF(false, sqlStr, ")") == -1 {
-			s.needAddbracket = true
+			s.needAddBracket = true
 		}
 	}
 
-	if s.needAddbracket {
+	if s.needAddBracket {
 		sqlStr = "(" + sqlStr + ")"
 	}
 	s.writeSqlStr2Buf(&s.valuesBuf, " "+sqlStr, args...)
@@ -667,122 +656,6 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			buf.WriteString("undefined")
 		}
 	}
-}
-
-// filedName2Val 将字段, 操作符, 值进行拼接
-func (s *SqlStrObj) filedName2Val(filedName, opSymbol string, arg interface{}) string {
-	var likeTypeStr string
-	switch opSymbol {
-	case "":
-		opSymbol = "="
-	case "rlk", "llk", "alk": // 模糊查询
-		likeTypeStr = opSymbol
-		opSymbol = "LIKE"
-	}
-
-	tmpBuf := new(strings.Builder)
-	// 拼接如: (空格)filedName(空格)=(空格)
-	tmpBuf.WriteString(" " + filedName + " " + opSymbol + " ")
-	isInWhere := opSymbol == "IN" || opSymbol == "in"
-
-	// 添加左括号
-	if isInWhere {
-		tmpBuf.WriteByte('(')
-	}
-
-	// 因为 reflect 会影响性能, 所有没有用, 这样写法繁多, 只处理了常用的, 有需要再添加
-	switch val := arg.(type) {
-	case string:
-		if isInWhere {
-			tmpBuf.WriteString(val)
-		} else {
-			tmpBuf.WriteByte('"')
-			tmpStr := s.toEscape(val, false)
-			switch likeTypeStr {
-			case "rlk": // 右模糊
-				tmpStr = tmpStr + "%"
-			case "llk": // 左模糊
-				tmpStr = "%" + tmpStr
-			case "alk": // 全模糊
-				tmpStr = "%" + tmpStr + "%"
-			}
-			tmpBuf.WriteString(tmpStr)
-			tmpBuf.WriteByte('"')
-		}
-	case []string:
-		if isInWhere {
-			lastIndex := len(val) - 1
-			for i, v := range val {
-				tmpBuf.WriteByte('"')
-				tmpBuf.WriteString(s.toEscape(v, false))
-				tmpBuf.WriteByte('"')
-				if i < lastIndex {
-					tmpBuf.WriteByte(',')
-				}
-			}
-		}
-	case []byte:
-		tmpBuf.WriteString("\"" + s.toEscape(string(val), false) + "\"")
-	case int8:
-		tmpBuf.WriteString(s.Int2Str(int64(val)))
-	case int:
-		tmpBuf.WriteString(s.Int2Str(int64(val)))
-	case int32:
-		tmpBuf.WriteString(s.Int2Str(int64(val)))
-	case int64:
-		tmpBuf.WriteString(s.Int2Str(val))
-	case uint8:
-		tmpBuf.WriteString(s.UInt2Str(uint64(val)))
-	case uint:
-		tmpBuf.WriteString(s.UInt2Str(uint64(val)))
-	case uint32:
-		tmpBuf.WriteString(s.UInt2Str(uint64(val)))
-	case uint64:
-		tmpBuf.WriteString(s.UInt2Str(val))
-	case []int:
-		if isInWhere {
-			lastIndex := len(val) - 1
-			for i, v := range val {
-				tmpBuf.WriteString(s.Int2Str(int64(v)))
-				if i < lastIndex {
-					tmpBuf.WriteByte(',')
-				}
-			}
-		}
-	case []int32:
-		if isInWhere {
-			lastIndex := len(val) - 1
-			for i, v := range val {
-				tmpBuf.WriteString(s.Int2Str(int64(v)))
-				if i < lastIndex {
-					tmpBuf.WriteByte(',')
-				}
-			}
-		}
-	case []int64:
-		if isInWhere {
-			lastIndex := len(val) - 1
-			for i, v := range val {
-				tmpBuf.WriteString(s.Int2Str(v))
-				if i < lastIndex {
-					tmpBuf.WriteByte(',')
-				}
-			}
-		}
-	case float32:
-		tmpBuf.WriteString(strconv.FormatFloat(float64(val), 'g', -1, 32))
-	case float64:
-		tmpBuf.WriteString(strconv.FormatFloat(val, 'g', -1, 64))
-	default:
-		tmpBuf.WriteString("undefined")
-	}
-
-	// 添加右括号
-	if isInWhere {
-		tmpBuf.WriteByte(')')
-	}
-
-	return tmpBuf.String()
 }
 
 // toEscape 转义
@@ -1063,14 +936,19 @@ func (s *SqlStrObj) UInt2Str(num uint64) string {
 }
 
 // getTargetIndex 忽略大小写
-func getTargetIndex(sqlStr, targetStr string) int {
-	tmpIndex := IndexForBF(false, sqlStr, targetStr)
+func getTargetIndex(sqlStr, targetStr string, isFont2End ...bool) int {
+	is := false
+	if len(isFont2End) > 0 {
+		is = isFont2End[0]
+	}
+	tmpIndex := IndexForBF(is, sqlStr, targetStr)
 	if tmpIndex == -1 {
-		tmpIndex = IndexForBF(false, sqlStr, toLower(targetStr))
+		tmpIndex = IndexForBF(is, sqlStr, toLower(targetStr))
 	}
 	return tmpIndex
 }
 
+// toUpper
 func toUpper(str string) string {
 	strByte := []byte(str)
 	l := len(strByte)
@@ -1080,6 +958,7 @@ func toUpper(str string) string {
 	return string(strByte)
 }
 
+// toLower
 func toLower(str string) string {
 	strByte := []byte(str)
 	l := len(strByte)
@@ -1193,7 +1072,7 @@ func DistinctIdsStr(s string, split string) string {
 func DistinctIds(ids []string) []string {
 	tmp := make(map[string]struct{}, len(ids))
 	res := make([]string, 0, len(ids))
-	
+
 	for _, id := range ids {
 		if _, ok := tmp[id]; !ok {
 			tmp[id] = struct{}{}
@@ -1218,15 +1097,15 @@ func FmtSqlStr(sqlStr string, args ...interface{}) string {
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
 // 如: obj := GetLikeSqlStr(ALK, "SELECT id, username FROM sys_user", "name", "xue")
 //     => SELECT id, username FROM sys_user WHERE name LIKE "%xue%"
-func GetLikeSqlStr(likeType uint8, sqlStr, filedName, value string, printLog ...bool) string {
+func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
 	sqlObj := NewCacheSql(sqlStr)
 	switch likeType {
 	case ALK:
-		sqlObj.SetAllLike(filedName, value)
+		sqlObj.SetAllLike(fieldName, value)
 	case RLK:
-		sqlObj.SetRightLike(filedName, value)
+		sqlObj.SetRightLike(fieldName, value)
 	case LLK:
-		sqlObj.SetLeftLike(filedName, value)
+		sqlObj.SetLeftLike(fieldName, value)
 	}
 	isPrintLog := false
 	endSymbol := ""

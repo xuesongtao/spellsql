@@ -1084,8 +1084,10 @@ func (t *Table) setDest(dest reflect.Value, col2StructFieldMap map[string]struct
 			dest.Set(reflect.MakeMapWithSize(destType, len(colTypes)))
 		}
 		for i, col := range colTypes {
-			key := reflect.ValueOf(col.Name())
-			val := reflect.Value{}
+			var (
+				key = reflect.ValueOf(col.Name())
+				val reflect.Value
+			)
 			nullIndex, ok := fieldIndex2NullIndexMap[i]
 			if ok {
 				val = reflect.New(destType.Elem())
