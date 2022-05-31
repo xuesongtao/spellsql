@@ -16,6 +16,7 @@ func init() {
 	cjLog = NewCjLogger()
 }
 
+// SetLogger 设置 logger
 func SetLogger(logger Logger) {
 	once.Do(func() {
 		cjLog = logger
