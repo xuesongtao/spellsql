@@ -66,8 +66,8 @@ type tableColInfo struct {
 
 // handleStructFieldFn 用于记录 struct 字段的处理方法
 type handleStructFieldFn struct {
-	needExclude bool      // 是否需要排除
-	tagAlias    string    // 别名, 便于将数据库的字段映射到 struct
+	needExclude bool        // 是否需要排除
+	tagAlias    string      // 别名, 便于将数据库的字段映射到 struct
 	marshal     marshalFn   // 序列化方法
 	unmarshal   unmarshalFn // 反序列化方法
 }
