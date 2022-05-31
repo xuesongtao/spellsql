@@ -51,8 +51,8 @@ var (
 )
 
 type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
-type Marshal func(v interface{}) ([]byte, error)
-type Unmarshal func(data []byte, v interface{}) error
+type marshalFn func(v interface{}) ([]byte, error)
+type unmarshalFn func(data []byte, v interface{}) error
 
 // tableColInfo 表列详情
 type tableColInfo struct {
@@ -68,8 +68,8 @@ type tableColInfo struct {
 type handleStructFieldFn struct {
 	needExclude bool      // 是否需要排除
 	tagAlias    string    // 别名, 便于将数据库的字段映射到 struct
-	marshal     Marshal   // 序列化方法
-	unmarshal   Unmarshal // 反序列化方法
+	marshal     marshalFn   // 序列化方法
+	unmarshal   unmarshalFn // 反序列化方法
 }
 
 // structField 结构体字段信息
@@ -262,7 +262,7 @@ func (t *Table) TagAlias(tag2AliasMap map[string]string) *Table {
 
 // SetMarshalFn 设置 struct 字段待序列化方法
 // 注: 调用必须优先 Insert/Update 操作的方法, 防止通过对象解析字段时被排除
-func (t *Table) SetMarshalFn(fn Marshal, tags ...string) *Table {
+func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
 	t.initStructFieldFnMap(len(tags))
 	for _, tag := range tags {
 		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
@@ -276,7 +276,7 @@ func (t *Table) SetMarshalFn(fn Marshal, tags ...string) *Table {
 
 // SetMarshalFn 设置 struct 字段待反序列化方法
 // 注: 调用必须优先于 SelectAuto, 防止 SelectAuto 解析时查询字段被排除
-func (t *Table) SetUnmarshalFn(fn Unmarshal, tags ...string) *Table {
+func (t *Table) SetUnmarshalFn(fn unmarshalFn, tags ...string) *Table {
 	t.initStructFieldFnMap(len(tags))
 	for _, tag := range tags {
 		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
