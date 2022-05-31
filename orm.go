@@ -443,7 +443,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 			return nil
 		}
 		if i == 0 {
-			insertSql = NewCacheSql("INSERT INTO ?v (?v)", t.name, strings.Join(columns, ", "))
+			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
 		}
 		insertSql.SetInsertValues(values...)
 	}
