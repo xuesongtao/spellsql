@@ -20,6 +20,10 @@ const (
 	ALK // 全模糊 如: xxx LIKE "%xxx%"
 	RLK // 右模糊 如: xxx LIKE "xxx%"
 	LLK // 左模糊 如: xxx LIKE "%xxx"
+
+	// sql join 语句
+	LJI // 左连接
+	RJI // 右连接
 )
 
 // 用于辅助数字转字符串
@@ -238,6 +242,21 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 			s.whereBuf.WriteString(defaultJoinStr)
 		}
 	}
+}
+
+// SetJoin 设置 join
+func (s *SqlStrObj) SetJoin(tableName string, on string, joinType ...uint8) *SqlStrObj {
+	deferJoinStr := "JOIN"
+	if len(joinType) > 0 {
+		switch joinType[0] {
+		case LJI:
+			deferJoinStr = "LEFT JOIN"
+		case RJI:
+			deferJoinStr = "RIGHT JOIN"
+		}
+	}
+	s.buf.WriteString(" " + deferJoinStr + " " + tableName + " ON " + on)
+	return s
 }
 
 // SetWhere 设置过滤条件, 连接符为 AND
