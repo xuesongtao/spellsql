@@ -34,7 +34,8 @@ const (
 
 type Man struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
-	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
+	Name     string `json:"name,omitempty" gorm:"name" db:"name"`       // 姓名
+	SName    string `json:"s_name,omitempty" gorm:"s_name" db:"s_name"` // 学名
 	Age      int32  `json:"age,omitempty" gorm:"age" db:"age"`
 	Addr     string `json:"addr,omitempty" gorm:"addr" db:"addr"`
 	NickName string `json:"nickname,omitempty" gorm:"nickname" db:"nickname"`
@@ -693,7 +694,6 @@ func TestFindWhere(t *testing.T) {
 }
 
 func TestFindForJoin(t *testing.T) {
-	// 连表查询时, 如果两个表有相同名字查询结果会出现错误, 推荐使用别名来区分/使用Query 对结果我们自己进行处理
 	t.Run("find simple join", func(t *testing.T) {
 		var m []Man
 		sqlStr := NewCacheSql("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id WHERE m.id=1")
@@ -710,7 +710,28 @@ func TestFindForJoin(t *testing.T) {
 		}
 	})
 
-	t.Run("find all join", func(t *testing.T) {
+	t.Run("find alias", func(t *testing.T) {
+		var m []Man
+		tableObj := NewTable(db).
+			Select("m.name,m.age,s.name as s_name").
+			From("man m").
+			Join("student s", "m.id=s.u_id").
+			Where("m.id=1")
+		err := tableObj.FindAll(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+		// t.Logf("%+v", m)
+		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) || !equal(m[0].SName, "1") {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("find query", func(t *testing.T) {
 		sqlStr := NewCacheSql("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id WHERE m.id=1")
 		rows, err := NewTable(db).Raw(sqlStr).Query()
 		if err != nil {

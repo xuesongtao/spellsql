@@ -1134,6 +1134,19 @@ func (t *Table) prevCheck() error {
 	return nil
 }
 
+// Join 连表查询
+// 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
+// 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
+func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
+		return nil
+	}
+	t.tmpSqlObj.SetJoin(joinTable, on, joinType...)
+	return t
+}
+
 // Where 支持占位符
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
