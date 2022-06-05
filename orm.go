@@ -859,7 +859,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 			return fmt.Errorf("rows scan is failed, err: %v", err)
 		}
 
-		if err := t.setDest(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+		if err := t.setNullDest(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 			return err
 		}
 
@@ -909,7 +909,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 			return err
 		}
 
-		if err := t.setDest(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+		if err := t.setNullDest(base, col2StructFieldMap, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 			return err
 		}
 
@@ -992,7 +992,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]
 			}
 
 			// struct, 这里记录 struct 那个字段需要映射 NULL 值
-			// map/单字段, 为了减少创建标记, 借助 fieldIndex2NullIndexMap 用于标识单字段是否包含空值,  在 setDest 使用
+			// map/单字段, 为了减少创建标记, 借助 fieldIndex2NullIndexMap 用于标识单字段是否包含空值,  在 setNullDest 使用
 			if isStruct && structFieldExist {
 				fieldIndex2NullIndexMap[fieldIndex] = i
 			} else if isMap || isSliceField || isOneField {
@@ -1064,8 +1064,8 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (e
 	return
 }
 
-// setDest 设置值
-func (t *Table) setDest(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, scanResult []interface{}) error {
+// setNullDest 设置值
+func (t *Table) setNullDest(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, scanResult []interface{}) error {
 	if t.destTypeFlag == structNo {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
 			col := colTypes[nullIndex].Name()
@@ -1132,6 +1132,19 @@ func (t *Table) prevCheck() error {
 		return sqlObjErr
 	}
 	return nil
+}
+
+// Join 连表查询
+// 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
+// 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
+func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
+	if err := t.prevCheck(); err != nil {
+		cjLog.Error(err)
+		// glog.Error(err)
+		return nil
+	}
+	t.tmpSqlObj.SetJoin(joinTable, on, joinType...)
+	return t
 }
 
 // Where 支持占位符
@@ -1290,7 +1303,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		return err
 	}
 
-	if err := t.setDest(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+	if err := t.setNullDest(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
 	}
 	return err

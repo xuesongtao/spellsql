@@ -242,6 +242,21 @@ func TestNewCacheSql_Select(t *testing.T) {
 			t.Error(noEqErr)
 		}
 	})
+
+	t.Run("list select join", func(t *testing.T) {
+		s := NewSql("SELECT su.username, su.password FROM sys_user su").
+			SetJoin("user_cls uc", "su.id=uc.user_id", LJI).
+			SetJoin("test t", "t.user_cls_id=uc.id")
+		s.SetPrintLog(false)
+		if true {
+			s.SetWhere("su.name", "test")
+		}
+		sqlStr := s.GetSqlStr()
+		sureSql := `SELECT su.username, su.password FROM sys_user su LEFT JOIN user_cls uc ON su.id=uc.user_id JOIN test t ON t.user_cls_id=uc.id WHERE su.name = "test";`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
 }
 
 func TestGetSqlStr(t *testing.T) {
