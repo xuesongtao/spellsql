@@ -12,3 +12,4 @@
 *.out
 version.txt
 tmp/
+.DS_Store
