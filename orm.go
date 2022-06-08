@@ -82,7 +82,7 @@ type structField struct {
 	tagName     string
 }
 
-// Table
+// Table 表的信息
 type Table struct {
 	db                         DBer
 	printSqlCallSkip           uint8                           // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
@@ -278,7 +278,7 @@ func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
 	return t
 }
 
-// SetMarshalFn 设置 struct 字段待反序列化方法
+// SetUnmarshalFn 设置 struct 字段待反序列化方法
 // 注: 调用必须优先于 SelectAuto, 防止 SelectAuto 解析时查询字段被排除
 func (t *Table) SetUnmarshalFn(fn unmarshalFn, tags ...string) *Table {
 	t.initStructFieldFnMap(len(tags))
