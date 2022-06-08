@@ -48,6 +48,10 @@ var (
 	cacheTabObj     = sync.Pool{New: func() interface{} { return new(Table) }}
 	cacheNullString = sync.Pool{New: func() interface{} { return new(sql.NullString) }}
 	cacheNullInt64  = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
+
+	// null 类型
+	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
+	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 )
 
 type SelectCallBackFn func(_row interface{}) error // 对每行查询结果进行取出处理
@@ -574,7 +578,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	return t
 }
 
-//  SelectAll() 查询所有字段
+// SelectAll 查询所有字段
 func (t *Table) SelectAll() *Table {
 	return t.Select("*")
 }
@@ -982,10 +986,10 @@ func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]
 		}
 		// fmt.Println(colName, colType.ScanType().Name())
 		if mayIsNull {
-			switch colType.ScanType().Name() {
-			case "NullInt64":
+			switch colType.ScanType() {
+			case nullInt64Type:
 				values[i] = cacheNullInt64.Get().(*sql.NullInt64)
-			case "NullFloat64":
+			case nullFloat64Type:
 				values[i] = new(sql.NullFloat64)
 			default:
 				values[i] = cacheNullString.Get().(*sql.NullString)
