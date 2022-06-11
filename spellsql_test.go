@@ -41,7 +41,8 @@ func equal(dest, src interface{}) bool {
 // 新增
 func TestNewCacheSql_INSERT(t *testing.T) {
 	t.Run("no have values", func(t *testing.T) {
-		s := NewCacheSql("INSERT INTO sys_user (username, password, name)").SetPrintLog(false)
+		s := NewCacheSql("INSERT INTO sys_user (username, password, name)")
+		// s.SetPrintLog(false)
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		sqlStr := s.GetSqlStr()
@@ -53,7 +54,7 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 
 	t.Run("have values", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		sqlStr := s.GetSqlStr()
@@ -65,7 +66,7 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 
 	t.Run("have values", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (?, ?, ?)", "test", 123456, "阿涛")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		sqlStr := s.GetSqlStr()
@@ -77,7 +78,7 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 
 	t.Run("key-value", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password)")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		s.SetInsertValues("xue", 12)
 		sqlStr := s.GetSqlStr()
 		sureSql := `INSERT INTO sys_user (username, password) VALUES ("xue", 12);`
@@ -87,7 +88,8 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 	})
 
 	t.Run("insert many", func(t *testing.T) {
-		s := NewCacheSql("INSERT INTO sys_user (username, password)").SetPrintLog(false)
+		s := NewCacheSql("INSERT INTO sys_user (username, password)")
+		// s.SetPrintLog(false)
 		for i := 0; i < 2; i++ {
 			s.SetInsertValuesArgs("?, ?d", "xue", "123456")
 			s.SetInsertValues("xue", 123456)
@@ -100,7 +102,8 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 	})
 
 	t.Run("duplicate update", func(t *testing.T) {
-		s := NewCacheSql("INSERT INTO sys_user (username, password, age)").SetPrintLog(false)
+		s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
+		// s.SetPrintLog(false)
 		s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
 		s.Append("ON DUPLICATE KEY UPDATE username=VALUES(?v)", "username")
 		sqlStr := s.GetSqlStr()
@@ -114,7 +117,8 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 // 删除
 func TestNewCacheSql_DELETE(t *testing.T) {
 	t.Run("1", func(t *testing.T) {
-		s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123).SetPrintLog(false)
+		s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
+		// s.SetPrintLog(false)
 		sqlStr := s.GetSqlStr()
 		sureSql := "DELETE FROM sys_user WHERE id = 123;"
 		if !equal(sqlStr, sureSql) {
@@ -123,7 +127,8 @@ func TestNewCacheSql_DELETE(t *testing.T) {
 	})
 
 	t.Run("2", func(t *testing.T) {
-		s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123).SetPrintLog(false)
+		s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
+		// s.SetPrintLog(false)
 		if true {
 			s.SetWhere("age", ">", 10)
 		}
@@ -139,7 +144,7 @@ func TestNewCacheSql_DELETE(t *testing.T) {
 func TestNewCacheSql_UPDATE(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456, "阿涛", 12)
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		sqlStr := s.GetSqlStr()
 		sureSql := `UPDATE sys_user SET username = "test", password = 123456, name = "阿涛" WHERE id = 12;`
 		if !equal(sqlStr, sureSql) {
@@ -150,7 +155,7 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 	t.Run("key-value", func(t *testing.T) {
 		idsStr := []string{"1", "2", "3", "4", "5"}
 		s := NewCacheSql("UPDATE sys_user SET")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		s.SetUpdateValue("name", "xue")
 		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
 		s.SetWhereArgs("id IN (?d) AND age IN (?) AND name = ?", idsStr, []int{18, 20}, "xuesongtao")
@@ -164,7 +169,7 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 	t.Run("placeholder", func(t *testing.T) {
 		idsStr := []string{"1", "2", "3", "4", "5"}
 		s := NewCacheSql("UPDATE sys_user SET")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		s.SetUpdateValue("name", "xue")
 		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
 		s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "xuesongtao")
@@ -179,7 +184,7 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 func TestNewCacheSql_Select(t *testing.T) {
 	t.Run("list", func(t *testing.T) {
 		s := NewSql("SELECT username, password FROM sys_user WHERE money > ?", 1000.00)
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		if true {
 			s.SetWhereArgs("age > ?d", "12")
 		}
@@ -210,7 +215,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 
 	t.Run("son select", func(t *testing.T) {
 		s := NewSql("SELECT username, password FROM sys_user WHERE")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		if true {
 			s.SetWhere("age", "IN", FmtSqlStr("SELECT age FROM user_info WHERE id=?", 10))
 		}
@@ -226,7 +231,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 
 	t.Run("list select", func(t *testing.T) {
 		s := NewSql("SELECT username, password FROM sys_user WHERE")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		if true {
 			s.SetAllLike("name", "test")
 		}
@@ -247,7 +252,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 		s := NewSql("SELECT su.username, su.password FROM sys_user su").
 			SetJoin("user_cls uc", "su.id=uc.user_id", LJI).
 			SetJoin("test t", "t.user_cls_id=uc.id")
-		s.SetPrintLog(false)
+		// s.SetPrintLog(false)
 		if true {
 			s.SetWhere("su.name", "test")
 		}
@@ -389,6 +394,8 @@ func BenchmarkSqlStr_Int2Str(b *testing.B) {
 	}
 }
 
+// go test -benchmem -run=^$ -bench ^BenchmarkSqlStr_GetSql gitee.com/xuesongtao/spellsql -v -count=5
+
 func BenchmarkSqlStr_GetSql(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -401,6 +408,12 @@ func BenchmarkSqlStr_GetSql(b *testing.B) {
 		s.SetPrintLog(false).GetTotalSqlStr()
 		s.GetSqlStr()
 	}
+
+	// BenchmarkSqlStr_GetSql-8          735132              1620 ns/op            1824 B/op         20 allocs/op
+	// BenchmarkSqlStr_GetSql-8          711409              1624 ns/op            1824 B/op         20 allocs/op
+	// BenchmarkSqlStr_GetSql-8          718840              1624 ns/op            1824 B/op         20 allocs/op
+	// BenchmarkSqlStr_GetSql-8          722414              1624 ns/op            1824 B/op         20 allocs/op
+	// BenchmarkSqlStr_GetSql-8          714430              1619 ns/op            1824 B/op         20 allocs/op
 }
 
 func BenchmarkSqlStr_GetSql2(b *testing.B) {
@@ -427,6 +440,12 @@ func BenchmarkSqlStr_GetSql2(b *testing.B) {
 		_ = s1
 		// b.Log(s)
 	}
+
+	// BenchmarkSqlStr_GetSql2-8         714324              1643 ns/op            2320 B/op         36 allocs/op
+	// BenchmarkSqlStr_GetSql2-8         678813              1637 ns/op            2320 B/op         36 allocs/op
+	// BenchmarkSqlStr_GetSql2-8         705320              1640 ns/op            2320 B/op         36 allocs/op
+	// BenchmarkSqlStr_GetSql2-8         704493              1642 ns/op            2320 B/op         36 allocs/op
+	// BenchmarkSqlStr_GetSql2-8         697677              1665 ns/op            2320 B/op         36 allocs/op
 }
 
 func testMySQLEscape(v string) string {

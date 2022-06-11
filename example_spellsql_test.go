@@ -6,7 +6,8 @@ import (
 )
 
 func ExampleSpellSqlList() {
-	s := NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?d", "test", "123").SetPrintLog(false)
+	s := NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?d", "test", "123")
+	// s.SetPrintLog(false)
 	if true {
 		s.SetWhere("username", "test")
 	}
@@ -39,7 +40,8 @@ func ExampleSpellSqlList() {
 }
 
 func ExampleSpellSqlInsert() {
-	s := NewCacheSql("INSERT INTO sys_user (username, password, name)").SetPrintLog(false)
+	s := NewCacheSql("INSERT INTO sys_user (username, password, name)")
+	// s.SetPrintLog(false)
 	s.SetInsertValues("xuesongtao", "123456", "阿桃")
 	s.SetInsertValues("xuesongtao1", "123456", "阿桃")
 	fmt.Println(s.GetSqlStr())
@@ -49,7 +51,8 @@ func ExampleSpellSqlInsert() {
 }
 
 func ExampleSpellSqlUpdate() {
-	s := NewCacheSql("UPDATE sys_user SET").SetPrintLog(false)
+	s := NewCacheSql("UPDATE sys_user SET")
+	// s.SetPrintLog(false)
 	if true {
 		s.SetUpdateValue("username", "test")
 	}
@@ -66,7 +69,8 @@ func ExampleSpellSqlUpdate() {
 }
 
 func ExampleSpellSqlDelete() {
-	s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123).SetPrintLog(false)
+	s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
+	// s.SetPrintLog(false)
 	fmt.Println(s.GetSqlStr())
 
 	// Output:

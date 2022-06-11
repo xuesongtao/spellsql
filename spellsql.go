@@ -44,18 +44,17 @@ var (
 
 // SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
-	hasWhereStr     bool   // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
-	hasValuesStr    bool   // 标记 INSERT 是否添加已添加 VALUES
-	hasSetStr       bool   // 标记 UPDATE 是否添加 SET
-	isPutPooled     bool   // 标记是否已被回收了
-	needAddJoinStr  bool   // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
-	needAddComma    bool   // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
-	needAddBracket  bool   // 标记 INSERT 时, 是否添加括号
-	isPrintSqlLog   bool   // 标记是否打印 生成的 sqlStr log
-	isCallCacheInit bool   // 标记是否为 NewCacheSql 初始化生产的对象
-	actionNum       uint8  // INSERT/DELETE/SELECT/UPDATE
-	callerSkip      uint8  // 跳过调用栈的数
-	systemSplit     string // 系统对应的路径分隔符
+	hasWhereStr     bool  // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
+	hasValuesStr    bool  // 标记 INSERT 是否添加已添加 VALUES
+	hasSetStr       bool  // 标记 UPDATE 是否添加 SET
+	isPutPooled     bool  // 标记是否已被回收了
+	needAddJoinStr  bool  // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
+	needAddComma    bool  // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
+	needAddBracket  bool  // 标记 INSERT 时, 是否添加括号
+	isPrintSqlLog   bool  // 标记是否打印 生成的 sqlStr log
+	isCallCacheInit bool  // 标记是否为 NewCacheSql 初始化生产的对象
+	actionNum       uint8 // INSERT/DELETE/SELECT/UPDATE
+	callerSkip      uint8 // 跳过调用栈的数
 	limitStr        string
 	orderByStr      string
 	groupByStr      string
@@ -192,10 +191,6 @@ func (s *SqlStrObj) init() {
 	s.isCallCacheInit = false
 	s.needAddBracket = false
 	s.callerSkip = 1
-	s.systemSplit = "/"
-	if runtime.GOOS == "windows" {
-		s.systemSplit = "\\"
-	}
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
@@ -796,15 +791,6 @@ func (s *SqlStrObj) SetCallerSkip(skip uint8) *SqlStrObj {
 	return s
 }
 
-// parseCallFile 解析调用文件
-func (s *SqlStrObj) parseCallFile(filename string) string {
-	lastIndex := IndexForBF(false, filename, s.systemSplit)
-	if lastIndex < 0 {
-		return ""
-	}
-	return filename[lastIndex+1:]
-}
-
 // GetSqlStr 获取最终 sqlStr, 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
@@ -825,7 +811,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 		var finalTitle string
 		_, file, line, ok := runtime.Caller(int(s.callerSkip))
 		if ok {
-			finalTitle += "(" + s.parseCallFile(file) + ":" + s.Int2Str(int64(line)) + ") "
+			finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
 		}
 		sqlStrTitle := "sqlStr"
 		if argsLen > 0 {
@@ -885,7 +871,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 		var finalTitle string
 		_, file, line, ok := runtime.Caller(int(s.callerSkip))
 		if ok {
-			finalTitle += "(" + s.parseCallFile(file) + ":" + s.Int2Str(int64(line)) + ") "
+			finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
 		}
 		sqlStrTitle := "sqlTotalStr"
 		if len(title) > 0 {
@@ -1037,6 +1023,19 @@ func IndexForBF(isFont2End bool, s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// parseFileName 解析文件名
+func parseFileName(filePath string) string {
+	sysSplit := "/"
+	if runtime.GOOS == "windows" {
+		sysSplit = "\\"
+	}
+	lastIndex := IndexForBF(false, filePath, sysSplit)
+	if lastIndex == -1 {
+		return ""
+	}
+	return filePath[lastIndex+1:]
 }
 
 // DistinctIdsStr 将输入拼接 id 参数按照指定字符进行去重, 如:
