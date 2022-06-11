@@ -33,7 +33,6 @@ var (
 	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
 		"    Name string `json:\"name\"`\n"+
 		"}")
-	sqlObjErr             = errors.New("tmpSqlObj is nil")
 	tableNameIsUnknownErr = errors.New("table name is unknown")
 	nullRowErr            = errors.New("row is null")
 	findOneDestTypeErr    = errors.New("dest should is struct/oneField/map")
@@ -105,19 +104,16 @@ type Table struct {
 // 如果为空时, 在通过对象进行操作时按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
 // args[1]: 会解析为待解析的 tag, 默认 defaultTableTag
 func NewTable(db DBer, args ...string) *Table {
-	if db == nil {
-		return nil
-	}
-
 	t := cacheTabObj.Get().(*Table)
+	t.init()
+
+	// 赋值
 	t.db = db
 	t.printSqlCallSkip = 2
 	t.isPrintSql = true
 	t.haveFree = false
 	t.needSetSize = false
 	t.tag = defaultTableTag
-	t.name = ""
-
 	switch len(args) {
 	case 1:
 		t.name = args[0]
@@ -125,15 +121,17 @@ func NewTable(db DBer, args ...string) *Table {
 		t.name = args[0]
 		t.tag = args[1]
 	}
-
-	if t.name != "" {
-		if err := t.initCacheCol2InfoMap(); err != nil {
-			cjLog.Error("initCacheCol2InfoMap is failed, err:", err)
-			// glog.Error("initCacheCol2InfoMap is failed, err:", err)
-			return nil
-		}
-	}
 	return t
+}
+
+// init 初始化
+func (t *Table) init() {
+	t.db = nil
+	t.name = ""
+	t.handleCols = ""
+	t.tmpSqlObj = nil
+	t.cacheCol2InfoMap = nil
+	t.waitHandleStructFieldFnMap = nil
 }
 
 // free 释放
@@ -144,12 +142,7 @@ func (t *Table) free() {
 		return
 	}
 	t.haveFree = true
-	t.db = nil
-	t.tmpSqlObj = nil
-	t.name = ""
-	t.handleCols = ""
-	t.cacheCol2InfoMap = nil
-	t.waitHandleStructFieldFnMap = nil
+	t.init()
 
 	// 存放缓存
 	cacheTabObj.Put(t)
@@ -435,7 +428,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	if len(insertObjs) == 0 {
 		cjLog.Error("insertObjs is empty")
 		// glog.Error("insertObjs is empty")
-		return nil
+		return t
 	}
 
 	var insertSql *SqlStrObj
@@ -444,7 +437,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 		if err != nil {
 			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
 			// glog.Error("getHandleTableCol2Val is failed, err:", err)
-			return nil
+			return t
 		}
 		if i == 0 {
 			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
@@ -463,7 +456,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		if err != nil {
 			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
 			// glog.Error("getHandleTableCol2Val is failed, err:", err)
-			return nil
+			return t
 		}
 
 		l := len(columns)
@@ -477,7 +470,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		if t.name == "" {
 			cjLog.Error(tableNameIsUnknownErr)
 			// glog.Error(tableNameIsUnknownErr)
-			return nil
+			return t
 		}
 		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
 	}
@@ -491,7 +484,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 	if err != nil {
 		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
 		// glog.Error("getHandleTableCol2Val is failed, err:", err)
-		return nil
+		return t
 	}
 
 	l := len(columns)
@@ -511,7 +504,7 @@ func (t *Table) Select(fields string) *Table {
 	if fields == "" {
 		cjLog.Error("fields is null")
 		// glog.Error("fields is null")
-		return nil
+		return t
 	}
 
 	if t.name != "" {
@@ -553,7 +546,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		if err := t.initCacheCol2InfoMap(); err != nil {
 			cjLog.Error("initCacheCol2InfoMap is failed, err:", err)
 			// glog.Error("initCacheCol2InfoMap is failed, err:", err)
-			return nil
+			return t
 		}
 
 		_, sortCol := t.parseCol2StructField(ty, true)
@@ -590,11 +583,8 @@ func (t *Table) SelectCount() *Table {
 
 // Count 获取总数
 func (t *Table) Count(total interface{}) error {
-	if t.sqlObjIsNil() {
-		if t.name == "" {
-			return tableNameIsUnknownErr
-		}
-		t.SelectCount()
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
 
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
@@ -1129,11 +1119,15 @@ func (t *Table) sqlObjIsNil() bool {
 
 // prevCheck 查询预检查
 func (t *Table) prevCheck() error {
+	if t.db == nil {
+		return errors.New("db is nil")
+	}
+
 	if t.sqlObjIsNil() {
 		if t.name == "" {
 			return tableNameIsUnknownErr
 		}
-		return sqlObjErr
+		return errors.New("tmpSqlObj is nil")
 	}
 	return nil
 }
@@ -1142,12 +1136,9 @@ func (t *Table) prevCheck() error {
 // 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
 // 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
 func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetJoin(joinTable, on, joinType...)
 	}
-	t.tmpSqlObj.SetJoin(joinTable, on, joinType...)
 	return t
 }
 
@@ -1155,12 +1146,9 @@ func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetWhereArgs(sqlStr, args...)
 	}
-	t.tmpSqlObj.SetWhereArgs(sqlStr, args...)
 	return t
 }
 
@@ -1168,75 +1156,57 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetOrWhereArgs(sqlStr, args...)
 	}
-	t.tmpSqlObj.SetOrWhereArgs(sqlStr, args...)
 	return t
 }
 
 // WhereLike like 查询
 // likeType ALK-全模糊 RLK-右模糊 LLK-左模糊
 func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
-	}
-	switch likeType {
-	case ALK:
-		t.tmpSqlObj.SetAllLike(filedName, value)
-	case RLK:
-		t.tmpSqlObj.SetRightLike(filedName, value)
-	case LLK:
-		t.tmpSqlObj.SetLeftLike(filedName, value)
+	if !t.sqlObjIsNil() {
+		switch likeType {
+		case ALK:
+			t.tmpSqlObj.SetAllLike(filedName, value)
+		case RLK:
+			t.tmpSqlObj.SetRightLike(filedName, value)
+		case LLK:
+			t.tmpSqlObj.SetLeftLike(filedName, value)
+		}
 	}
 	return t
 }
 
 // Between
 func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetBetween(filedName, leftVal, rightVal)
 	}
-	t.tmpSqlObj.SetBetween(filedName, leftVal, rightVal)
 	return t
 }
 
 // OrderBy
 func (t *Table) OrderBy(sqlStr string) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetOrderByStr(sqlStr)
 	}
-	t.tmpSqlObj.SetOrderByStr(sqlStr)
 	return t
 }
 
 // Limit
 func (t *Table) Limit(page int32, size int32) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetLimit(page, size)
 	}
-	t.tmpSqlObj.SetLimit(page, size)
 	return t
 }
 
 // GroupBy
 func (t *Table) GroupBy(sqlStr string) *Table {
-	if err := t.prevCheck(); err != nil {
-		cjLog.Error(err)
-		// glog.Error(err)
-		return nil
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetGroupByStr(sqlStr)
 	}
-	t.tmpSqlObj.SetGroupByStr(sqlStr)
 	return t
 }
 
@@ -1253,7 +1223,6 @@ func (t *Table) Raw(sql interface{}) *Table {
 	default:
 		cjLog.Error("sql only support string/SqlStrObjPtr")
 		// glog.Error("sql only support string/SqlStrObjPtr")
-		return nil
 	}
 	return t
 }
