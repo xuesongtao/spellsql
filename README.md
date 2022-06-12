@@ -1,7 +1,7 @@
 #### 1. spellsql 介绍
 * 通过 `sync.Pool`,  `strings.Builder` 等实现的高性能 sql 拼接工具
 * 具有: 可控打印 sql 最终的 log, 非法字符自动转义, 支持格式化 sql等
-* 现在支持表的 `curd` 相关的 `orm` 操作
+* 支持轻量级 `orm`, 性能方面接近原生(即: database/sql)
 * 安装:
 
 ```
