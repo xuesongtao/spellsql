@@ -136,11 +136,6 @@ func (t *Table) init() {
 
 // free 释放
 func (t *Table) free() {
-	if t.haveFree {
-		cjLog.Panic("table have free, you can't again use")
-		// glog.Panic("table have free, you can't again use")
-		return
-	}
 	t.haveFree = true
 	t.init()
 
@@ -532,7 +527,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 
 	ty := removeTypePtr(reflect.TypeOf(src))
 	selectFields := make([]string, 0, 5)
-	switch ty.Kind() {
+	switch kind := ty.Kind(); kind {
 	case reflect.Struct, reflect.Slice:
 		if ty.Kind() == reflect.Slice {
 			ty = ty.Elem()
@@ -564,6 +559,9 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		}
 		t.Select(strings.Join(selectFields, ", "))
 	default:
+		if t.isOneField(kind) { // 因为单字段不能解析查内容, 所以直接返回, 在最终调用处报错
+			return t
+		}
 		cjLog.Warning("src kind is not struct or slice struct")
 		// glog.Warning("src kind is not struct or slice struct")
 		t.SelectAll()
@@ -679,6 +677,10 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
 	if t.sqlObjIsNil() {
 		t.SelectAuto(dest)
+	}
+
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
 
 	t.tmpSqlObj.SetWhereArgs(where, args...)
@@ -1119,6 +1121,10 @@ func (t *Table) sqlObjIsNil() bool {
 
 // prevCheck 查询预检查
 func (t *Table) prevCheck() error {
+	if t.haveFree {
+		return errors.New("tableObj have free, you can't again use")
+	}
+
 	if t.db == nil {
 		return errors.New("db is nil")
 	}
