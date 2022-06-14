@@ -1,8 +1,7 @@
 #### 1. spellsql 介绍 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 [![star](https://gitee.com/xuesongtao/spellsql/badge/star.svg?theme=dark)](https://gitee.com/xuesongtao/spellsql/stargazers)
-[![Fork me on Gitee](https://gitee.com/xuesongtao/spellsql/widgets/widget_6.svg)](https://gitee.com/xuesongtao/spellsql)
-[![fork](https://gitee.com/xuesongtao/spellsql/badge/fork.svg?theme=dark)](https://gitee.com/xuesongtao/spellsql/members)
+[![fork](https://gitee.com/xuesongtao/spellsql/badge/fork.svg?theme=gray)](https://gitee.com/xuesongtao/spellsql/members)
 
 
 * 通过 `sync.Pool`,  `strings.Builder` 等实现的高性能 sql 拼接工具
