@@ -24,8 +24,3 @@ func TestFatal(t *testing.T) {
 	// cjLog.Fatal("hello fatal")
 	l.Fatalf("hello fatalf: %v", 1)
 }
-
-func TestPanic(t *testing.T) {
-	// cjLog.Panic("hello panic")
-	cjLog.Panicf("hello panic: %v", 1)
-}

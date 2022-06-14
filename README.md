@@ -1,4 +1,10 @@
-#### 1. spellsql 介绍
+#### 1. spellsql 介绍 
+[![Fork me on Gitee](https://gitee.com/xuesongtao/spellsql/widgets/widget_3.svg)](https://gitee.com/xuesongtao/spellsql)&nbsp;&nbsp;&nbsp;
+[![star](https://gitee.com/xuesongtao/spellsql/badge/star.svg?theme=white)](https://gitee.com/xuesongtao/spellsql/stargazers)
+&nbsp;
+[![fork](https://gitee.com/xuesongtao/spellsql/badge/fork.svg?theme=gray)](https://gitee.com/xuesongtao/spellsql/members)
+
+
 * 通过 `sync.Pool`,  `strings.Builder` 等实现的高性能 sql 拼接工具
 * 具有: 可控打印 sql 最终的 log, 非法字符自动转义, 支持格式化 sql等
 * 支持轻量级 `orm`, 性能方面接近原生(即: database/sql)
