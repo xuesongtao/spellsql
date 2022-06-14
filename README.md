@@ -1,4 +1,4 @@
-# Spellsql [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://gitee.com/xuesongtao/spellsql) 
+# spellsql [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://gitee.com/xuesongtao/spellsql) 
 
 
 #### 1. 介绍 
