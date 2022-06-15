@@ -346,4 +346,4 @@
 
 #### 其他
 
-* 欢迎大佬们指正, 希望大佬给 **star**
+* 欢迎大佬们指正, 希望大佬给 **star**, [to gitee](https://gitee.com/xuesongtao/spellsql)
