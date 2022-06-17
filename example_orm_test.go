@@ -23,11 +23,11 @@ func ExampleOrmList() {
 	table := NewTable(db).Raw(sqlObj)
 	var (
 		total int
-		res   = make([]*Man, 0, 10)
+		res   = make([]*ManCopy, 0, 10)
 	)
 	_ = table.Count(&total)
 	_ = table.FindAll(&res, func(_row interface{}) error {
-		v := _row.(*Man)
+		v := _row.(*ManCopy)
 		if v.Id == 1 {
 			v.Name = "被修改为 test"
 		}
@@ -38,7 +38,7 @@ func ExampleOrmList() {
 
 	// Output:
 	// 4
-	// [{"id":1,"name":"被修改为 test","age":20,"nickname":""},{"id":2,"name":"xue1","age":18,"nickname":""},{"id":3,"name":"xue12","age":18,"nickname":""},{"id":4,"name":"xue123","age":18,"nickname":""}]
+	// [{"id":1,"name":"被修改为 test","age":20},{"id":2,"name":"xue1","age":18},{"id":3,"name":"xue12","age":18},{"id":4,"name":"xue123","age":18}]
 }
 
 func ExampleExecForSql() {
@@ -115,9 +115,9 @@ func ExampleUpdateForObj() {
 		Addr: "成都市",
 	}
 
-	r, _ := UpdateForObj(db, "man", m, "id=7")
-	rr, _ := r.RowsAffected()
-	myPrint(rr, false)
+	_, _ = UpdateForObj(db, "man", m, "id=7")
+	// rr, _ := r.RowsAffected()
+	// myPrint(rr, false)
 
 	var b Tmp
 	_ = SelectFindOne(db, "name,age,addr", "man", "id=7", &b)

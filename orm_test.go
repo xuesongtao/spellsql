@@ -1072,6 +1072,7 @@ func TestFindAll(t *testing.T) {
 }
 
 func TestSqlxSelect(t *testing.T) {
+	t.Skip()
 	var m []*Man
 	sqlStr := FmtSqlStr("SELECT id,name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)
 	err := sqlxdb.Select(&m, sqlStr)
