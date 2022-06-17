@@ -20,6 +20,7 @@ func TestDemo(t *testing.T) {
 }
 
 func TestFatal(t *testing.T) {
+	t.Skip()
 	l := NewCjLogger()
 	// cjLog.Fatal("hello fatal")
 	l.Fatalf("hello fatalf: %v", 1)

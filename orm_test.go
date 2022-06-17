@@ -356,8 +356,20 @@ func TestUpdate(t *testing.T) {
 
 func TestFindOne(t *testing.T) {
 	t.Log("find one test start")
-	t.Run("select 2 struct", func(t *testing.T) {
+	t.Run("select struct", func(t *testing.T) {
 		var m Man
+		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("select ptr struct", func(t *testing.T) {
+		var m *Man
 		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
 		if err != nil {
 			t.Fatal(err)
@@ -397,7 +409,7 @@ func TestFindOne(t *testing.T) {
 	})
 
 	t.Run("selectAuto 2 struct", func(t *testing.T) {
-		var m Man
+		var m *Man
 		err := SelectFindOne(db, m, "man", FmtSqlStr("id=?", 1), &m)
 		if err != nil {
 			t.Fatal(err)
@@ -559,6 +571,28 @@ func TestFindOne(t *testing.T) {
 }
 
 func TestTmp(t *testing.T) {
+	type Tmp struct {
+		Name1 string `json:"name_1,omitempty"`
+		Age1  int32  `json:"age_1,omitempty"`
+	}
+	var m *Tmp
+	err := NewTable(db).
+		TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
+		Select("name,age").
+		From("man").
+		Where("id=?", 1).
+		FindOneFn(&m, func(_row interface{}) error {
+			v := _row.(*Tmp)
+			fmt.Println("test: ", v)
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(m)
+	if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
+		t.Error(noEqErr)
+	}
 }
 
 func TestFindWhere(t *testing.T) {
