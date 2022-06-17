@@ -920,9 +920,13 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 				}
 			}
 		}
-
+		
 		if !ignoreRes { // 不忽略结果, 那只能出现在单行查询
-			destReflectValue.Set(base)
+			if destReflectValue.Kind() == reflect.Ptr {
+				destReflectValue.Set(base.Addr())
+			} else {
+				destReflectValue.Set(base)
+			}
 			break
 		}
 	}
