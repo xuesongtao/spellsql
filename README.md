@@ -1,4 +1,4 @@
-# spellsql [![Open Source Love](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://gitee.com/xuesongtao/spellsql)
+# [spellsql](https://gitee.com/xuesongtao/spellsql)
 
 #### 1. 介绍
 * 通过 `sync.Pool`, `strings.Builder` 等实现的高性能 sql 拼接工具
