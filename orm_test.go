@@ -18,6 +18,31 @@ const (
 	sureAge  = int32(20)
 )
 
+func TestTmp(t *testing.T) {
+	type Tmp struct {
+		Name1 string `json:"name_1,omitempty"`
+		Age1  int32  `json:"age_1,omitempty"`
+	}
+	var m *Tmp
+	err := NewTable(nil).
+		TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
+		SelectAuto(Tmp{}).
+		From("man").
+		Where("id=?", 1).
+		FindOneFn(&m, func(_row interface{}) error {
+			v := _row.(*Tmp)
+			fmt.Println("test: ", v)
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(m)
+	if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
+		t.Error(noEqErr)
+	}
+}
+
 // CREATE TABLE `man` (
 // 	`id` int NOT NULL AUTO_INCREMENT,
 // 	`name` varchar(10) NOT NULL,
@@ -568,31 +593,6 @@ func TestFindOne(t *testing.T) {
 	})
 
 	t.Log("find one test end")
-}
-
-func TestTmp(t *testing.T) {
-	type Tmp struct {
-		Name1 string `json:"name_1,omitempty"`
-		Age1  int32  `json:"age_1,omitempty"`
-	}
-	var m *Tmp
-	err := NewTable(db).
-		TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
-		Select("name,age").
-		From("man").
-		Where("id=?", 1).
-		FindOneFn(&m, func(_row interface{}) error {
-			v := _row.(*Tmp)
-			fmt.Println("test: ", v)
-			return nil
-		})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(m)
-	if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
-		t.Error(noEqErr)
-	}
 }
 
 func TestFindWhere(t *testing.T) {
