@@ -20,28 +20,12 @@ const (
 )
 
 func TestTmp(t *testing.T) {
-	type Tmp struct {
-		Name1 string `json:"name_1,omitempty"`
-		Age1  int32  `json:"age_1,omitempty"`
-	}
-	var m *Tmp
-	err := NewTable(nil).
-		TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
-		SelectAuto(Tmp{}).
-		From("man").
-		Where("id=?", 1).
-		FindOneFn(&m, func(_row interface{}) error {
-			v := _row.(*Tmp)
-			fmt.Println("test: ", v)
-			return nil
-		})
+	var time sql.NullString
+	err := db.QueryRow("SELECT l_datetime from test_col where id=1").Scan(&time)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(m)
-	if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
-		t.Error(noEqErr)
-	}
+	t.Log(time)
 }
 
 // CREATE TABLE `man` (
@@ -154,38 +138,42 @@ func TestGetNullType(t *testing.T) {
 	// CREATE TABLE `test_col` (
 	// 	`id` int NOT NULL AUTO_INCREMENT,
 	// 	`id1` varchar(10) NOT NULL,
-	// 	`l_tinyint` tinyint DEFAULT NULL,
+	// 	`l_tinyint` tinyint DEFAULT '0',
 	// 	`l_int` int DEFAULT NULL,
 	// 	`l_long` mediumtext,
 	// 	`l_float` float DEFAULT NULL,
-	// 	`l_dec` decimal(10, 0) DEFAULT NULL,
+	// 	`l_dec` decimal(10,0) DEFAULT NULL,
 	// 	`l_char` char(10) DEFAULT NULL,
 	// 	`l_varchar` varchar(10) DEFAULT NULL,
 	// 	`l_text` longtext,
 	// 	`l_tint` tinyint unsigned NOT NULL,
 	// 	`l_bint` bigint unsigned NOT NULL,
-	// 	`l_tfloat` decimal(65, 0) unsigned NOT NULL,
-	// 	PRIMARY KEY (`id`, `id1`),
+	// 	`l_tfloat` decimal(65,0) unsigned NOT NULL,
+	//   `l_datetime` DATETIME DEFAULT CURRENT_TIMESTAMP,
+	//   `l_timestamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	// 	PRIMARY KEY (`id`,`id1`),
 	// 	KEY `a` (`l_int`)
 	//   )
 
 	type TestColInfo struct {
-		Id       int32  `json:"id,omitempty"`
-		Id1      string `json:"id1,omitempty"`
-		LTinyint int8   `json:"l_tinyint,omitempty"`
-		LInt     int32  `json:"l_int,omitempty"`
-		LLong    string `json:"l_long,omitempty"`
-		LFloat   string `json:"l_float,omitempty"`
-		LDec     string `json:"l_dec,omitempty"`
-		LChar    string `json:"l_char,omitempty"`
-		LVarchar string `json:"l_varchar,omitempty"`
-		LText    string `json:"l_text,omitempty"`
-		LTint    int8   `json:"l_tint,omitempty"`
-		LBint    int64  `json:"l_bint,omitempty"`
-		LTfloat  string `json:"l_tfloat,omitempty"`
+		Id         int32   `json:"id,omitempty"`
+		Id1        string  `json:"id1,omitempty"`
+		LTinyint   int8    `json:"l_tinyint,omitempty"`
+		LInt       int32   `json:"l_int,omitempty"`
+		LLong      string  `json:"l_long,omitempty"`
+		LFloat     float32 `json:"l_float,omitempty"`
+		LDec       string  `json:"l_dec,omitempty"`
+		LChar      string  `json:"l_char,omitempty"`
+		LVarchar   string  `json:"l_varchar,omitempty"`
+		LText      string  `json:"l_text,omitempty"`
+		LTint      int8    `json:"l_tint,omitempty"`
+		LBint      int64   `json:"l_bint,omitempty"`
+		LTfloat    string  `json:"l_tfloat,omitempty"`
+		LDatetime  string  `json:"l_datetime,omitempty"`
+		LTimestamp string  `json:"l_timestamp,omitempty"`
 	}
 	var data TestColInfo
-	err := FindWhere(db, "test_col", &data, "id=1")
+	err := SelectFindWhere(db, "l_datetime", "test_col", &data, "id=?", 1)
 	if err != nil {
 		t.Fatal(err)
 	}

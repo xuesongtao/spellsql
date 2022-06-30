@@ -181,7 +181,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return nil
 	}
 
-	if err := t.prevCheck(); err != nil {
+	if err := t.prevCheck(false); err != nil {
 		return err
 	}
 
@@ -920,7 +920,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 				}
 			}
 		}
-		
+
 		if !ignoreRes { // 不忽略结果, 那只能出现在单行查询
 			if destReflectValue.Kind() == reflect.Ptr {
 				destReflectValue.Set(base.Addr())
@@ -1124,7 +1124,7 @@ func (t *Table) sqlObjIsNil() bool {
 }
 
 // prevCheck 查询预检查
-func (t *Table) prevCheck() error {
+func (t *Table) prevCheck(checkSqlObj ...bool) error {
 	if t.haveFree {
 		return errors.New("tableObj have free, you can't again use")
 	}
@@ -1133,7 +1133,12 @@ func (t *Table) prevCheck() error {
 		return errors.New("db is nil")
 	}
 
-	if t.sqlObjIsNil() {
+	defaultCheckSqlObj := true
+	if len(checkSqlObj) > 0 {
+		defaultCheckSqlObj = checkSqlObj[0]
+	}
+
+	if defaultCheckSqlObj && t.sqlObjIsNil() {
 		if t.name == "" {
 			return tableNameIsUnknownErr
 		}
