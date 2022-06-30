@@ -181,8 +181,8 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return nil
 	}
 
-	if t.name == "" {
-		return tableNameIsUnknownErr
+	if err := t.prevCheck(); err != nil {
+		return err
 	}
 
 	// 先判断下缓存中有没有
