@@ -181,8 +181,8 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return nil
 	}
 
-	if err := t.prevCheck(); err != nil {
-		return err
+	if t.db == nil {
+		return errors.New("db is nil")
 	}
 
 	// 先判断下缓存中有没有
