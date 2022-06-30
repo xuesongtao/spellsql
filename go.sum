@@ -1,3 +1,7 @@
+gitee.com/xuesongtao/gotool v1.1.2 h1:Y/Qhyb/9/mf+Dq+FlKCn/jXlDN/xRXCdMb4QeNxkafA=
+gitee.com/xuesongtao/gotool v1.1.2/go.mod h1:QT+9qIASH/zbjaLAkzpBGqpvbwIldYSrKO4KPfatiRg=
+gitee.com/xuesongtao/xlog v1.0.2 h1:FDEdtqPCs/GNlCJHUhJlQLQwdcA/sNcqq5yBPnr7qvI=
+gitee.com/xuesongtao/xlog v1.0.2/go.mod h1:pMi02dp7WCGhETWSCC2cMBwZ8n9ovrMXgGacvCIcdJc=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfCHuOE=
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
