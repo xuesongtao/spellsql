@@ -20,7 +20,7 @@ const (
 	_ uint8 = iota
 	// 查询时, 用于标记查询的 dest type
 	structFlag   // struct
-	sliceFlag    // 切片 
+	sliceFlag    // 切片
 	mapFlag      // map
 	oneFieldFlag // 单字段
 
@@ -183,6 +183,10 @@ func (t *Table) initCacheCol2InfoMap() error {
 
 	if err := t.prevCheck(false); err != nil {
 		return err
+	}
+
+	if t.name == "" {
+		return tableNameIsUnknownErr
 	}
 
 	// 先判断下缓存中有没有
