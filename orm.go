@@ -819,9 +819,9 @@ func (t *Table) find(dest interface{}, ty reflect.Type, ignoreRes bool, fn ...Se
 	defer rows.Close()
 
 	t.loadDestType(ty)
-	if t.destTypeFlag == structFlag || t.destTypeFlag == mapFlag || t.destTypeFlag == oneFieldFlag {
+	if t.isDestType(structFlag) || t.isDestType(mapFlag) || t.isDestType(oneFieldFlag) {
 		return t.scanOne(rows, ty, dest, ignoreRes, fn...)
-	} else if t.destTypeFlag == sliceFlag {
+	} else if t.isDestType(sliceFlag) {
 		return t.scanAll(rows, ty.Elem(), dest, fn...)
 	} else {
 		return errors.New("dest kind nonsupport")
@@ -864,7 +864,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 		}
 
 		if len(fn) == 1 { // 回调方法
-			if isPtr && t.destTypeFlag != mapFlag { // 指针类型
+			if isPtr && !t.isDestType(mapFlag) { // 指针类型
 				if err := fn[0](base.Addr().Interface()); err != nil {
 					return err
 				}
@@ -1071,7 +1071,7 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (e
 
 // setNullDest 设置值
 func (t *Table) setNullDest(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, scanResult []interface{}) error {
-	if t.destTypeFlag == structFlag {
+	if t.isDestType(structFlag) {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
 			col := colTypes[nullIndex].Name()
 			tag := col2StructFieldMap[col].tagName
@@ -1080,7 +1080,7 @@ func (t *Table) setNullDest(dest reflect.Value, col2StructFieldMap map[string]st
 				return err
 			}
 		}
-	} else if t.destTypeFlag == mapFlag {
+	} else if t.isDestType(mapFlag) {
 		destType := dest.Type()
 		if destType.Key().Kind() != reflect.String {
 			return errors.New("map key must is string")
@@ -1104,11 +1104,11 @@ func (t *Table) setNullDest(dest reflect.Value, col2StructFieldMap map[string]st
 			}
 			dest.SetMapIndex(key, val.Elem())
 		}
-	} else if t.destTypeFlag == oneFieldFlag {
+	} else if t.isDestType(oneFieldFlag) {
 		if _, ok := fieldIndex2NullIndexMap[0]; ok {
 			return t.nullScan(dest.Addr().Interface(), scanResult[0])
 		}
-	} else if t.destTypeFlag == sliceFlag { // QueryRowScan 方法会用, 单行多字段查询
+	} else if t.isDestType(sliceFlag) { // QueryRowScan 方法会用, 单行多字段查询
 		for _, nullIndex := range fieldIndex2NullIndexMap {
 			if err := t.nullScan(dest.Index(nullIndex).Interface(), scanResult[nullIndex]); err != nil {
 				return err
