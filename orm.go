@@ -432,7 +432,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
-		columns, values, err := t.getHandleTableCol2Val(insertObj, false, t.name)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 		if err != nil {
 			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
 			// glog.Error("getHandleTableCol2Val is failed, err:", err)
