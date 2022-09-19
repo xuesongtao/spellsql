@@ -145,7 +145,7 @@ func (t *Table) free() {
 
 // From 设置表名
 func (t *Table) From(tableName string) *Table {
-	t.name = tableName
+	t.name = parseTableName(tableName)
 	if t.sqlObjIsNil() {
 		if t.handleCols != "" {
 			t.Select(t.handleCols)
@@ -1348,6 +1348,14 @@ func isExported(fieldName string) bool {
 
 // parseTableName 解析表名
 func parseTableName(objName string) string {
+	// 排除有如含有表别名, 如 user_info ui => user_info
+	if index := strings.Index(objName, " "); index != -1 {
+		return objName[:index]
+	} else if strings.Contains(objName, "_") { // 直接包含下划线
+		return objName
+	}
+
+	// 解析对象名
 	res := new(strings.Builder)
 	for i, v := range objName {
 		if v >= 'A' && v <= 'Z' {
