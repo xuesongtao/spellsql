@@ -145,7 +145,7 @@ func (t *Table) free() {
 
 // From 设置表名
 func (t *Table) From(tableName string) *Table {
-	t.name = parseTableName(tableName)
+	t.name = tableName
 	if t.sqlObjIsNil() {
 		if t.handleCols != "" {
 			t.Select(t.handleCols)
@@ -189,15 +189,18 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return tableNameIsUnknownErr
 	}
 
+	// 防止 name 中包含 别名
+	tableName := parseTableName(t.name)
+
 	// 先判断下缓存中有没有
-	if info, ok := cacheTableName2ColInfoMap.Load(t.name); ok {
+	if info, ok := cacheTableName2ColInfoMap.Load(tableName); ok {
 		t.cacheCol2InfoMap, ok = info.(map[string]*tableColInfo)
 		if ok {
 			return nil
 		}
 	}
 
-	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", t.name).SetPrintLog(t.isPrintSql).GetSqlStr()
+	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", tableName).SetPrintLog(t.isPrintSql).GetSqlStr()
 	rows, err := t.db.Query(sqlStr)
 	if err != nil {
 		return fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
