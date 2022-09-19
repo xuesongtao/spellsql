@@ -20,12 +20,7 @@ const (
 )
 
 func TestTmp(t *testing.T) {
-	var time sql.NullString
-	err := db.QueryRow("SELECT l_datetime from test_col where id=1").Scan(&time)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(time)
+	t.Log(parseTableName("user_info"))
 }
 
 // CREATE TABLE `man` (
