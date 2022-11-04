@@ -1289,9 +1289,9 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	values := make([]interface{}, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	// 将 dest 转为 []dest
-	destsReflectValue := reflect.ValueOf(append([]interface{}{}, dest...))
-	t.loadDestType(destsReflectValue.Type())
-	if err := t.getScanValues(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+	destReflectValues := reflect.ValueOf(append([]interface{}{}, dest...))
+	t.loadDestType(destReflectValues.Type())
+	if err := t.getScanValues(destReflectValues, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
 	}
 
@@ -1299,7 +1299,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		return err
 	}
 
-	if err := t.setNullDest(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+	if err := t.setNullDest(destReflectValues, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
 	}
 	return err
