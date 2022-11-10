@@ -951,9 +951,7 @@ func (t *Table) isDestType(typeNum uint8) bool {
 
 // getScanValues 获取待 Scan 的内容
 func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
-	var (
-		structMissFields []string
-	)
+	var structMissFields []string
 	for i, colType := range colTypes {
 		var (
 			fieldIndex       int
