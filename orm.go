@@ -1231,6 +1231,14 @@ func (t *Table) GroupBy(sqlStr string) *Table {
 	return t
 }
 
+// Having
+func (t *Table) Having(sqlStr string) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetHaving(sqlStr)
+	}
+	return t
+}
+
 // Raw 执行原生操作
 // sql sqlStr 或 *SqlStrObj
 // 说明: 在使用时, 设置了 tableName 时查询性能更好, 因为在调用 getScanValues 前需要
