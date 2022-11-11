@@ -524,8 +524,10 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 }
 
 // Having 设置 Having
-func (s *SqlStrObj) SetHaving(having string) *SqlStrObj {
-	s.groupByStr += " HAVING " + having
+func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
+	tmpBuf := new(strings.Builder)
+	s.writeSqlStr2Buf(tmpBuf, having, args...)
+	s.groupByStr += " HAVING " + tmpBuf.String()
 	return s
 }
 

@@ -1232,9 +1232,9 @@ func (t *Table) GroupBy(sqlStr string) *Table {
 }
 
 // Having
-func (t *Table) Having(sqlStr string) *Table {
+func (t *Table) Having(sqlStr string, args ...interface{}) *Table {
 	if !t.sqlObjIsNil() {
-		t.tmpSqlObj.SetHaving(sqlStr)
+		t.tmpSqlObj.SetHaving(sqlStr, args...)
 	}
 	return t
 }
