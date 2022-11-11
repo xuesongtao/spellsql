@@ -951,9 +951,7 @@ func (t *Table) isDestType(typeNum uint8) bool {
 
 // getScanValues 获取待 Scan 的内容
 func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
-	var (
-		structMissFields []string
-	)
+	var structMissFields []string
 	for i, colType := range colTypes {
 		var (
 			fieldIndex       int
@@ -1233,6 +1231,14 @@ func (t *Table) GroupBy(sqlStr string) *Table {
 	return t
 }
 
+// Having
+func (t *Table) Having(sqlStr string) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetHaving(sqlStr)
+	}
+	return t
+}
+
 // Raw 执行原生操作
 // sql sqlStr 或 *SqlStrObj
 // 说明: 在使用时, 设置了 tableName 时查询性能更好, 因为在调用 getScanValues 前需要
@@ -1289,9 +1295,9 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	values := make([]interface{}, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	// 将 dest 转为 []dest
-	destsReflectValue := reflect.ValueOf(append([]interface{}{}, dest...))
-	t.loadDestType(destsReflectValue.Type())
-	if err := t.getScanValues(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+	destReflectValues := reflect.ValueOf(append([]interface{}{}, dest...))
+	t.loadDestType(destReflectValues.Type())
+	if err := t.getScanValues(destReflectValues, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
 	}
 
@@ -1299,7 +1305,7 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 		return err
 	}
 
-	if err := t.setNullDest(destsReflectValue, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
+	if err := t.setNullDest(destReflectValues, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
 	}
 	return err

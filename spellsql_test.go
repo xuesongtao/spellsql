@@ -262,6 +262,17 @@ func TestNewCacheSql_Select(t *testing.T) {
 			t.Error(noEqErr)
 		}
 	})
+
+	t.Run("group by", func(t *testing.T) {
+		s := NewSql("SELECT cls_id,COUNT(*) FROM sys_user WHERE")
+		s.SetPrintLog(false)
+		
+		sqlStr := s.SetGroupByStr("cls_id").SetHaving("sum(cls_id)>10").GetSqlStr()
+		sureSql := `SELECT cls_id,COUNT(*) FROM sys_user WHERE GROUP BY cls_id HAVING sum(cls_id)>10;`
+		if !equal(sqlStr, sureSql) {
+			t.Error(noEqErr)
+		}
+	})
 }
 
 func TestGetSqlStr(t *testing.T) {

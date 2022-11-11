@@ -6,7 +6,7 @@ import (
 )
 
 func ExampleSpellSqlList() {
-	s := NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?d", "test", "123")
+	s := NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?d", "test", "123").SetPrintLog(false)
 	// s.SetPrintLog(false)
 	if true {
 		s.SetWhere("username", "test")
@@ -29,14 +29,14 @@ func ExampleSpellSqlList() {
 	}
 
 	totalSqlStr := s.GetTotalSqlStr("selectUserTotal")
-	sqlStr := s.GetSqlStr("selectUser")
+	sqlStr := s.SetOrderByStr("create_time DESC").SetLimit(1, 10).GetSqlStr("selectUser")
 
 	fmt.Println(totalSqlStr)
 	fmt.Println(sqlStr)
 
 	// Output:
 	// SELECT COUNT(*) FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大");
-	// SELECT username, password FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大");
+	// SELECT username, password FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大") ORDER BY create_time DESC LIMIT 0, 10;
 }
 
 func ExampleSpellSqlInsert() {
