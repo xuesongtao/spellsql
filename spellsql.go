@@ -66,7 +66,7 @@ type SqlStrObj struct {
 //      如: NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?", "test", 123)
 //      => SELECT username, password FROM sys_user WHERE username = "test" AND password = 123
 //
-// 		第二种用法: 当 arg 为 []int, 暂时支持 []int, []int32, []int64
+// 		第二种用法: 当 arg 为 []int8/int 等
 // 		如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?)", []int{1, 2, 3})
 // 		=> SELECT username, password FROM sys_user WHERE id IN (1,2,3)
 //

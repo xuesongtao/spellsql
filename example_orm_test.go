@@ -162,7 +162,7 @@ func ExampleSelectFindOne() {
 	// {"name":"测试1","json_txt":{},"xml_txt":{},"json1_txt":{}}
 }
 
-func ExampleSelectFindOneFn()  {
+func ExampleSelectFindOneFn() {
 	var m Man
 	_ = SelectFindOneFn(db, "name,age", "man", "id=1", &m, func(_row interface{}) error {
 		v := _row.(*Man)
@@ -176,7 +176,7 @@ func ExampleSelectFindOneFn()  {
 	// {"name":"被修改了哦","age":20,"json_txt":{},"xml_txt":{},"json1_txt":{}}
 }
 
-func ExampleSelectFindOneIgnoreResult()  {
+func ExampleSelectFindOneIgnoreResult() {
 	var m Man
 	var idMap = make(map[int32]string, 10)
 	_ = SelectFindOneIgnoreResult(db, "id,name", "man", "id<10", &m, func(_row interface{}) error {
@@ -191,7 +191,7 @@ func ExampleSelectFindOneIgnoreResult()  {
 	// {"1":"测试1","2":"xue1","3":"xue12","4":"xue123","5":"xue1234","6":"xue1234","7":"xue1234","8":"test12"}
 }
 
-func ExampleSelectFindAll()  {
+func ExampleSelectFindAll() {
 	var m []Man
 	_ = SelectFindAll(db, "id,name", "man", "id<3", &m)
 
@@ -201,7 +201,7 @@ func ExampleSelectFindAll()  {
 	// [{"id":1,"name":"测试1","json_txt":{},"xml_txt":{},"json1_txt":{}},{"id":2,"name":"xue1","json_txt":{},"xml_txt":{},"json1_txt":{}}]
 }
 
-func ExampleFindOne()  {
+func ExampleFindOne() {
 	var m Man
 	sqlObj := NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1)
 	_ = FindOne(db, sqlObj, &m)
@@ -211,5 +211,3 @@ func ExampleFindOne()  {
 	// Output:
 	// {"name":"测试1","age":20,"json_txt":{},"xml_txt":{},"json1_txt":{}}
 }
-
-

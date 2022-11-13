@@ -1,73 +1,81 @@
 # [spellsql](https://gitee.com/xuesongtao/spellsql)
 
 #### 1. 介绍
+
 * 通过 `sync.Pool`, `strings.Builder` 等实现的高性能 sql 拼接工具
 * 具有: 可控打印 sql 最终的 log, 非法字符自动转义, 支持格式化 sql等
 * 支持轻量级 `orm`, 性能方面接近原生(即: database/sql)
 * 安装:  
 
-```  
+```go
 go get -u gitee.com/xuesongtao/spellsql
 ```
 
 #### 2. 占位符
+
 * 目前支持占位符 `?, ?d, ?v`, 说明如下:
 
 ##### 2.1 占位符 ?
-* 直接根据 args 中类型来自动推动 arg 的类型, 使用如下:
-1. 第一种用法: 根据 args 中类型来自动推动 arg 的类型  
 
-```    
+* 直接根据 args 中类型来自动推动 arg 的类型, 使用如下:
+
+1.第一种用法: 根据 args 中类型来自动推动 arg 的类型  
+
+```go
 如: NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?", "test", 123).GetSqlStr()
 => SELECT username, password FROM sys_user WHERE username = "test" AND password = 123
 ```
 
-2. 第二种用法: 当 arg 为 []int, 暂时支持 []int, []int32, []int64  
+2.第二种用法: 当 arg 为 []int8/int
   
-```  
+```go  
 如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?)", []int{1, 2, 3}).GetSqlStr()
 => SELECT username, password FROM sys_user WHERE id IN (1,2,3)
 ```
 
 ##### 2.2 占位符 ?d
+
 * 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 **0**, 如: `"123" => 123`; `[]string{"1", "2", "3"} => 1,2,3`, 如下:
 第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个  
 
-```  
+```go  
 如: NewCacheSql("SELECT username, password FROM sys_user WHERE id = ?d", "123").GetSqlStr()
 => SELECT username, password FROM sys_user WHERE id = 123
 ```
 
 第二种用法: 当 arg 为 []string, 又想把解析后的单个元素不加引号  
 
-```  
+```go  
 如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?d)", []string{"1", "2", "3"}).GetSqlStr()
 => SELECT username, password FROM sys_user WHERE id IN (1,2,3)
 ```
 
 ##### 2.3 占位符为: ?v
+
 * 这样会让字符串类型不加引号, 原样输出, 如: "test" => test;
 第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型  
 
-```  
+```go  
 如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123").GetSqlStr()
 => SELECT username, password FROM sys_user WHERE id = 123
 ```
 
 第二种用法: 子查询  
 
-```  
+```go  
 如: NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (?v)", FmtSqlStr("SELECT id FROM user WHERE name=?", "test").GetSqlStr()
 => SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (SELECT id FROM user WHERE name="test");
 ```
 
-*  **注:** 由于这种不会进行转义处理, 所有这种不推荐用于请求输入(外部非法输入)的内容, 会出现 **SQL 注入风险**; 当我们明确知道参数是干什么的可以使用会简化我们代码, 这里就不进行演示.
+* **注:** 由于这种不会进行转义处理, 所有这种不推荐用于请求输入(外部非法输入)的内容, 会出现 **SQL 注入风险**; 当我们明确知道参数是干什么的可以使用会简化我们代码, 这里就不进行演示.
 
 #### 3. spellsql 使用
+
 * 可以参考 `getsqlstr_test.go` 里的测试方法
+
 ##### 3.1 新增  
 
-```  
+```go  
 s := NewCacheSql("INSERT INTO sys_user (username, password, name)")
 s.SetInsertValues("xuesongtao", "123456", "阿桃")
 s.SetInsertValues("xuesongtao", "123456", "阿桃")
@@ -79,7 +87,7 @@ s.GetSqlStr()
 
 ##### 3.2 删除  
 
-```  
+```go  
 s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
 if true {
     s.SetWhere("name", "test")
@@ -91,7 +99,7 @@ s.GetSqlStr()
 
 ##### 3.3 查询  
 
-```  
+```go  
 s := NewCacheSql("SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id")
 s.SetOrWhere("u.name", "xue")
 s.SetOrWhereArgs("(r.id IN (?d))", []string{"1", "2"})
@@ -108,7 +116,7 @@ s.GetSqlStr()
 
 ##### 3.4 修改  
 
-```  
+```go  
 s := NewCacheSql("UPDATE sys_user SET")
 idsStr := []string{"1", "2", "3", "4", "5"}
 s.SetUpdateValue("name", "xue")
@@ -122,7 +130,7 @@ s.GetSqlStr()
 
 #### 3.5 追加  
 
-```  
+```go  
 s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
 s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
 s.Append("ON DUPLICATE KEY UPDATE username=VALUES(username)")
@@ -133,9 +141,10 @@ s.GetSqlStr()
 ```
 
 ##### 3.6 复用
-*  1.  `NewCacheSql()` 获取的对象在调用 `GetSqlStr()` 后会重置并放入内存池, 是不能对结果进行再进行 `GetSqlStr()`, 当然你是可以对结果作为 `NewCacheSql()` 的入参进行使用以此达到复用, 这样代码看起来不是多优雅, 分页处理案例如下:  
 
-```  
+* 1.  `NewCacheSql()` 获取的对象在调用 `GetSqlStr()` 后会重置并放入内存池, 是不能对结果进行再进行 `GetSqlStr()`, 当然你是可以对结果作为 `NewCacheSql()` 的入参进行使用以此达到复用, 这样代码看起来不是多优雅, 分页处理案例如下:  
+
+```go  
 sqlObj := NewCacheSql("SELECT * FROM user_info WHERE status = 1")
 handleFn := func(obj *SqlStrObj, page, size int32) {
     // 业务代码
@@ -162,9 +171,9 @@ for page <= totalPage {
 // SELECT * FROM user_info WHERE u_status = 1 LIMIT 20, 10;
 ```
 
-*  `NewSql()` 的产生的对象不会放入内存池, 可以进行多次调用 `GetSqlStr()`, 对应上面的示例可以使用 `NewSql()` 再调用 `Clone()` 进行处理, 如下:  
+* `NewSql()` 的产生的对象不会放入内存池, 可以进行多次调用 `GetSqlStr()`, 对应上面的示例可以使用 `NewSql()` 再调用 `Clone()` 进行处理, 如下:  
 
-```  
+```go  
 sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
 handleFn := func(obj *SqlStrObj, page, size int32) {
     // 业务代码
@@ -191,10 +200,11 @@ for page <= totalPage {
 ```
 
 #### 4 orm 功能介绍
-*  `spellsql_orm` 能够高效的处理单表 `CURD`. 在查询方面的性能接近原生, 其中做几个性能对比: **原生** >= **spellsql_orm** > **gorm** (orm_test.go 里有测试数据), 可以在 `dev` 分支上测试
+
+* `spellsql_orm` 能够高效的处理单表 `CURD`. 在查询方面的性能接近原生, 其中做几个性能对比: **原生** >= **spellsql_orm** > **gorm** (orm_test.go 里有测试数据), 可以在 `dev` 分支上测试
 * 支持自定义 `tag`, 默认 `json`  
 
-```  
+```go  
 type Man struct {
     Id int32 `json:"id,omitempty"`
     Name string `json:"name,omitempty"`
@@ -203,9 +213,10 @@ type Man struct {
 }
 
 ```
+
 ##### 4.1 新增  
 
-```  
+```go  
 m := Man{
     Name: "xue1234",
     Age: 18,
@@ -224,7 +235,7 @@ t.Log(rows.LastInsertId())
 
 ##### 4.2 删除  
 
-```  
+```go  
 m := Man{
     Id: 9,
 }
@@ -245,7 +256,7 @@ t.Log(rows.LastInsertId())
 
 ##### 4.3 修改  
 
-```  
+```go  
 m := Man{
     Name: "xue12",
     Age: 20,
@@ -263,9 +274,10 @@ t.Log(rows.LastInsertId())
 ```
 
 ##### 4.4 查询
+
 ###### 4.4.1 单查询  
 
-```  
+```go  
 var m Man
 // 1
 _ = NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
@@ -303,7 +315,7 @@ t.Log(b)
 
 ###### 4.4.2 多条记录查询
 
-```  
+```go  
 var m []*Man
 err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m, func(_row interface{}) error {
     v := _row.(*Man)
@@ -324,7 +336,7 @@ t.Logf("%+v", m)
 
 ###### 4.4.3 别名查询
 
-```  
+```go  
 type Tmp struct {
     Name1 string `json:"name_1,omitempty"`
     Age1 int32 `json:"age_1,omitempty"`
@@ -342,6 +354,7 @@ if err != nil {
 ```
 
 ###### 4.4.3 其他
+
 * 使用可以参考 `orm_test.go` 和 `example_orm_test.go`
 * 在连表查询时, 如果两个表的列名相同查询结果会出现错误, 我们可以通过根据别名来区分, 或者直接调用 `Query` 来自行对结果进行处理(注: 调用 `Query` 时需要处理 `Null` 类型)
 
