@@ -3,6 +3,7 @@ package spellsql
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -34,6 +35,11 @@ func equal(dest, src interface{}) bool {
 		fmt.Printf("src: %v\n", src)
 	}
 	return ok
+}
+
+func TestTmp0(t *testing.T) {
+	a := [...]int{1, 2, 3, 5}
+	t.Log(FmtSqlStr("?, ?v test ?, str: (?)", []string{"1", "2"}, "a", a, []string{"1", "2"}))
 }
 
 // go test -timeout 30s -run ^TestNewCacheSql gitee.com/xuesongtao/spellsql -v -count=1
@@ -266,7 +272,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 	t.Run("group by", func(t *testing.T) {
 		s := NewSql("SELECT cls_id,COUNT(*) FROM sys_user WHERE")
 		s.SetPrintLog(false)
-		
+
 		sqlStr := s.SetGroupByStr("cls_id").SetHaving("sum(cls_id)>10").GetSqlStr()
 		sureSql := `SELECT cls_id,COUNT(*) FROM sys_user WHERE GROUP BY cls_id HAVING sum(cls_id)>10;`
 		if !equal(sqlStr, sureSql) {
@@ -409,6 +415,7 @@ func BenchmarkSqlStr_Int2Str(b *testing.B) {
 
 func BenchmarkSqlStr_GetSql(b *testing.B) {
 	b.ResetTimer()
+	totalSqlStr, sqlStr := "", ""
 	for i := 0; i < b.N; i++ {
 		s := NewSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
 		s.SetWhere("u.username", "test")
@@ -416,19 +423,23 @@ func BenchmarkSqlStr_GetSql(b *testing.B) {
 		s.SetWhere("u.password", "IN", "SELECT id FROM t WHERE id = 10")
 		s.SetLimit(0, 10)
 		s.SetGroupByStr("u.username, u.password")
-		s.SetPrintLog(false).GetTotalSqlStr()
-		s.GetSqlStr()
+		totalSqlStr = s.SetPrintLog(false).GetTotalSqlStr()
+		sqlStr = s.GetSqlStr()
 	}
+	// b.Log(totalSqlStr, sqlStr)
+	_ = totalSqlStr
+	_ = sqlStr
 
-	// BenchmarkSqlStr_GetSql-8          735132              1620 ns/op            1824 B/op         20 allocs/op
-	// BenchmarkSqlStr_GetSql-8          711409              1624 ns/op            1824 B/op         20 allocs/op
-	// BenchmarkSqlStr_GetSql-8          718840              1624 ns/op            1824 B/op         20 allocs/op
-	// BenchmarkSqlStr_GetSql-8          722414              1624 ns/op            1824 B/op         20 allocs/op
-	// BenchmarkSqlStr_GetSql-8          714430              1619 ns/op            1824 B/op         20 allocs/op
+	// BenchmarkSqlStr_GetSql-8          742323              1610 ns/op            1824 B/op         19 allocs/op
+	// BenchmarkSqlStr_GetSql-8          721304              1610 ns/op            1824 B/op         19 allocs/op
+	// BenchmarkSqlStr_GetSql-8          717390              1616 ns/op            1824 B/op         19 allocs/op
+	// BenchmarkSqlStr_GetSql-8          714825              1613 ns/op            1824 B/op         19 allocs/op
+	// BenchmarkSqlStr_GetSql-8          724214              1614 ns/op            1824 B/op         19 allocs/op
 }
 
 func BenchmarkSqlStr_GetSql2(b *testing.B) {
 	b.ResetTimer()
+	totalSqlStr, sqlStr := "", ""
 	for i := 0; i < b.N; i++ {
 		s := "SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE"
 		s1 := "SELECT count(*) FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE"
@@ -447,10 +458,12 @@ func BenchmarkSqlStr_GetSql2(b *testing.B) {
 
 		s += "GROUP BY u.username, u.password"
 		s1 += "GROUP BY u.username, u.password"
-		_ = s
-		_ = s1
-		// b.Log(s)
+		totalSqlStr = s
+		sqlStr = s1
 	}
+	// b.Log(totalSqlStr, sqlStr)
+	_ = totalSqlStr
+	_ = sqlStr
 
 	// BenchmarkSqlStr_GetSql2-8         714324              1643 ns/op            2320 B/op         36 allocs/op
 	// BenchmarkSqlStr_GetSql2-8         678813              1637 ns/op            2320 B/op         36 allocs/op
@@ -499,4 +512,34 @@ func testMySQLEscape(v string) string {
 		}
 	}
 	return string(buf[:pos])
+}
+
+func BenchmarkIntStr(b *testing.B) {
+	s := int64(56)
+	a := ""
+	for i := 0; i < b.N; i++ {
+		a = strconv.Itoa(int(s))
+	}
+	b.Log(a)
+}
+
+func BenchmarkIntStr1(b *testing.B) {
+	s := int64(56)
+	a := ""
+	obj := NewCacheSql("")
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a = obj.Int2Str(s)
+	}
+	b.Log(a)
+}
+
+func BenchmarkIntStr3(b *testing.B) {
+	s := int64(56)
+	a := ""
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a = Str(s)
+	}
+	b.Log(a)
 }
