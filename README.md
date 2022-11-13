@@ -26,7 +26,7 @@ go get -u gitee.com/xuesongtao/spellsql
 => SELECT username, password FROM sys_user WHERE username = "test" AND password = 123
 ```
 
-2.第二种用法: 当 arg 为 []int8/int
+2.第二种用法: 当 arg 为 []int8/int 等
   
 ```go  
 如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?)", []int{1, 2, 3}).GetSqlStr()
