@@ -129,3 +129,11 @@ func ExampleNewSqlPageHandle() {
 	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10, 10;
 	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 20, 10;
 }
+
+func ExampleFmtSqlStr() {
+	sqlStr := FmtSqlStr("SELECT * FROM ?v WHERE id IN (?d) AND name=?", "user_info", []string{"1", "2"}, "测试")
+	fmt.Println(sqlStr)
+
+	// Output:
+	// SELECT * FROM user_info WHERE id IN (1,2) AND name="测试"
+}

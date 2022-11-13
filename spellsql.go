@@ -1,6 +1,8 @@
 package spellsql
 
 import (
+	"fmt"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -25,18 +27,6 @@ const (
 	LJI // 左连接
 	RJI // 右连接
 )
-
-// 用于辅助数字转字符串
-const int2Str = "00010203040506070809" +
-	"10111213141516171819" +
-	"20212223242526272829" +
-	"30313233343536373839" +
-	"40414243444546474849" +
-	"50515253545556575859" +
-	"60616263646566676869" +
-	"70717273747576777879" +
-	"80818283848586878889" +
-	"90919293949596979899"
 
 var (
 	sqlSyncPool = sync.Pool{New: func() interface{} { return new(SqlStrObj) }} // 考虑到性能问题, 这里用 pool
@@ -64,13 +54,12 @@ type SqlStrObj struct {
 	extBuf          strings.Builder // 追加到最后, 辅助字段
 }
 
-// NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效
+// NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效(有缓存)
 //
 // 1. 注意:
-// 		a. sqlStr 字符长度必须大于 6
-// 		b. 此函数只支持调用一次 GetSqlStr 方法, 如果要调用多次需要使用 NewSql
-// 		c. 此函数不支持 Clone 方法, 如果要使用 Clone 需要调用 NewSql
-//      说明: b, c 是防止同一对象被两个协程共同使用
+// 		a. 此函数只支持调用一次 GetSqlStr 方法, 如果要调用多次需要使用 NewSql
+// 		b. 此函数不支持 Clone 方法, 如果要使用 Clone 需要调用 NewSql
+//      说明: 是防止同一对象被两个协程共同使用
 //
 // 2. 占位符为: ?, 直接根据 args 中类型来自动推动 arg 的类型
 //      第一种用法: 根据 args 中类型来自动推动 arg 的类型
@@ -129,7 +118,7 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 	}
 
 	s.init()
-	if sqlLen < 512 {
+	if sqlLen < 2<<8 {
 		s.buf.Grow(sqlLen * 2)
 		s.whereBuf.Grow(sqlLen)
 		if s.actionNum == INSERT || s.actionNum == UPDATE {
@@ -569,7 +558,6 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			continue
 		}
 
-		// 因为 reflect 会影响性能, 所有没有用, 这样写法繁多, 只处理了常用的, 有需要再添加
 		switch val := args[argIndex].(type) {
 		case string:
 			// 如果占位符?在最后一位时, 就不往下执行了防止 panic
@@ -585,11 +573,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			if sqlStr[i+1] == 'd' {
 				buf.WriteString(s.toEscape(val, true))
 				i++
-				continue
 			} else if sqlStr[i+1] == 'v' { // 原样输出
 				buf.WriteString(val)
 				i++
-				continue
 			} else {
 				buf.WriteByte('"')
 				buf.WriteString(s.toEscape(val, false))
@@ -605,11 +591,11 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 					isAdd = false
 					i++
 				}
-				for i1, v1 := range val {
+				for i1 := 0; i1 <= lastIndex; i1++ {
 					if isAdd {
 						buf.WriteByte('"')
 					}
-					buf.WriteString(s.toEscape(v1, !isAdd))
+					buf.WriteString(s.toEscape(val[i1], !isAdd))
 					if isAdd {
 						buf.WriteByte('"')
 					}
@@ -619,9 +605,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 			} else {
 				// 最后一个占位符
-				for i1, v1 := range val {
+				for i1 := 0; i1 <= lastIndex; i1++ {
 					buf.WriteByte('"')
-					buf.WriteString(s.toEscape(v1, false))
+					buf.WriteString(s.toEscape(val[i1], false))
 					buf.WriteByte('"')
 					if i1 < lastIndex {
 						buf.WriteByte(',')
@@ -648,34 +634,41 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			buf.WriteString(s.UInt2Str(val))
 		case []int:
 			lastIndex := len(val) - 1
-			for i1, v1 := range val {
-				buf.WriteString(s.Int2Str(int64(v1)))
+			for i1 := 0; i1 <= lastIndex; i1++ {
+				buf.WriteString(s.Int2Str(int64(val[i1])))
 				if i1 < lastIndex {
 					buf.WriteByte(',')
 				}
 			}
 		case []int32:
 			lastIndex := len(val) - 1
-			for i1, v1 := range val {
-				buf.WriteString(s.Int2Str(int64(v1)))
+			for i1 := 0; i1 <= lastIndex; i1++ {
+				buf.WriteString(s.Int2Str(int64(val[i1])))
 				if i1 < lastIndex {
 					buf.WriteByte(',')
 				}
 			}
-		case []int64:
-			lastIndex := len(val) - 1
-			for i1, v1 := range val {
-				buf.WriteString(s.Int2Str(v1))
-				if i1 < lastIndex {
-					buf.WriteByte(',')
-				}
-			}
-		case float32:
-			buf.WriteString(strconv.FormatFloat(float64(val), 'g', -1, 32))
-		case float64:
-			buf.WriteString(strconv.FormatFloat(val, 'g', -1, 64))
 		default:
-			buf.WriteString("undefined")
+			// 不常用的走慢处理
+			reflectValue := reflect.ValueOf(val)
+			switch reflectValue.Kind() {
+			case reflect.Slice, reflect.Array:
+				lastIndex := reflectValue.Len() - 1
+				for i1 := 0; i1 <= lastIndex; i1++ {
+					buf.WriteString(Str(reflectValue.Index(i1).Interface()))
+					if i1 < lastIndex {
+						buf.WriteByte(',')
+					}
+				}
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				buf.WriteString(Str(reflectValue.Int()))
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				buf.WriteString(Str(reflectValue.Uint()))
+			case reflect.Float32, reflect.Float64:
+				buf.WriteString(Str(reflectValue.Float()))
+			default:
+				buf.WriteString("undefined")
+			}
 		}
 	}
 }
@@ -894,63 +887,17 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 
 // Int2Str 数字转字符串
 func (s *SqlStrObj) Int2Str(num int64) string {
-	// 判断下是不是负数
-	isMinus := num < 0
-	if isMinus {
-		num = 0 - num
-	}
-	var a [64 + 1]byte
-	i := len(a)
-	for num >= 100 {
-		is := num % 100 * 2
-		num /= 100
-		i -= 2
-		a[i+1] = int2Str[is+1]
-		a[i] = int2Str[is]
-	}
-
-	// num < 100
-	is := num * 2
-	i--
-	a[i] = int2Str[is+1]
-	if num >= 10 {
-		i--
-		a[i] = int2Str[is]
-	}
-
-	if isMinus {
-		i--
-		a[i] = '-'
-	}
-	return string(a[i:])
+	return strconv.FormatInt(num, 10)
 }
 
 // UInt2Str
 func (s *SqlStrObj) UInt2Str(num uint64) string {
-	var a [64 + 1]byte
-	i := len(a)
-	for num >= 100 {
-		is := num % 100 * 2
-		num /= 100
-		i -= 2
-		a[i+1] = int2Str[is+1]
-		a[i] = int2Str[is]
-	}
-
-	// num < 100
-	is := num * 2
-	i--
-	a[i] = int2Str[is+1]
-	if num >= 10 {
-		i--
-		a[i] = int2Str[is]
-	}
-	return string(a[i:])
+	return strconv.FormatUint(num, 10)
 }
 
 // getTargetIndex 忽略大小写
 func getTargetIndex(sqlStr, targetStr string, isFont2End ...bool) int {
-	is := false
+	is := false // 默认后往前
 	if len(isFont2End) > 0 {
 		is = isFont2End[0]
 	}
@@ -1044,6 +991,48 @@ func parseFileName(filePath string) string {
 		return ""
 	}
 	return filePath[lastIndex+1:]
+}
+
+// Str 将内容转为 string
+func Str(src interface{}) string {
+	if src == nil {
+		return ""
+	}
+
+	switch value := src.(type) {
+	case int:
+		return strconv.Itoa(value)
+	case int8:
+		return strconv.Itoa(int(value))
+	case int16:
+		return strconv.Itoa(int(value))
+	case int32:
+		return strconv.Itoa(int(value))
+	case int64:
+		return strconv.FormatInt(value, 10)
+	case uint:
+		return strconv.FormatUint(uint64(value), 10)
+	case uint8:
+		return strconv.FormatUint(uint64(value), 10)
+	case uint16:
+		return strconv.FormatUint(uint64(value), 10)
+	case uint32:
+		return strconv.FormatUint(uint64(value), 10)
+	case uint64:
+		return strconv.FormatUint(value, 10)
+	case float32:
+		return strconv.FormatFloat(float64(value), 'f', -1, 32)
+	case float64:
+		return strconv.FormatFloat(value, 'f', -1, 64)
+	case bool:
+		return strconv.FormatBool(value)
+	case string:
+		return value
+	case []byte:
+		return string(value)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
 }
 
 // DistinctIdsStr 将输入拼接 id 参数按照指定字符进行去重, 如:
