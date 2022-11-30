@@ -763,6 +763,9 @@ func (s *SqlStrObj) mergeSql() {
 
 	if s.actionNum == SELECT {
 		s.buf.WriteString(s.groupByStr)
+	}
+
+	if s.actionNum == DELETE || s.actionNum == SELECT || s.actionNum == UPDATE {
 		s.buf.WriteString(s.orderByStr)
 		s.buf.WriteString(s.limitStr)
 	}
