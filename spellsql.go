@@ -483,11 +483,12 @@ func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 }
 
 // SetLimit 设置分页
+// page 从 1 开始
 func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
 	if page <= 0 {
 		page = 1
 	}
-	if size == 0 {
+	if size <= 0 {
 		size = 10
 	}
 	offset := (page - 1) * size
@@ -616,22 +617,14 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			}
 		case []byte:
 			buf.WriteString("\"" + s.toEscape(string(val), false) + "\"")
-		case int8:
-			buf.WriteString(s.Int2Str(int64(val)))
 		case int:
 			buf.WriteString(s.Int2Str(int64(val)))
 		case int32:
 			buf.WriteString(s.Int2Str(int64(val)))
-		case int64:
-			buf.WriteString(s.Int2Str(val))
-		case uint8:
-			buf.WriteString(s.UInt2Str(uint64(val)))
 		case uint:
 			buf.WriteString(s.UInt2Str(uint64(val)))
 		case uint32:
 			buf.WriteString(s.UInt2Str(uint64(val)))
-		case uint64:
-			buf.WriteString(s.UInt2Str(val))
 		case []int:
 			lastIndex := len(val) - 1
 			for i1 := 0; i1 <= lastIndex; i1++ {
@@ -652,7 +645,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			// 不常用的走慢处理
 			reflectValue := reflect.ValueOf(val)
 			switch reflectValue.Kind() {
-			case reflect.Slice, reflect.Array:
+			case reflect.Slice, reflect.Array: // 这里不会有 []string, 不需要处理符号, 所以直接处理即可
 				lastIndex := reflectValue.Len() - 1
 				for i1 := 0; i1 <= lastIndex; i1++ {
 					buf.WriteString(Str(reflectValue.Index(i1).Interface()))
@@ -660,12 +653,12 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 						buf.WriteByte(',')
 					}
 				}
-			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				buf.WriteString(Str(reflectValue.Int()))
-			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				buf.WriteString(Str(reflectValue.Uint()))
 			case reflect.Float32, reflect.Float64:
 				buf.WriteString(Str(reflectValue.Float()))
+			case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
+				buf.WriteString(Str(reflectValue.Int()))
+			case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
+				buf.WriteString(Str(reflectValue.Uint()))
 			default:
 				buf.WriteString("undefined")
 			}
@@ -771,6 +764,9 @@ func (s *SqlStrObj) mergeSql() {
 
 	if s.actionNum == SELECT {
 		s.buf.WriteString(s.groupByStr)
+	}
+
+	if s.actionNum == DELETE || s.actionNum == SELECT || s.actionNum == UPDATE {
 		s.buf.WriteString(s.orderByStr)
 		s.buf.WriteString(s.limitStr)
 	}
