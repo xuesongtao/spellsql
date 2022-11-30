@@ -483,11 +483,12 @@ func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 }
 
 // SetLimit 设置分页
+// page 从 1 开始
 func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
 	if page <= 0 {
 		page = 1
 	}
-	if size == 0 {
+	if size <= 0 {
 		size = 10
 	}
 	offset := (page - 1) * size
