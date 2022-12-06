@@ -336,23 +336,6 @@ func TestFmtSqlStr(t *testing.T) {
 	if !equal(sqlStr, sureSql) {
 		t.Error(noEqErr)
 	}
-
-	// 组合 fmt 2
-	sqlObj = NewCacheSql("")
-	if true {
-		sqlObj.SetWhere("name", "test")
-	}
-	if true {
-		sqlObj.SetWhereArgs("age>?", 1)
-	}
-	if true {
-		sqlObj.SetOrWhere("name", "1")
-	}
-	sqlStr = sqlObj.FmtSql()
-	sureSql = `name = "test" AND age>1 OR name = "1"`
-	if !equal(sqlStr, sureSql) {
-		t.Error(noEqErr)
-	}
 }
 
 func TestFmtLikeSqlStr(t *testing.T) {
