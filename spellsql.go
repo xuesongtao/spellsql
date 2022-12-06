@@ -99,9 +99,10 @@ func NewSql(sqlStr string, args ...interface{}) *SqlStrObj {
 
 // initSql 初始化需要的 buf
 func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
-	sqlLen := len(sqlStr)
+	s.init()
 
 	// INSERT, DELETE, SELECT, UPDATE
+	sqlLen := len(sqlStr)
 	if sqlLen > 6 { // 判断是什么操作
 		actionStr := sqlStr[:6]
 		upperStr := toUpper(actionStr)
@@ -117,7 +118,6 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		}
 	}
 
-	s.init()
 	if sqlLen < 2<<8 {
 		s.buf.Grow(sqlLen * 2)
 		s.whereBuf.Grow(sqlLen)
@@ -180,6 +180,7 @@ func (s *SqlStrObj) init() {
 	s.isCallCacheInit = false
 	s.needAddBracket = false
 	s.callerSkip = 1
+	s.actionNum = 0
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
@@ -192,6 +193,13 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 		// 这里为 " OR"
 		defaultJoinStr = " " + joinStr[0]
 	}
+
+	// fmtSql action 可能为 0
+	if s.actionNum == 0 {
+		s.whereBuf.WriteString(defaultJoinStr)
+		return
+	}
+
 	isNeedAddJoinStr := true // 本次默认添加
 	if !s.hasWhereStr {
 		s.whereBuf.WriteString(" WHERE")
@@ -786,6 +794,11 @@ func (s *SqlStrObj) SqlStrLen() int {
 func (s *SqlStrObj) SetCallerSkip(skip uint8) *SqlStrObj {
 	s.callerSkip = skip
 	return s
+}
+
+// FmtSql 获取格式化后的 sql
+func (s *SqlStrObj) FmtSql() string {
+	return s.SetPrintLog(false).GetSqlStr("", "")
 }
 
 // GetSqlStr 获取最终 sqlStr, 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"

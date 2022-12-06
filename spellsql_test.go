@@ -38,8 +38,18 @@ func equal(dest, src interface{}) bool {
 }
 
 func TestTmp0(t *testing.T) {
-	a := [...]int{1, 2, 3, 5}
-	t.Log(FmtSqlStr("?, ?v test ?, str: (?)", []string{"1", "2"}, "a", a, []string{"1", "2"}))
+	sqlObj := NewCacheSql("id=1")
+	if true {
+		sqlObj.SetWhere("name", "test")
+	}
+	if true {
+		sqlObj.SetWhereArgs("age>?", 1)
+	}
+	if true {
+		sqlObj.SetOrWhere("name", "1")
+	}
+	sqlStr := sqlObj.FmtSql()
+	t.Log(sqlStr)
 }
 
 // go test -timeout 30s -run ^TestNewCacheSql gitee.com/xuesongtao/spellsql -v -count=1
@@ -306,6 +316,23 @@ func TestFmtSqlStr(t *testing.T) {
 	sqlStr = FmtSqlStr("SELECT account_id FROM (?v) tmp GROUP BY account_id HAVING COUNT(*)>=? ORDER BY NULL",
 		"SELECT account_id FROM test1 UNION ALL SELECT account_id FROM test2", 2)
 	sureSql = `SELECT account_id FROM (SELECT account_id FROM test1 UNION ALL SELECT account_id FROM test2) tmp GROUP BY account_id HAVING COUNT(*)>=2 ORDER BY NULL`
+	if !equal(sqlStr, sureSql) {
+		t.Error(noEqErr)
+	}
+
+	// 组合 fmt
+	sqlObj := NewCacheSql("id=1")
+	if true {
+		sqlObj.SetWhere("name", "test")
+	}
+	if true {
+		sqlObj.SetWhereArgs("age>?", 1)
+	}
+	if true {
+		sqlObj.SetOrWhere("name", "1")
+	}
+	sqlStr = sqlObj.FmtSql()
+	sureSql = `id=1 AND name = "test" AND age>1 OR name = "1"`
 	if !equal(sqlStr, sureSql) {
 		t.Error(noEqErr)
 	}
