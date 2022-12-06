@@ -320,7 +320,7 @@ func TestFmtSqlStr(t *testing.T) {
 		t.Error(noEqErr)
 	}
 
-	// 组合 fmt
+	// 组合 fmt 1
 	sqlObj := NewCacheSql("id=1")
 	if true {
 		sqlObj.SetWhere("name", "test")
