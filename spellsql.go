@@ -196,7 +196,9 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 
 	// fmtSql action 可能为 0
 	if s.actionNum == 0 {
-		s.whereBuf.WriteString(defaultJoinStr)
+		if s.SqlStrLen() > 0 || s.WhereStrLen() > 0 {
+			s.whereBuf.WriteString(defaultJoinStr)
+		}
 		return
 	}
 
