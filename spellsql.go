@@ -705,6 +705,10 @@ func (s *SqlStrObj) toEscape(val string, is2Num bool) string {
 			buf[pos] = '\\'
 			buf[pos+1] = 'r'
 			pos += 2
+		case '\t':
+			buf[pos] = '\\'
+			buf[pos+1] = 't'
+			pos += 2
 		case '\x1a':
 			buf[pos] = '\\'
 			buf[pos+1] = 'Z'
