@@ -2,6 +2,7 @@ package spellsql
 
 import (
 	"fmt"
+	"hash/crc32"
 	"reflect"
 	"strconv"
 	"strings"
@@ -38,18 +39,7 @@ func equal(dest, src interface{}) bool {
 }
 
 func TestTmp0(t *testing.T) {
-	sqlObj := NewCacheSql("id=1")
-	if true {
-		sqlObj.SetWhere("name", "test")
-	}
-	if true {
-		sqlObj.SetWhereArgs("age>?", 1)
-	}
-	if true {
-		sqlObj.SetOrWhere("name", "1")
-	}
-	sqlStr := sqlObj.FmtSql()
-	t.Log(sqlStr)
+	t.Log(crc32.ChecksumIEEE([]byte("hello")))
 }
 
 // go test -timeout 30s -run ^TestNewCacheSql gitee.com/xuesongtao/spellsql -v -count=1
