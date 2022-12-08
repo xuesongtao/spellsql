@@ -372,4 +372,4 @@ if err != nil {
 
 #### 其他
 
-* 欢迎大佬们指正, 希望大佬给 ❤️，[to gitee](https://gitee.com/xuesongtao/spellsql)
+* 欢迎大佬们指正, 希望大佬给❤️，[to gitee](https://gitee.com/xuesongtao/spellsql)
