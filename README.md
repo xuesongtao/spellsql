@@ -1,19 +1,19 @@
 # [spellsql](https://gitee.com/xuesongtao/spellsql)
 
-#### 项目背景 🚀🚀🚀
+#### 🚀🚀🚀 项目背景 
 
 * 公司选择了一波 `orm` 框架, 大多数框架都比较重, 重和性能相互, 最终放弃 `orm`;
 * 决定用原生 `database/sql`, 优势: 性能好, bug容易定位, 使用成本低等; 劣势: 代码拼接, 代码量很多, NULL处理等;
 
 * 为了解决 `sql` 拼接实现了 `spellsql`:
     > 1.使用 `sync.Pool`, `strings.Builder` 等提高 `sql` 拼接工具的性能  
-    > 2.💯 覆盖使用场景  
+    > 2.💯覆盖使用场景  
     > 3.支持 可控打印 `sql` 最终的 `log`; 非法字符自动转义; 支持格式化 `sql` 等  
 
 * 为了解决满足性能和释放双手添加了 `orm` 功能
     > 1.新增/更新: 支持通过 `struct` 解析值进行操作; 支持对字段进行 **序列化** 操作  
     > 2.删除: 支持通过 `struct` 解析值进行  
-    > 3.查询: 支持单表/多表查询; 支持对结果进行回调处理; 查询性能接近原生; 支持对结果映射到 `struct`, `map`, `slice`, `单字段`
+    > 3.查询: 支持单表/多表查询; 支持对结果进行回调处理; 查询性能接近原生; 支持对结果映射到 `struct/map/slice/单字段`; 支持 **反序列** 到  `struct`
 
 #### 1. 使用介绍
 
@@ -372,4 +372,4 @@ if err != nil {
 
 #### 其他
 
-* 欢迎大佬们指正, 希望大佬给 **star**，[to gitee](https://gitee.com/xuesongtao/spellsql)
+* 欢迎大佬们指正, 希望大佬给 ❤️，[to gitee](https://gitee.com/xuesongtao/spellsql)
