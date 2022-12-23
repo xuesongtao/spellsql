@@ -37,6 +37,10 @@ function updateCjGoFile() {
     # 处理 orm.go
     sed -e "s/package spellsql/package mysql/g" \
         -e "s/\/\/ \"github.com/\"github.com/g" \
+        -e "s/\/\/ cacheTableName2ColInfoMap = sync.Map/cacheTableName2ColInfoMap = sync.Map/g" \
+        -e "s/cacheTableName2ColInfoMap = NewLRU(lruSize)/\/\/ cacheTableName2ColInfoMap = NewLRU/g" \
+        -e "s/\/\/ cacheStructType2StructFieldMap = sync.Map/cacheStructType2StructFieldMap = sync.Map/g" \
+        -e "s/cacheStructType2StructFieldMap = NewLRU/\/\/ cacheStructType2StructFieldMap = NewLRU/g" \
         -e "s/cjLog./\/\/ cjLog./g" \
         -e "s/\/\/ glog./glog./g" \
         orm.go >$3
@@ -104,7 +108,7 @@ function main() {
     gitCommitMsg=""
     printf "git commit msg(默认, update getsqlstr): "
     read gitCommitMsg
-    if [[ $gitCommitMsg == "" ]]; then 
+    if [[ $gitCommitMsg == "" ]]; then
         gitCommitMsg="update getsqlstr"
     fi
 
@@ -124,5 +128,5 @@ function main() {
     done
 }
 
-main
-# main "/Users/xuesongtao/goProject/src/workGo/aist/EOS_SERVER/app/model/mysql/getsqlstr.go "
+# main
+main "/Users/xuesongtao/goProject/src/workGo/aist/EOS_SERVER/app/model/mysql/getsqlstr.go"
