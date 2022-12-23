@@ -40,7 +40,7 @@ var (
 )
 
 var (
-	// cacheTableName2ColInfoMap      = sync.Map{} // 缓存表的字段元信息, key: tableName, value: tableColInfo
+	// cacheTableName2ColInfoMap = sync.Map{} // 缓存表的字段元信息, key: tableName, value: tableColInfo
 	cacheTableName2ColInfoMap = NewLRU(lruSize) // 缓存表的字段元信息, key: tableName, value: tableColInfo
 	// cacheStructType2StructFieldMap = sync.Map{}      // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
 	cacheStructType2StructFieldMap = NewLRU(lruSize) // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
