@@ -38,7 +38,7 @@ function updateCjGoFile() {
     sed -e "s/package spellsql/package mysql/g" \
         -e "s/\/\/ \"github.com/\"github.com/g" \
         -e "s/\/\/ cacheTableName2ColInfoMap = sync.Map/cacheTableName2ColInfoMap = sync.Map/g" \
-        -e "s/cacheTableName2ColInfoMap = NewLRU(lruSize)/\/\/ cacheTableName2ColInfoMap = NewLRU/g" \
+        -e "s/cacheTableName2ColInfoMap = NewLRU/\/\/ cacheTableName2ColInfoMap = NewLRU/g" \
         -e "s/\/\/ cacheStructType2StructFieldMap = sync.Map/cacheStructType2StructFieldMap = sync.Map/g" \
         -e "s/cacheStructType2StructFieldMap = NewLRU/\/\/ cacheStructType2StructFieldMap = NewLRU/g" \
         -e "s/cjLog./\/\/ cjLog./g" \
