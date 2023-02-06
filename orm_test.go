@@ -212,6 +212,26 @@ func TestInsert(t *testing.T) {
 		}
 	})
 
+	t.Run("insert duplicate", func(t *testing.T) {
+		r, err := InsertODKUForObj(db, "man", m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rr, _ := r.RowsAffected(); rr == 0 {
+			t.Error("inset failed")
+		}
+	})
+
+	t.Run("insert ignore", func(t *testing.T) {
+		r, err := InsertIgForObj(db, "man", m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rr, _ := r.RowsAffected(); rr == 0 {
+			t.Error("inset failed")
+		}
+	})
+
 	t.Run("insert for sql", func(t *testing.T) {
 		sqlObj := NewCacheSql("INSERT INTO man (name,age,addr) VALUES (?, ?, ?)", m.Name, m.Age, m.Addr)
 		r, err := ExecForSql(db, sqlObj)
