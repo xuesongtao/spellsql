@@ -452,6 +452,56 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	return t
 }
 
+// InsertODKU insert 主键冲突更新
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
+	if insertObj == nil {
+		cjLog.Error("insertObj is nil")
+		// glog.Error("insertObj is nil")
+		return t
+	}
+
+	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
+	if err != nil {
+		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
+		// glog.Error("getHandleTableCol2Val is failed, err:", err)
+		return t
+	}
+	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql.SetInsertValues(values...)
+	kv := make([]string, 0, len(columns))
+	if len(keys) == 0 {
+		keys = columns
+	}
+	for _, key := range keys {
+		kv = append(kv, key+"=VALUES("+key+")")
+	}
+	insertSql.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
+	t.tmpSqlObj = insertSql
+	return t
+}
+
+// InsertIg insert ignore into xxx  新增忽略
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertIg(insertObj interface{}) *Table {
+	if insertObj == nil {
+		cjLog.Error("insertObj is nil")
+		// glog.Error("insertObj is nil")
+		return t
+	}
+
+	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
+	if err != nil {
+		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
+		// glog.Error("getHandleTableCol2Val is failed, err:", err)
+		return t
+	}
+	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql.SetInsertValues(values...)
+	t.tmpSqlObj = insertSql
+	return t
+}
+
 // Delete 会以对象中有值得为条件进行删除
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
@@ -1402,6 +1452,16 @@ func Count(db DBer, tableName string, dest interface{}, where string, args ...in
 // InsertForObj 根据对象新增
 func InsertForObj(db DBer, tableName string, src ...interface{}) (sql.Result, error) {
 	return NewTable(db, tableName).PrintSqlCallSkip(3).Insert(src...).Exec()
+}
+
+// InsertODKUForObj 根据对象新增, 冲突更新
+func InsertODKUForObj(db DBer, tableName string, src interface{}, keys ...string) (sql.Result, error) {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).InsertODKU(src, keys...).Exec()
+}
+
+// InsertIgForObj 根据对象新增, 冲突忽略
+func InsertIgForObj(db DBer, tableName string, src interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).InsertIg(src).Exec()
 }
 
 // UpdateForObj 根据对象更新
