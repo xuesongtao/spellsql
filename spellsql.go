@@ -1128,7 +1128,7 @@ func GetSqlStr(sqlStr string, args ...interface{}) string {
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
 func FmtSqlStr(sqlStr string, args ...interface{}) string {
-	return NewCacheSql(sqlStr, args...).SetCallerSkip(2).SetPrintLog(false).GetSqlStr("sqlStr", "")
+	return NewCacheSql(sqlStr, args...).FmtSql()
 }
 
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件

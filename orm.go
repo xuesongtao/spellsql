@@ -87,13 +87,14 @@ type structField struct {
 type Table struct {
 	db                         DBer
 	printSqlCallSkip           uint8                           // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
+	destTypeFlag               uint8                           // 查询时, 用于标记 dest 类型的
 	isPrintSql                 bool                            // 标记是否打印 sql
 	haveFree                   bool                            // 标记 table 释放已释放
 	needSetSize                bool                            // 标记批量查询的时候是否需要设置默认返回条数
-	destTypeFlag               uint8                           // 查询时, 用于标记 dest 类型的
 	tag                        string                          // 记录解析 struct 中字段名的 tag
 	name                       string                          // 表名
 	handleCols                 string                          // Insert/Update/Delete/Select 操作的表字段名
+	clonedSqlStr               string                          // 记录克隆前的 sqlStr
 	tmpSqlObj                  *SqlStrObj                      // 暂存 SqlStrObj 对象
 	cacheCol2InfoMap           map[string]*tableColInfo        // 记录该表的所有字段名
 	waitHandleStructFieldFnMap map[string]*handleStructFieldFn // 处理 struct 字段的方法, key: tag, value: 处理方法集
@@ -131,6 +132,7 @@ func (t *Table) init() {
 	t.db = nil
 	t.name = ""
 	t.handleCols = ""
+	t.clonedSqlStr = ""
 	t.tmpSqlObj = nil
 	t.cacheCol2InfoMap = nil
 	t.waitHandleStructFieldFnMap = nil
@@ -138,11 +140,25 @@ func (t *Table) init() {
 
 // free 释放
 func (t *Table) free() {
+	// clone 了对象就不放回
+	if t.clonedSqlStr != "" {
+		return
+	}
 	t.haveFree = true
 	t.init()
 
 	// 存放缓存
 	cacheTabObj.Put(t)
+}
+
+// Clone 克隆对象
+func (t *Table) Clone() *Table {
+	if t.clonedSqlStr == "" {
+		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
+	}
+	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
+	t.printSqlCallSkip = 2
+	return t
 }
 
 // From 设置表名
