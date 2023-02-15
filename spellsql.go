@@ -840,7 +840,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	return
 }
 
-// GetTotalSqlStr 将查询条件替换为 COUNT(*), 默认打印 sqlStr, title 为打印 log 的标题, 对外只支持一个参数, 多传没有用
+// GetTotalSqlStr 将查询条件替换为 COUNT(*), 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	if s.actionNum != SELECT {
 		return
@@ -882,7 +882,14 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 			}
 		}
 	}
-	findSqlStr = tmpBuf.String() + ";"
+	// sqlStr 的结束符, 默认为 ";"
+	endMarkStr := ";"
+	if len(title) > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
+		if title[1] == "" {
+			endMarkStr = ""
+		}
+	}
+	findSqlStr = tmpBuf.String() + endMarkStr
 	if s.isPrintSqlLog {
 		var finalTitle string
 		_, file, line, ok := runtime.Caller(int(s.callerSkip))
@@ -1121,7 +1128,7 @@ func GetSqlStr(sqlStr string, args ...interface{}) string {
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
 func FmtSqlStr(sqlStr string, args ...interface{}) string {
-	return NewCacheSql(sqlStr, args...).SetCallerSkip(2).SetPrintLog(false).GetSqlStr("sqlStr", "")
+	return NewCacheSql(sqlStr, args...).FmtSql()
 }
 
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件

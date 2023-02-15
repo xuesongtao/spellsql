@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"math"
 	"strconv"
 	"testing"
 
@@ -953,6 +954,30 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 		if !equal(names[0], sureName) {
+			t.Error(noEqErr)
+		}
+	})
+
+	t.Run("findAll page", func(t *testing.T) {
+		size := 5
+		tableObj := NewTable(db).Select("name").From("man")
+		var total int
+		_ = tableObj.Count(&total)
+		if total == 0 {
+			return
+		}
+
+		totalPage := math.Ceil(float64(total) / float64(size))
+		var names []string
+		for page := int32(1); page <= int32(totalPage); page++ {
+			var tmp []string
+			err := tableObj.Clone().OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			names = append(names, tmp...)
+		}
+		if !equal(len(names), total) {
 			t.Error(noEqErr)
 		}
 	})
