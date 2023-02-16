@@ -1235,7 +1235,7 @@ func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
-	if !t.sqlObjIsNil() {
+	if sqlStr != "" && !t.sqlObjIsNil() {
 		t.tmpSqlObj.SetWhereArgs(sqlStr, args...)
 	}
 	return t
@@ -1245,7 +1245,7 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
-	if !t.sqlObjIsNil() {
+	if sqlStr != "" && !t.sqlObjIsNil() {
 		t.tmpSqlObj.SetOrWhereArgs(sqlStr, args...)
 	}
 	return t
