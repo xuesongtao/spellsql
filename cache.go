@@ -52,7 +52,7 @@ func (l *LRUCache) Store(key, value interface{}) {
 
 	// 判断是否已满, 满了就删除最后一个
 	if l.list.Len() > l.maxSize {
-		l.delete(l.list.Back())
+		l.delete(nil, l.list.Back())
 	}
 }
 
@@ -76,15 +76,16 @@ func (l *LRUCache) Delete(key interface{}) {
 	if !ok {
 		return
 	}
-	l.delete(node)
+	l.delete(key, node)
 }
 
-func (l *LRUCache) delete(node *list.Element) {
-	var key interface{}
-	for k, v := range l.nodeMap {
-		if v == node {
-			key = k
-			break
+func (l *LRUCache) delete(key interface{}, node *list.Element) {
+	if key == nil {
+		for k, v := range l.nodeMap {
+			if v == node {
+				key = k
+				break
+			}
 		}
 	}
 
@@ -95,7 +96,7 @@ func (l *LRUCache) delete(node *list.Element) {
 	}
 
 	// 重建 map
-	if l.delMapCount > 2*l.maxSize {
+	if l.delMapCount > 3*l.maxSize {
 		tmp := l.nodeMap
 		l.nodeMap = make(map[interface{}]*list.Element, len(tmp))
 		for k, v := range tmp {
