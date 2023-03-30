@@ -426,7 +426,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 					columns = append(columns, col)
 					values = append(values, tmp.defaultVal)
 				} else if tableField.NotNull() && !tableField.Default.Valid { // db 中设置了默认值
-					return nil, nil, fmt.Errorf("%q should't null, you can first call TagDefault", col)
+					return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
 				}
 			}
 			continue
@@ -1492,6 +1492,11 @@ func Count(db DBer, tableName string, dest interface{}, where string, args ...in
 // InsertForObj 根据对象新增
 func InsertForObj(db DBer, tableName string, src ...interface{}) (sql.Result, error) {
 	return NewTable(db, tableName).PrintSqlCallSkip(3).Insert(src...).Exec()
+}
+
+// InsertHasDefaultForObj 根据对象新增, 同时支持默认值
+func InsertHasDefaultForObj(db DBer, tableName string, tag2DefaultMap map[string]interface{}, src interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).TagDefault(tag2DefaultMap).Insert(src).Exec()
 }
 
 // InsertODKUForObj 根据对象新增, 冲突更新

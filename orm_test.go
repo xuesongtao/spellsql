@@ -315,7 +315,7 @@ func TestInsert(t *testing.T) {
 		}
 		m := Tmp{
 			Name: "xue1234",
-			// Age:  18,
+			// Age:  18, // 如果不设置默认值会报错
 			Addr: "成都市",
 		}
 		tableObj := NewTable(db, "man").TagDefault(map[string]interface{}{"age": 10})
