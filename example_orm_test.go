@@ -101,6 +101,31 @@ func ExampleInsertForObj() {
 	// 1
 }
 
+func ExampleInsertHasDefaultForObj() {
+	type Tmp struct {
+		Id   int32  `json:"id,omitempty"`
+		Name string `json:"name,omitempty"`
+		Age  int32  `json:"age,omitempty"`
+		Addr string `json:"addr,omitempty"`
+	}
+
+	m := Tmp{
+		Name: "xue1234",
+		Addr: "成都市",
+	}
+
+	r, err := InsertHasDefaultForObj(db, "man", nil, m)
+	if err != nil {
+		fmt.Println(`field "age" should't null, you can first call TagDefault`)
+		return
+	}
+	rr, _ := r.RowsAffected()
+	myPrint(rr, false)
+
+	// Output:
+	// field "age" should't null, you can first call TagDefault
+}
+
 func ExampleUpdateForObj() {
 	type Tmp struct {
 		Id   int32  `json:"id,omitempty"`

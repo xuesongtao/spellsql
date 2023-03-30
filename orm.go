@@ -69,12 +69,18 @@ type tableColInfo struct {
 	Extra   string
 }
 
-// handleStructFieldFn 用于记录 struct 字段的处理方法
-type handleStructFieldFn struct {
+// NotNull 数据库字段非空约束, NO 不能为 NULL, YES 能为 NULL
+func (t *tableColInfo) NotNull() bool {
+	return t.Null == "NO"
+}
+
+// handleStructField 用于记录 struct 字段的处理方法
+type handleStructField struct {
 	needExclude bool        // 是否需要排除
 	tagAlias    string      // 别名, 便于将数据库的字段映射到 struct
 	marshal     marshalFn   // 序列化方法
 	unmarshal   unmarshalFn // 反序列化方法
+	defaultVal  interface{} // 默认值
 }
 
 // structField 结构体字段信息
@@ -85,19 +91,20 @@ type structField struct {
 
 // Table 表的信息
 type Table struct {
-	db                         DBer
-	printSqlCallSkip           uint8                           // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
-	destTypeFlag               uint8                           // 查询时, 用于标记 dest 类型的
-	isPrintSql                 bool                            // 标记是否打印 sql
-	haveFree                   bool                            // 标记 table 释放已释放
-	needSetSize                bool                            // 标记批量查询的时候是否需要设置默认返回条数
-	tag                        string                          // 记录解析 struct 中字段名的 tag
-	name                       string                          // 表名
-	handleCols                 string                          // Insert/Update/Delete/Select 操作的表字段名
-	clonedSqlStr               string                          // 记录克隆前的 sqlStr
-	tmpSqlObj                  *SqlStrObj                      // 暂存 SqlStrObj 对象
-	cacheCol2InfoMap           map[string]*tableColInfo        // 记录该表的所有字段名
-	waitHandleStructFieldFnMap map[string]*handleStructFieldFn // 处理 struct 字段的方法, key: tag, value: 处理方法集
+	db                       DBer
+	printSqlCallSkip         uint8                         // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
+	destTypeFlag             uint8                         // 查询时, 用于标记 dest 类型的
+	isPrintSql               bool                          // 标记是否打印 sql
+	haveFree                 bool                          // 标记 table 释放已释放
+	needSetSize              bool                          // 标记批量查询的时候是否需要设置默认返回条数
+	checkNull                bool                          // 是否检查 null
+	tag                      string                        // 记录解析 struct 中字段名的 tag
+	name                     string                        // 表名
+	handleCols               string                        // Insert/Update/Delete/Select 操作的表字段名
+	clonedSqlStr             string                        // 记录克隆前的 sqlStr
+	tmpSqlObj                *SqlStrObj                    // 暂存 SqlStrObj 对象
+	cacheCol2InfoMap         map[string]*tableColInfo      // 记录该表的所有字段名
+	waitHandleStructFieldMap map[string]*handleStructField // 处理 struct 字段的方法, key: tag, value: 处理方法集
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
@@ -112,11 +119,6 @@ func NewTable(db DBer, args ...string) *Table {
 
 	// 赋值
 	t.db = db
-	t.printSqlCallSkip = 2
-	t.isPrintSql = true
-	t.haveFree = false
-	t.needSetSize = false
-	t.tag = defaultTableTag
 	switch len(args) {
 	case 1:
 		t.name = args[0]
@@ -129,13 +131,12 @@ func NewTable(db DBer, args ...string) *Table {
 
 // init 初始化
 func (t *Table) init() {
-	t.db = nil
-	t.name = ""
-	t.handleCols = ""
-	t.clonedSqlStr = ""
-	t.tmpSqlObj = nil
-	t.cacheCol2InfoMap = nil
-	t.waitHandleStructFieldFnMap = nil
+	t.printSqlCallSkip = 2
+	t.isPrintSql = true
+	t.haveFree = false
+	t.needSetSize = false
+	t.checkNull = false
+	t.tag = defaultTableTag
 }
 
 // free 释放
@@ -144,8 +145,17 @@ func (t *Table) free() {
 	if t.clonedSqlStr != "" {
 		return
 	}
-	t.haveFree = true
-	t.init()
+
+	t.haveFree = true // 标记释放
+
+	// 释放内容
+	t.db = nil
+	t.name = ""
+	t.handleCols = ""
+	t.clonedSqlStr = ""
+	t.tmpSqlObj = nil
+	t.cacheCol2InfoMap = nil
+	t.waitHandleStructFieldMap = nil
 
 	// 存放缓存
 	cacheTabObj.Put(t)
@@ -157,7 +167,7 @@ func (t *Table) Clone() *Table {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
-	t.printSqlCallSkip = 2
+	t.init()
 	return t
 }
 
@@ -240,24 +250,24 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
-// initStructFieldFnMap 初始化 waitHandleStructFieldFnMap
-func (t *Table) initStructFieldFnMap(l int) {
-	if t.waitHandleStructFieldFnMap != nil {
-		return
+// setWaitHandleStructFieldMap 设置 waitHandleStructFieldMap 值
+func (t *Table) setWaitHandleStructFieldMap(tag string, fn func(val *handleStructField)) {
+	if t.waitHandleStructFieldMap == nil {
+		t.waitHandleStructFieldMap = make(map[string]*handleStructField)
 	}
-	t.waitHandleStructFieldFnMap = make(map[string]*handleStructFieldFn, l)
+	if _, ok := t.waitHandleStructFieldMap[tag]; !ok {
+		t.waitHandleStructFieldMap[tag] = new(handleStructField)
+	}
+	fn(t.waitHandleStructFieldMap[tag])
 }
 
 // Exclude 对于 INSERT/UPDATE/DELETE/SELECT 操作中通过解析对象需要过滤的字段
 // 注: 调用必须优先 Insert/Update/Delete/SelectAuto 操作的方法, 防止通过对象解析字段时失效
 func (t *Table) Exclude(tags ...string) *Table {
-	t.initStructFieldFnMap(len(tags))
 	for _, tag := range tags {
-		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
-			t.waitHandleStructFieldFnMap[tag].needExclude = true
-		} else {
-			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{needExclude: true}
-		}
+		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
+			val.needExclude = true
+		})
 	}
 	return t
 }
@@ -266,13 +276,22 @@ func (t *Table) Exclude(tags ...string) *Table {
 // 注: 调用必须优先 Insert/Update/Delete/SelectAuto 操作的方法, 防止通过对象解析字段时失效
 // tag2AliasMap key: struct 的 tag 名, value: 表的列名
 func (t *Table) TagAlias(tag2AliasMap map[string]string) *Table {
-	t.initStructFieldFnMap(len(tag2AliasMap))
 	for tag, alias := range tag2AliasMap {
-		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
-			t.waitHandleStructFieldFnMap[tag].tagAlias = alias
-		} else {
-			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{tagAlias: alias}
-		}
+		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
+			val.tagAlias = alias
+		})
+	}
+	return t
+}
+
+// TagDefault 设置 struct 字段默认值
+// 注: 调用必须优先 Insert/Update/Delete/SelectAuto 操作的方法, 防止通过对象解析字段时失效
+// tag2DefaultMap key: struct 的 tag 名, value: 字段默认值
+func (t *Table) TagDefault(tag2DefaultMap map[string]interface{}) *Table {
+	for tag, defaultVal := range tag2DefaultMap {
+		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
+			val.defaultVal = defaultVal
+		})
 	}
 	return t
 }
@@ -280,13 +299,10 @@ func (t *Table) TagAlias(tag2AliasMap map[string]string) *Table {
 // SetMarshalFn 设置 struct 字段待序列化方法
 // 注: 调用必须优先 Insert/Update 操作的方法, 防止通过对象解析字段时被排除
 func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
-	t.initStructFieldFnMap(len(tags))
 	for _, tag := range tags {
-		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
-			t.waitHandleStructFieldFnMap[tag].marshal = fn
-		} else {
-			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{marshal: fn}
-		}
+		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
+			val.marshal = fn
+		})
 	}
 	return t
 }
@@ -294,13 +310,10 @@ func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
 // SetUnmarshalFn 设置 struct 字段待反序列化方法
 // 注: 调用必须优先于 SelectAuto, 防止 SelectAuto 解析时查询字段被排除
 func (t *Table) SetUnmarshalFn(fn unmarshalFn, tags ...string) *Table {
-	t.initStructFieldFnMap(len(tags))
 	for _, tag := range tags {
-		if _, ok := t.waitHandleStructFieldFnMap[tag]; ok {
-			t.waitHandleStructFieldFnMap[tag].unmarshal = fn
-		} else {
-			t.waitHandleStructFieldFnMap[tag] = &handleStructFieldFn{unmarshal: fn}
-		}
+		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
+			val.unmarshal = fn
+		})
 	}
 	return t
 }
@@ -322,13 +335,12 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 
 	// 处理下 tag
 	var alias string
-	handleStructFieldFn, needHandleField := t.waitHandleStructFieldFnMap[tag]
+	handleStructField, needHandleField := t.waitHandleStructFieldMap[tag]
 	if needHandleField {
-		if handleStructFieldFn.needExclude { // 需要排除
+		if handleStructField.needExclude { // 需要排除
 			return
 		}
-
-		alias = handleStructFieldFn.tagAlias // tag 的别名, 用于待解析 col 名
+		alias = handleStructField.tagAlias // tag 的别名, 用于待解析 col 名
 	}
 
 	// 如果是跳过嵌套/对象等, 同时需要判断下是否有序列化/反序列
@@ -343,9 +355,9 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 
 		switch args[0] {
 		case sureMarshal:
-			need = handleStructFieldFn.marshal != nil
+			need = handleStructField.marshal != nil
 		case sureUnmarshal:
-			need = handleStructFieldFn.unmarshal != nil
+			need = handleStructField.unmarshal != nil
 		}
 		if !need {
 			return
@@ -405,15 +417,24 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 			continue
 		}
 
-		// 值为空也跳过
+		// 空值处理
 		val := tv.Field(i)
 		if val.IsZero() {
+			if t.checkNull { // 检查下 null
+				tmp, ok := t.waitHandleStructFieldMap[tag]
+				if ok && tmp.defaultVal != nil && tableField.NotNull() { // orm 中设置了默认值
+					columns = append(columns, col)
+					values = append(values, tmp.defaultVal)
+				} else if tableField.NotNull() && !tableField.Default.Valid { // db 中设置了默认值
+					return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
+				}
+			}
 			continue
 		}
 
 		columns = append(columns, col)
 		if needMarshal {
-			dataBytes, err := t.waitHandleStructFieldFnMap[tag].marshal(val.Interface())
+			dataBytes, err := t.waitHandleStructFieldMap[tag].marshal(val.Interface())
 			if err != nil {
 				return nil, nil, err
 			}
@@ -451,6 +472,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 		return t
 	}
 
+	t.checkNull = true
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
@@ -477,6 +499,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 		return t
 	}
 
+	t.checkNull = true
 	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 	if err != nil {
 		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
@@ -506,6 +529,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 		return t
 	}
 
+	t.checkNull = true
 	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 	if err != nil {
 		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
@@ -778,9 +802,9 @@ func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2Stru
 	}
 
 	// 通过地址来取, 防止出现重复
-	// 当 t.waitHandleStructFieldFnMap != nil 不等于空时, 为了防止解析 selectFields 缺少, 不能走缓存中取
-	if t.waitHandleStructFieldFnMap == nil {
-		if cacheVal, ok := cacheStructType2StructFieldMap.Load(ty); ok { // 需要排除再包含 t.waitHandleStructFieldFnMap 不为空的
+	// 当 t.waitHandleStructFieldMap != nil 不等于空时, 为了防止解析 selectFields 缺少, 不能走缓存中取
+	if t.waitHandleStructFieldMap == nil {
+		if cacheVal, ok := cacheStructType2StructFieldMap.Load(ty); ok { // 需要排除再包含 t.waitHandleStructFieldMap 不为空的
 			col2StructFieldMap = cacheVal.(map[string]structField)
 			if isNeedSort { // 按照col2FieldIndexMap的value进行排序
 				l := len(col2StructFieldMap)
@@ -816,7 +840,7 @@ func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2Stru
 		sortCol = append(sortCol, col)
 	}
 
-	if t.waitHandleStructFieldFnMap == nil {
+	if t.waitHandleStructFieldMap == nil {
 		cacheStructType2StructFieldMap.Store(ty, col2StructFieldMap)
 	}
 	return
@@ -1051,7 +1075,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]
 			// 当 colInfo == nil 就直接通过 NULL 值处理, 如以下情况:
 			// 1. 说明初始化表失败(只要 tableName 存在就不会为空), 查询的时候只会在 Query 里初始化
 			// 2. sql 语句中使用了字段别名与表元信息字段名不一致
-			mayIsNull = colInfo == nil || (colInfo != nil && colInfo.Null == "YES")
+			mayIsNull = colInfo == nil || (colInfo != nil && !colInfo.NotNull())
 			// fmt.Printf("mayIsNull: %v colInfo: %+v\n", mayIsNull, colInfo)
 		}
 		// fmt.Println(colName, colType.ScanType().Name())
@@ -1078,7 +1102,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]
 		// 处理数据库字段非 NULL 部分
 		if t.isDestType(structFlag) { // 结构体
 			// 在非 NULL 的时候, 也判断下是否需要反序列化
-			if handleStructFieldFn, ok := t.waitHandleStructFieldFnMap[tagName]; ok && handleStructFieldFn.unmarshal != nil {
+			if handleStructField, ok := t.waitHandleStructFieldMap[tagName]; ok && handleStructField.unmarshal != nil {
 				values[i] = cacheNullString.Get().(*sql.NullString)
 				fieldIndex2NullIndexMap[fieldIndex] = i
 				continue
@@ -1113,10 +1137,10 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (e
 	switch val := src.(type) {
 	case *sql.NullString:
 		if len(needUnmarshalField) > 0 { // 判断下是否需要反序列化
-			handleStructFieldFn, ok := t.waitHandleStructFieldFnMap[needUnmarshalField[0]]
-			if ok && handleStructFieldFn.unmarshal != nil {
+			handleStructField, ok := t.waitHandleStructFieldMap[needUnmarshalField[0]]
+			if ok && handleStructField.unmarshal != nil {
 				if val.String != "" {
-					err = handleStructFieldFn.unmarshal([]byte(val.String), dest)
+					err = handleStructField.unmarshal([]byte(val.String), dest)
 				}
 				val.String = ""
 				cacheNullString.Put(val)
@@ -1468,6 +1492,11 @@ func Count(db DBer, tableName string, dest interface{}, where string, args ...in
 // InsertForObj 根据对象新增
 func InsertForObj(db DBer, tableName string, src ...interface{}) (sql.Result, error) {
 	return NewTable(db, tableName).PrintSqlCallSkip(3).Insert(src...).Exec()
+}
+
+// InsertHasDefaultForObj 根据对象新增, 同时支持默认值
+func InsertHasDefaultForObj(db DBer, tableName string, tag2DefaultMap map[string]interface{}, src interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).TagDefault(tag2DefaultMap).Insert(src).Exec()
 }
 
 // InsertODKUForObj 根据对象新增, 冲突更新
