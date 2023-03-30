@@ -24,6 +24,7 @@ func TestTmp(t *testing.T) {
 	t.Log(parseTableName("user_info"))
 }
 
+// 测试表
 // CREATE TABLE `man` (
 // 	`id` int NOT NULL AUTO_INCREMENT,
 // 	`name` varchar(10) NOT NULL,
@@ -33,9 +34,9 @@ func TestTmp(t *testing.T) {
 // 	`json_txt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci,
 // 	`nickname` varchar(30) DEFAULT '',
 // 	`xml_txt` text,
-// 	`json1_txt` varchar(255),
+// 	`json1_txt` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
 // 	PRIMARY KEY (`id`)
-//   )
+// )
 
 type Man struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
@@ -116,9 +117,9 @@ func init() {
 
 func TestParseTable(t *testing.T) {
 	m := Man{
-		Id:       1,
-		Name:     "测试",
-		Age:      20,
+		Id:   1,
+		Name: "测试",
+		// Age:      20,
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
@@ -145,11 +146,13 @@ func TestGetNullType(t *testing.T) {
 	// 	`l_tint` tinyint unsigned NOT NULL,
 	// 	`l_bint` bigint unsigned NOT NULL,
 	// 	`l_tfloat` decimal(65,0) unsigned NOT NULL,
-	//   `l_datetime` DATETIME DEFAULT CURRENT_TIMESTAMP,
-	//   `l_timestamp` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	// 	`l_datetime` datetime DEFAULT CURRENT_TIMESTAMP,
+	// 	`l_timestamp` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+	// 	`l_bool` tinyint(1) DEFAULT '0',
+	// 	`t_varchar_have_default` varchar(10) DEFAULT '',
 	// 	PRIMARY KEY (`id`,`id1`),
 	// 	KEY `a` (`l_int`)
-	//   )
+	// )
 
 	type TestColInfo struct {
 		Id         int32   `json:"id,omitempty"`
@@ -290,6 +293,32 @@ func TestInsert(t *testing.T) {
 			Addr1: "成都市",
 		}
 		tableObj := NewTable(db, "man").TagAlias(map[string]string{"age_1": "age", "addr_1": "addr"})
+		res, err := tableObj.Insert(m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
+
+	t.Run("insert tag default", func(t *testing.T) {
+		type Tmp struct {
+			Id   int32  `json:"id,omitempty"`
+			Name string `json:"name,omitempty"`
+			Age  int32  `json:"age,omitempty"`
+			Addr string `json:"addr,omitempty"`
+		}
+		m := Tmp{
+			Name: "xue1234",
+			// Age:  18,
+			Addr: "成都市",
+		}
+		tableObj := NewTable(db, "man").TagDefault(map[string]interface{}{"age": 10})
 		res, err := tableObj.Insert(m).Exec()
 		if err != nil {
 			t.Fatal(err)
