@@ -9,19 +9,19 @@ func TestCallFile(t *testing.T) {
 }
 
 func TestDemo(t *testing.T) {
-	cjLog.Info("hello info")
-	cjLog.Infof("hello infof: %v", 1)
+	sLog.Info("hello info")
+	sLog.Infof("hello infof: %v", 1)
 
-	cjLog.Warning("hello warning")
-	cjLog.Warningf("hello warningf: %v", 2)
+	sLog.Warning("hello warning")
+	sLog.Warningf("hello warningf: %v", 2)
 
-	cjLog.Error("hello error")
-	cjLog.Errorf("hello errorf: %v", 3)
+	sLog.Error("hello error")
+	sLog.Errorf("hello errorf: %v", 3)
 }
 
 func TestFatal(t *testing.T) {
 	t.Skip()
 	l := NewCjLogger()
-	// cjLog.Fatal("hello fatal")
+	// sLog.Fatal("hello fatal")
 	l.Fatalf("hello fatalf: %v", 1)
 }

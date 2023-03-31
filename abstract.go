@@ -18,3 +18,12 @@ type Logger interface {
 	Warning(v ...interface{})
 	Warningf(format string, v ...interface{})
 }
+
+// SelectCallBackFn 对每行查询结果进行取出处理
+type SelectCallBackFn func(_row interface{}) error
+
+// marshalFn 序列化方法
+type marshalFn func(v interface{}) ([]byte, error)
+
+// unmarshalFn 反序列化方法
+type unmarshalFn func(data []byte, v interface{}) error
