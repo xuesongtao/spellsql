@@ -10,18 +10,18 @@ import (
 )
 
 var (
-	cjLog Logger
-	once  sync.Once
+	sLog Logger
+	once sync.Once
 )
 
 func init() {
-	cjLog = NewCjLogger()
+	sLog = NewCjLogger()
 }
 
 // SetLogger 设置 logger
 func SetLogger(logger Logger) {
 	once.Do(func() {
-		cjLog = logger
+		sLog = logger
 	})
 }
 
@@ -91,4 +91,17 @@ func (d *defaultLogger) callInfo(skip int) (string, int) {
 	}
 	file = parseFileName(file)
 	return file, line
+}
+
+// parseFileName 解析文件名
+func parseFileName(filePath string) string {
+	sysSplit := "/"
+	if runtime.GOOS == "windows" {
+		sysSplit = "\\"
+	}
+	lastIndex := IndexForBF(false, filePath, sysSplit)
+	if lastIndex == -1 {
+		return ""
+	}
+	return filePath[lastIndex+1:]
 }
