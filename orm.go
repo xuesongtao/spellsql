@@ -458,31 +458,6 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 	return nil
 }
 
-// removeValuePtr 移除多指针
-func removeValuePtr(v reflect.Value) reflect.Value {
-	for v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	return v
-}
-
-// removeTypePtr 移除多指针
-func removeTypePtr(t reflect.Type) reflect.Type {
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	return t
-}
-
-// isExported 是可导出
-func isExported(fieldName string) bool {
-	if fieldName == "" {
-		return false
-	}
-	first := fieldName[0]
-	return first >= 'A' && first <= 'Z'
-}
-
 // parseTableName 解析表名
 func parseTableName(objName string) string {
 	// 排除有如含有表别名, 如 user_info ui => user_info
