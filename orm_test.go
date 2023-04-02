@@ -109,10 +109,6 @@ func init() {
 		fmt.Printf("connect DB failed, err:%v\n", dbErr)
 		return
 	}
-	// 设置最大连接数
-	db.SetMaxOpenConns(20)
-	// 设置最大闲置数
-	db.SetMaxIdleConns(10)
 }
 
 func TestParseTable(t *testing.T) {
