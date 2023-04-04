@@ -1,6 +1,6 @@
 # [spellsql](https://gitee.com/xuesongtao/spellsql)
 
-#### 🚀🚀🚀 项目背景 
+#### 🚀🚀🚀 项目背景
 
 * 公司选择了一波 `orm` 框架, 大多数框架都比较重, 重和性能相互, 最终放弃 `orm`;
 * 决定用原生 `database/sql`, 优势: 性能好, bug容易定位, 使用成本低等; 劣势: 代码拼接, 代码量很多, NULL处理等;
@@ -11,9 +11,9 @@
     > 3.支持 可控打印 `sql` 最终的 `log`; 非法字符自动转义; 支持格式化 `sql` 等  
 
 * 为了解决满足性能和释放双手添加了 `orm` 功能
-    > 1.新增/更新: 支持通过 `struct` 解析值进行操作; 支持对字段进行 **序列化** 操作  
+    > 1.新增/更新: 支持通过 `struct` 解析值进行操作; 支持对字段进行 **序列化** 操作; 支持设置**别名, 设置默认值**等  
     > 2.删除: 支持通过 `struct` 解析值进行  
-    > 3.查询: 支持单表/多表查询; 支持对结果进行回调处理; 查询性能接近原生; 支持对结果映射到 `struct/map/slice/单字段`; 支持 **反序列** 到  `struct`
+    > 3.查询: 支持单表/多表查询; 支持对结果进行回调处理; 查询性能接近原生; 支持对结果映射到 `struct/map/slice/单字段`等
 
 #### 1. 使用介绍
 
@@ -79,11 +79,11 @@ go get -u gitee.com/xuesongtao/spellsql
 => SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (SELECT id FROM user WHERE name="test");
 ```
 
-* **注:** 由于这种不会进行转义处理, 所有这种不推荐用于请求输入(外部非法输入)的内容, 会出现 **SQL 注入风险**; 当我们明确知道参数是干什么的可以使用会简化我们代码, 这里就不进行演示.
+* **注:** 由于 `?v` 这种不会进行转义处理, 所有这种不推荐直接用于请求输入(外部非法输入)的内容, 会出现 **SQL 注入风险**; 当我们明确知道参数是干什么的可以使用会简化我们代码, 这里就不进行演示.
 
 #### 3. spellsql 使用
 
-* 可以参考 `getsqlstr_test.go` 里的测试方法
+* 可以参考 `getsqlstr_test.go` 和 `example_spellsql_test.go` 里的测试方法
 
 ##### 3.1 新增  
 
