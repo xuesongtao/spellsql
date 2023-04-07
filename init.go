@@ -2,6 +2,8 @@ package spellsql
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 )
@@ -24,4 +26,30 @@ var (
 	// null 类型
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
+
+	// error
+	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
+		"    Name string `json:\"name\"`\n"+
+		"}")
+	tableNameIsUnknownErr = errors.New("table name is unknown")
+	nullRowErr            = errors.New("row is null")
+	findOneDestTypeErr    = errors.New("dest should is struct/oneField/map")
+	findAllDestTypeErr    = errors.New("dest should is struct/oneField/map slice")
 )
+
+// log 处理
+var (
+	sLog Logger
+	once sync.Once
+)
+
+func init() {
+	sLog = NewCjLogger()
+}
+
+// SetLogger 设置 logger
+func SetLogger(logger Logger) {
+	once.Do(func() {
+		sLog = logger
+	})
+}

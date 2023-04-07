@@ -6,24 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"sync"
 )
-
-var (
-	sLog Logger
-	once sync.Once
-)
-
-func init() {
-	sLog = NewCjLogger()
-}
-
-// SetLogger 设置 logger
-func SetLogger(logger Logger) {
-	once.Do(func() {
-		sLog = logger
-	})
-}
 
 type defaultLogger struct {
 	log *log.Logger
@@ -31,7 +14,7 @@ type defaultLogger struct {
 
 func NewCjLogger() *defaultLogger {
 	return &defaultLogger{
-		log: log.New(os.Stderr, "", log.LstdFlags),
+		log: log.New(os.Stdout, "", log.LstdFlags),
 	}
 }
 
