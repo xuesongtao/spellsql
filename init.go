@@ -25,3 +25,20 @@ var (
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 )
+
+// log 处理
+var (
+	sLog Logger
+	once sync.Once
+)
+
+func init() {
+	sLog = NewCjLogger()
+}
+
+// SetLogger 设置 logger
+func SetLogger(logger Logger) {
+	once.Do(func() {
+		sLog = logger
+	})
+}
