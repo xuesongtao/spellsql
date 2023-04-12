@@ -24,30 +24,17 @@ function updateCjGoFile() {
     checkIsOk "cd ${curPath}"
 
     # 处理 getsqlstr.go
-    sed -e "s/package spellsql/package mysql/g" \
-        -e "s/\/\/ \"github.com/\"github.com/g" \
-        -e "s/cjLog./\/\/ cjLog./g" \
-        -e "s/\/\/ glog./glog./g" \
-        spellsql.go >$1
+    sed -e "s/package spellsql/package mysql/g" spellsql.go >$1
     checkIsOk "update getsqlstr.go"
     # 处理 getsqlstr_test.go
     sed -e "s/package spellsql/package mysql/g" spellsql_test.go >$2
     checkIsOk "update getsqlstr_test.go"
 
     # 处理 orm.go
-    sed -e "s/package spellsql/package mysql/g" \
-        -e "s/\/\/ \"github.com/\"github.com/g" \
-        -e "s/\/\/ cacheTableName2ColInfoMap = sync.Map/cacheTableName2ColInfoMap = sync.Map/g" \
-        -e "s/cacheTableName2ColInfoMap = NewLRU/\/\/ cacheTableName2ColInfoMap = NewLRU/g" \
-        -e "s/\/\/ cacheStructType2StructFieldMap = sync.Map/cacheStructType2StructFieldMap = sync.Map/g" \
-        -e "s/cacheStructType2StructFieldMap = NewLRU/\/\/ cacheStructType2StructFieldMap = NewLRU/g" \
-        -e "s/cjLog./\/\/ cjLog./g" \
-        -e "s/\/\/ glog./glog./g" \
-        orm.go >$3
+    sed -e "s/package spellsql/package mysql/g" orm.go >$3
     checkIsOk "update orm.go"
     # 处理 orm_test.go
     sed -e "s/package spellsql/package mysql/g" \
-        -e "s/_ \"github.com/\/\/ _ \"github.com/g" \
         -e "s/\/\/ db=Db/db = Db/g" \
         -e "s/InitMyDb(1)/\/\/ InitMyDb(1)/g" \
         orm_test.go >$4

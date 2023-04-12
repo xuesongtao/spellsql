@@ -8,7 +8,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	// "github.com/gogf/gf/os/glog"
+
+	"github.com/gogf/gf/os/glog"
 )
 
 const (
@@ -40,10 +41,8 @@ var (
 )
 
 var (
-	// cacheTableName2ColInfoMap = sync.Map{} // 缓存表的字段元信息, key: tableName, value: tableColInfo
-	cacheTableName2ColInfoMap = NewLRU(lruSize) // 缓存表的字段元信息, key: tableName, value: tableColInfo
-	// cacheStructType2StructFieldMap = sync.Map{}      // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
-	cacheStructType2StructFieldMap = NewLRU(lruSize) // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
+	cacheTableName2ColInfoMap      = sync.Map{} // 缓存表的字段元信息, key: tableName, value: tableColInfo
+	cacheStructType2StructFieldMap = sync.Map{} // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
 
 	// 常用就缓存下
 	cacheTabObj     = sync.Pool{New: func() interface{} { return new(Table) }}
@@ -143,6 +142,11 @@ func (t *Table) init() {
 func (t *Table) free() {
 	// clone 了对象就不放回
 	if t.clonedSqlStr != "" {
+		return
+	}
+
+	if t.haveFree {
+		glog.Error("table already free")
 		return
 	}
 
@@ -467,8 +471,7 @@ func (t *Table) parseTag2Col(tag string) (column string) {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	if len(insertObjs) == 0 {
-		cjLog.Error("insertObjs is empty")
-		// glog.Error("insertObjs is empty")
+		glog.Error("insertObjs is empty")
 		return t
 	}
 
@@ -477,8 +480,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 		if err != nil {
-			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
-			// glog.Error("getHandleTableCol2Val is failed, err:", err)
+			glog.Error("getHandleTableCol2Val is failed, err:", err)
 			return t
 		}
 		if i == 0 {
@@ -494,16 +496,14 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 	if insertObj == nil {
-		cjLog.Error("insertObj is nil")
-		// glog.Error("insertObj is nil")
+		glog.Error("insertObj is nil")
 		return t
 	}
 
 	t.checkNull = true
 	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 	if err != nil {
-		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
-		// glog.Error("getHandleTableCol2Val is failed, err:", err)
+		glog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
 	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
@@ -524,16 +524,14 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertIg(insertObj interface{}) *Table {
 	if insertObj == nil {
-		cjLog.Error("insertObj is nil")
-		// glog.Error("insertObj is nil")
+		glog.Error("insertObj is nil")
 		return t
 	}
 
 	t.checkNull = true
 	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
 	if err != nil {
-		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
-		// glog.Error("getHandleTableCol2Val is failed, err:", err)
+		glog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
 	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
@@ -548,8 +546,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
 		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], false, t.name)
 		if err != nil {
-			cjLog.Error("getHandleTableCol2Val is failed, err:", err)
-			// glog.Error("getHandleTableCol2Val is failed, err:", err)
+			glog.Error("getHandleTableCol2Val is failed, err:", err)
 			return t
 		}
 
@@ -562,8 +559,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 	} else {
 		if t.name == "" {
-			cjLog.Error(tableNameIsUnknownErr)
-			// glog.Error(tableNameIsUnknownErr)
+			glog.Error(tableNameIsUnknownErr)
 			return t
 		}
 		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
@@ -576,8 +572,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
 	columns, values, err := t.getHandleTableCol2Val(updateObj, true, t.name)
 	if err != nil {
-		cjLog.Error("getHandleTableCol2Val is failed, err:", err)
-		// glog.Error("getHandleTableCol2Val is failed, err:", err)
+		glog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
 
@@ -596,8 +591,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 // fields 多个通过逗号隔开
 func (t *Table) Select(fields string) *Table {
 	if fields == "" {
-		cjLog.Error("fields is null")
-		// glog.Error("fields is null")
+		glog.Error("fields is null")
 		return t
 	}
 
@@ -638,8 +632,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 			t.name = parseTableName(ty.Name())
 		}
 		if err := t.initCacheCol2InfoMap(); err != nil {
-			cjLog.Error("initCacheCol2InfoMap is failed, err:", err)
-			// glog.Error("initCacheCol2InfoMap is failed, err:", err)
+			glog.Error("initCacheCol2InfoMap is failed, err:", err)
 			return t
 		}
 
@@ -653,16 +646,14 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		}
 
 		if len(selectFields) == 0 {
-			cjLog.Error("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
-			// glog.Error("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
+			glog.Error("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
 		}
 		t.Select(strings.Join(selectFields, ", "))
 	default:
 		if t.isOneField(kind) { // 因为单字段不能解析查内容, 所以直接返回, 在最终调用处报错
 			return t
 		}
-		cjLog.Warning("src kind is not struct or slice struct")
-		// glog.Warning("src kind is not struct or slice struct")
+		glog.Warning("src kind is not struct or slice struct")
 		t.SelectAll()
 	}
 	return t
@@ -1342,8 +1333,7 @@ func (t *Table) Raw(sql interface{}) *Table {
 	case *SqlStrObj:
 		t.tmpSqlObj = val
 	default:
-		cjLog.Error("sql only support string/SqlStrObjPtr")
-		// glog.Error("sql only support string/SqlStrObjPtr")
+		glog.Error("sql only support string/SqlStrObjPtr")
 	}
 	return t
 }

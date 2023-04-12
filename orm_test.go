@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	// _ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 	// gmysql "gorm.io/driver/mysql"
 	// "gorm.io/gorm"
 )
@@ -844,7 +844,6 @@ func TestCount(t *testing.T) {
 // 		var m ManCopy
 // 		gdb.Table("man").Find(&m, "id=?", 1)
 // 	}
-	
 
 // 	// BenchmarkFindOneGorm-8                     16958             66604 ns/op            4364 B/op         78 allocs/op
 // 	// BenchmarkFindOneGorm-8                     18019             66307 ns/op            4365 B/op         78 allocs/op
@@ -1139,7 +1138,6 @@ func TestFindAll(t *testing.T) {
 // 		gdb.Table("man").Limit(10).Find(&m, "id>?", 1)
 // 		// b.Log(m)
 // 	}
-	
 
 // 	// BenchmarkFindAllGorm-8             11581             92114 ns/op            8962 B/op        273 allocs/op
 // 	// BenchmarkFindAllGorm-8             12896             91718 ns/op            8962 B/op        273 allocs/op
@@ -1156,7 +1154,6 @@ func TestFindAll(t *testing.T) {
 // 		sqlxdb.Select(&m, sqlStr)
 // 		// b.Log(m)
 // 	}
-	
 
 // 	// 说明: sqlx 不能自动处理 null 这里的查询结果不全
 // 	// BenchmarkFindAllSqlx-8             23478             51939 ns/op            2057 B/op         64 allocs/op

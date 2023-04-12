@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	// "github.com/gogf/gf/os/glog"
+
+	"github.com/gogf/gf/os/glog"
 )
 
 const (
@@ -834,8 +835,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 			sqlStrTitle = title[0]
 		}
 		finalTitle += sqlStrTitle
-		cjLog.Info(finalTitle+":", sqlStr)
-		// glog.Info(finalTitle+":", sqlStr)
+		glog.Info(finalTitle+":", sqlStr)
 	}
 	return
 }
@@ -901,8 +901,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 			sqlStrTitle = title[0]
 		}
 		finalTitle += sqlStrTitle
-		cjLog.Info(finalTitle+":", findSqlStr)
-		// glog.Info(finalTitle+":", findSqlStr)
+		glog.Info(finalTitle+":", findSqlStr)
 	}
 	return
 }
