@@ -114,6 +114,11 @@ func (t *Table) free() {
 		return
 	}
 
+	if t.haveFree {
+		sLog.Error("table already free")
+		return
+	}
+
 	t.haveFree = true // 标记释放
 
 	// 释放内容
