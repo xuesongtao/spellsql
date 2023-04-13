@@ -63,13 +63,13 @@ func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *Sql
 // initValues 初始化 valueBuf
 func (s *SqlStrObj) initValues() {
 	isAddComma := true // 本次默认加逗号
-	if s.act(INSERT) && !s.hasValuesStr {
+	if s.is(INSERT) && !s.hasValuesStr {
 		s.valuesBuf.WriteString(" VALUES")
 		s.hasValuesStr = true
 		isAddComma = false
 	}
 
-	if s.act(UPDATE) {
+	if s.is(UPDATE) {
 		if !s.hasSetStr {
 			s.valuesBuf.WriteString(" SET")
 			s.hasSetStr = true
@@ -91,7 +91,7 @@ func (s *SqlStrObj) initValues() {
 			return
 		}
 
-		if s.act(INSERT) {
+		if s.is(INSERT) {
 			// slow path
 			// 如果初始化时或已经merge后 sqlStr已经这样了: xxx VALUES (xxx), 我们通过判断 VALUE 的下标是否为最后几个字符, 如果是的话就
 			// 不处理, 反之加逗号
