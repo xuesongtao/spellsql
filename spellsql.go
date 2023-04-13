@@ -114,13 +114,13 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 	if sqlLen < 2<<8 {
 		s.buf.Grow(sqlLen * 2)
 		s.whereBuf.Grow(sqlLen)
-		if s.act(INSERT) || s.act(UPDATE) {
+		if s.is(INSERT) || s.is(UPDATE) {
 			s.valuesBuf.Grow(sqlLen)
 		}
 	} else {
 		s.buf.Grow(sqlLen)
 		s.whereBuf.Grow(sqlLen / 2)
-		if s.act(INSERT) || s.act(UPDATE) {
+		if s.is(INSERT) || s.is(UPDATE) {
 			s.valuesBuf.Grow(sqlLen / 2)
 		}
 	}
@@ -137,11 +137,11 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		}
 	}
 
-	if s.act(SELECT) {
+	if s.is(SELECT) {
 		initWhereFn()
 	}
 
-	if s.act(UPDATE) {
+	if s.is(UPDATE) {
 		setIndex := getTargetIndex(sqlStr, "SET")
 		if setIndex > -1 {
 			s.hasSetStr = true
@@ -152,18 +152,18 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		}
 	}
 
-	if s.act(DELETE) {
+	if s.is(DELETE) {
 		initWhereFn()
 	}
 
-	if s.act(INSERT) {
+	if s.is(INSERT) {
 		s.hasValuesStr = getTargetIndex(sqlStr, "VALUE") > -1
 	}
 	s.writeSqlStr2Buf(&s.buf, sqlStr, args...)
 }
 
-// act
-func (s *SqlStrObj) act(op uint8, target ...uint8) bool {
+// is
+func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 	defaultNum := s.actionNum
 	if len(target) > 0 {
 		defaultNum = target[0]
@@ -427,23 +427,23 @@ func (s *SqlStrObj) free(isNeedPutPool bool) {
 func (s *SqlStrObj) mergeSql() {
 	defer s.buf.WriteString(s.extBuf.String())
 
-	if s.act(INSERT) {
+	if s.is(INSERT) {
 		s.buf.WriteString(s.valuesBuf.String())
 		return
 	}
 
-	if s.act(UPDATE) {
+	if s.is(UPDATE) {
 		s.buf.WriteString(s.valuesBuf.String())
 	}
 
 	// UPDATE, SELECT, DELETE 都会走这里
 	s.buf.WriteString(s.whereBuf.String())
 
-	if s.act(SELECT) {
+	if s.is(SELECT) {
 		s.buf.WriteString(s.groupByStr)
 	}
 
-	if s.act(DELETE) || s.act(SELECT) || s.act(UPDATE) {
+	if s.is(DELETE) || s.is(SELECT) || s.is(UPDATE) {
 		s.buf.WriteString(s.orderByStr)
 		s.buf.WriteString(s.limitStr)
 	}
@@ -504,7 +504,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 
 // GetTotalSqlStr 将查询条件替换为 COUNT(*), 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
-	if !s.act(SELECT) {
+	if !s.is(SELECT) {
 		return
 	}
 	defer s.free(false)

@@ -42,7 +42,7 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 	}
 
 	// fmtSql action 可能为 0
-	if s.act(none) {
+	if s.is(none) {
 		if s.SqlStrLen() > 0 || s.WhereStrLen() > 0 {
 			s.whereBuf.WriteString(defaultJoinStr)
 		}
