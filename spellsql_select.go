@@ -42,7 +42,7 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 	}
 
 	// fmtSql action 可能为 0
-	if s.actionNum == 0 {
+	if s.act(none) {
 		if s.SqlStrLen() > 0 || s.WhereStrLen() > 0 {
 			s.whereBuf.WriteString(defaultJoinStr)
 		}
@@ -223,7 +223,7 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 	return s
 }
 
-// Having 设置 Having
+// SetHaving 设置 Having
 func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
 	tmpBuf := new(strings.Builder)
 	s.writeSqlStr2Buf(tmpBuf, having, args...)
