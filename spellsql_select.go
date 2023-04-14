@@ -112,6 +112,7 @@ func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
 		sqlStr += " ("
 		if v, ok := arg.(string); ok {
 			// 子查询就原样输入
+			v = strings.TrimPrefix(v, "") // 去掉空
 			if len(v) > 6 && toUpper(v[:6]) == "SELECT" {
 				sqlStr += "?v"
 				needAdd = false
