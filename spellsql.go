@@ -487,17 +487,11 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 
 	sqlStr = s.buf.String() + endMarkStr
 	if s.isPrintSqlLog {
-		var finalTitle string
-		_, file, line, ok := runtime.Caller(int(s.callerSkip))
-		if ok {
-			finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
-		}
-		sqlStrTitle := "sqlStr"
+		defTitle := "sqlStr"
 		if argsLen > 0 {
-			sqlStrTitle = title[0]
+			defTitle = title[0]
 		}
-		finalTitle += sqlStrTitle
-		sLog.Info(finalTitle+":", sqlStr)
+		sLog.Info(s.getLogTitle(defTitle), sqlStr)
 	}
 	return
 }
@@ -546,25 +540,31 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	}
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
-	if len(title) > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
+	argsLen := len(title)
+	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
 		if title[1] == "" {
 			endMarkStr = ""
 		}
 	}
 	findSqlStr = tmpBuf.String() + endMarkStr
 	if s.isPrintSqlLog {
-		var finalTitle string
-		_, file, line, ok := runtime.Caller(int(s.callerSkip))
-		if ok {
-			finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
+		defTitle := "sqlTotalStr"
+		if argsLen > 0 {
+			defTitle = title[0]
 		}
-		sqlStrTitle := "sqlTotalStr"
-		if len(title) > 0 {
-			sqlStrTitle = title[0]
-		}
-		finalTitle += sqlStrTitle
-		sLog.Info(finalTitle+":", findSqlStr)
+		sLog.Info(s.getLogTitle(defTitle), findSqlStr)
 	}
+	return
+}
+
+// getLogTitle 获取 log title
+func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
+	// 跳过当前
+	_, file, line, ok := runtime.Caller(int(s.callerSkip) + 1)
+	if ok {
+		finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
+	}
+	finalTitle += title + ":"
 	return
 }
 
