@@ -131,7 +131,7 @@ func DistinctIdsStr(s string, split string) string {
 		s = s[index+1:]
 
 		// 这样可以防止最后一位为 split 字符, 到时就会出现一个空
-		if s == "" {
+		if null(s) {
 			break
 		}
 	}
@@ -181,9 +181,14 @@ func removeTypePtr(t reflect.Type) reflect.Type {
 
 // isExported 是可导出
 func isExported(fieldName string) bool {
-	if fieldName == "" {
+	if null(fieldName) {
 		return false
 	}
 	first := fieldName[0]
 	return first >= 'A' && first <= 'Z'
+}
+
+// null
+func null(val string) bool {
+	return val == ""
 }

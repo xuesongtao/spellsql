@@ -8,15 +8,58 @@ import (
 	"strings"
 )
 
+// From 设置表名
+func (t *Table) From(tableName string) *Table {
+	t.name = tableName
+	if t.sqlObjIsNil() { // 懒处理
+		if !null(t.handleCols) {
+			t.Select(t.handleCols)
+		} else {
+			t.SelectAll()
+		}
+	}
+	return t
+}
+
+// Join 连表查询
+// 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
+// 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
+func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetJoin(joinTable, on, joinType...)
+	}
+	return t
+}
+
+// LeftJoin 连表查询
+// 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
+// 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
+func (t *Table) LefJoin(joinTable, on string) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetLeftJoin(joinTable, on)
+	}
+	return t
+}
+
+// RightJoin 连表查询
+// 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
+// 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
+func (t *Table) RightJoin(joinTable, on string) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetRightJoin(joinTable, on)
+	}
+	return t
+}
+
 // Select 查询内容
 // fields 多个通过逗号隔开
 func (t *Table) Select(fields string) *Table {
-	if fields == "" {
+	if null(fields) {
 		sLog.Error("fields is null")
 		return t
 	}
 
-	if t.name != "" {
+	if !null(t.name) {
 		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fields, t.name)
 	} else {
 		t.handleCols = fields
@@ -35,8 +78,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	}
 
 	if val, ok := src.(string); ok {
-		t.Select(val)
-		return t
+		return t.Select(val)
 	}
 
 	ty := removeTypePtr(reflect.TypeOf(src))
@@ -49,7 +91,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 				ty = removeTypePtr(ty)
 			}
 		}
-		if t.name == "" {
+		if null(t.name) {
 			t.name = parseTableName(ty.Name())
 		}
 		if err := t.initCacheCol2InfoMap(); err != nil {
@@ -90,34 +132,11 @@ func (t *Table) SelectCount() *Table {
 	return t.Select("COUNT(*)")
 }
 
-// From 设置表名
-func (t *Table) From(tableName string) *Table {
-	t.name = tableName
-	if t.sqlObjIsNil() {
-		if t.handleCols != "" {
-			t.Select(t.handleCols)
-		} else {
-			t.SelectAll()
-		}
-	}
-	return t
-}
-
-// Join 连表查询
-// 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
-// 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
-func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
-	if !t.sqlObjIsNil() {
-		t.tmpSqlObj.SetJoin(joinTable, on, joinType...)
-	}
-	return t
-}
-
 // Where 支持占位符
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
-	if sqlStr != "" && !t.sqlObjIsNil() {
+	if !null(sqlStr) && !t.sqlObjIsNil() {
 		t.tmpSqlObj.SetWhereArgs(sqlStr, args...)
 	}
 	return t
@@ -127,7 +146,7 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
-	if sqlStr != "" && !t.sqlObjIsNil() {
+	if !null(sqlStr) && !t.sqlObjIsNil() {
 		t.tmpSqlObj.SetOrWhereArgs(sqlStr, args...)
 	}
 	return t
@@ -149,6 +168,30 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 	return t
 }
 
+// AllLike 全模糊查询
+func (t *Table) AllLike(filedName, value string) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetAllLike(filedName, value)
+	}
+	return t
+}
+
+// LeftLike 左模糊
+func (t *Table) LeftLike(filedName, value string) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetLeftLike(filedName, value)
+	}
+	return t
+}
+
+// RightLike 右模糊
+func (t *Table) RightLike(filedName, value string) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetRightLike(filedName, value)
+	}
+	return t
+}
+
 // Between
 func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
 	if !t.sqlObjIsNil() {
@@ -165,10 +208,20 @@ func (t *Table) OrderBy(sqlStr string) *Table {
 	return t
 }
 
-// Limit
-func (t *Table) Limit(page int32, size int32) *Table {
+// Limit 分页
+// 会对 page, size 进行校验处理
+func (t *Table) Limit(page, size int32) *Table {
 	if !t.sqlObjIsNil() {
 		t.tmpSqlObj.SetLimit(page, size)
+	}
+	return t
+}
+
+// Limit1 分页
+// 不会对 page, size 进行校验处理
+func (t *Table) Limit1(page, size interface{}) *Table {
+	if !t.sqlObjIsNil() {
+		t.tmpSqlObj.SetLimit1(page, size)
 	}
 	return t
 }
@@ -663,7 +716,7 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (e
 		if len(needUnmarshalField) > 0 { // 判断下是否需要反序列化
 			handleStructField, ok := t.waitHandleStructFieldMap[needUnmarshalField[0]]
 			if ok && handleStructField.unmarshal != nil {
-				if val.String != "" {
+				if !null(val.String) {
 					err = handleStructField.unmarshal([]byte(val.String), dest)
 				}
 				val.String = ""

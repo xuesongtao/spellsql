@@ -98,7 +98,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 			t.tmpSqlObj.SetWhereArgs("?v = ?", k, v)
 		}
 	} else {
-		if t.name == "" {
+		if null(t.name) {
 			sLog.Error(tableNameIsUnknownErr)
 			return t
 		}
@@ -137,7 +137,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	}
 
 	ty := tv.Type()
-	if t.name == "" {
+	if null(t.name) {
 		t.name = parseTableName(ty.Name())
 	}
 
@@ -150,7 +150,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 	values = make([]interface{}, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		col, tag, needMarshal := t.parseStructField(ty.Field(i), sureMarshal)
-		if col == "" {
+		if null(col) {
 			continue
 		}
 

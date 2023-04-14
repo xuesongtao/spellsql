@@ -5,8 +5,27 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
+
+// 公共部分
+var (
+	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
+)
+
+func getTmpBuf(size ...int) *strings.Builder {
+	obj := tmpBuf.Get().(*strings.Builder)
+	if len(size) > 0 {
+		obj.Grow(size[0])
+	}
+	return obj
+}
+
+func putTmpBuf(obj *strings.Builder) {
+	obj.Reset()
+	tmpBuf.Put(obj)
+}
 
 // spellsql 部分
 var (

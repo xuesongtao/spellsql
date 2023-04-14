@@ -65,7 +65,7 @@ type Table struct {
 	isPrintSql               bool                          // 标记是否打印 sql
 	haveFree                 bool                          // 标记 table 释放已释放
 	needSetSize              bool                          // 标记批量查询的时候是否需要设置默认返回条数
-	checkNull                bool                          // 是否检查 null
+	checkNull                bool                          // 在 Insert 时, db 字段为非 null 时检查
 	tag                      string                        // 记录解析 struct 中字段名的 tag
 	name                     string                        // 表名
 	handleCols               string                        // Insert/Update/Delete/Select 操作的表字段名
@@ -110,7 +110,7 @@ func (t *Table) init() {
 // free 释放
 func (t *Table) free() {
 	// clone 了对象就不放回
-	if t.clonedSqlStr != "" {
+	if !null(t.clonedSqlStr) {
 		return
 	}
 
@@ -136,7 +136,7 @@ func (t *Table) free() {
 
 // Clone 克隆对象
 func (t *Table) Clone() *Table {
-	if t.clonedSqlStr == "" {
+	if null(t.clonedSqlStr) {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
@@ -173,7 +173,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return err
 	}
 
-	if t.name == "" {
+	if null(t.name) {
 		return tableNameIsUnknownErr
 	}
 
@@ -313,7 +313,7 @@ func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2Stru
 	sortCol = make([]string, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		col, tag, _ := t.parseStructField(ty.Field(i), sureUnmarshal)
-		if col == "" {
+		if null(col) {
 			continue
 		}
 
@@ -338,7 +338,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 
 	// 解析 tag 中的列名
 	tag = fieldInfo.Tag.Get(t.tag)
-	if tag == "" {
+	if null(tag) {
 		return
 	}
 
@@ -377,7 +377,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 	}
 
 	col = tag
-	if alias != "" {
+	if !null(alias) {
 		col = alias
 	}
 	return
@@ -455,7 +455,7 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 	}
 
 	if defaultCheckSqlObj && t.sqlObjIsNil() {
-		if t.name == "" {
+		if null(t.name) {
 			return tableNameIsUnknownErr
 		}
 		return errors.New("tmpSqlObj is nil")

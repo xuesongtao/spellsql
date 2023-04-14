@@ -182,7 +182,7 @@ func (s *SqlStrObj) init() {
 	s.isCallCacheInit = false
 	s.needAddBracket = false
 	s.callerSkip = 1
-	s.actionNum = 0
+	s.actionNum = none
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
@@ -480,7 +480,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
 	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
-		if title[1] == "" {
+		if null(title[1]) {
 			endMarkStr = ""
 		}
 	}
@@ -542,7 +542,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	endMarkStr := ";"
 	argsLen := len(title)
 	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
-		if title[1] == "" {
+		if null(title[1]) {
 			endMarkStr = ""
 		}
 	}

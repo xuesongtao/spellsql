@@ -17,6 +17,16 @@ func (s *SqlStrObj) SetJoin(tableName string, on string, joinType ...uint8) *Sql
 	return s
 }
 
+// SetLeftJoin 设置 left join
+func (s *SqlStrObj) SetLeftJoin(tableName string, on string) *SqlStrObj {
+	return s.SetJoin(tableName, on, LJI)
+}
+
+// SetRightJoin 设置 right join
+func (s *SqlStrObj) SetRightJoin(tableName string, on string) *SqlStrObj {
+	return s.SetJoin(tableName, on, RJI)
+}
+
 // SetWhere 设置过滤条件, 连接符为 AND
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
@@ -203,8 +213,12 @@ func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
 		size = 10
 	}
 	offset := (page - 1) * size
-	s.limitStr = " LIMIT " + s.Int2Str(int64(offset)) + ", " + s.Int2Str(int64(size))
-	return s
+	return s.SetLimitStr(s.Int2Str(int64(offset)) + ", " + s.Int2Str(int64(size)))
+}
+
+// SetLimit1 设置分页
+func (s *SqlStrObj) SetLimit1(page, size interface{}) *SqlStrObj {
+	return s.SetLimitStr(Str(page) + ", " + Str(size))
 }
 
 // SetLimitStr 字符串来设置
@@ -215,7 +229,7 @@ func (s *SqlStrObj) SetLimitStr(limitStr string) *SqlStrObj {
 
 // LimitIsEmpty 是否添加 limit
 func (s *SqlStrObj) LimitIsEmpty() bool {
-	return s.limitStr == ""
+	return null(s.limitStr)
 }
 
 // SetGroupByStr 设置 groupBy
@@ -226,7 +240,8 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 
 // SetHaving 设置 Having
 func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
-	tmpBuf := new(strings.Builder)
+	tmpBuf := getTmpBuf()
+	defer putTmpBuf(tmpBuf)
 	s.writeSqlStr2Buf(tmpBuf, having, args...)
 	s.groupByStr += " HAVING " + tmpBuf.String()
 	return s
