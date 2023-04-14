@@ -188,7 +188,6 @@ func isExported(fieldName string) bool {
 	return first >= 'A' && first <= 'Z'
 }
 
-// null
 func null(val string) bool {
 	return val == ""
 }
