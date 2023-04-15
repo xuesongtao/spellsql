@@ -947,11 +947,11 @@ func TestFindAll(t *testing.T) {
 		var m []test.Man
 		for rows.Next() {
 			var (
-				id, age        int
-				name, nickname string
-				addr           sql.NullString
+				id, age               int
+				name, nickname, hobby string
+				addr                  sql.NullString
 			)
-			err = rows.Scan(&id, &name, &age, &addr, &nickname)
+			err = rows.Scan(&id, &name, &age, &addr, &hobby, &nickname)
 			if err != nil {
 				t.Log(err)
 			}
