@@ -1,7 +1,5 @@
 #!/bin/bash
 
-curPath=$(pwd)
-
 # 执行所有
 go test
 
