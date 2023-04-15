@@ -50,10 +50,11 @@ var (
 	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
 		"    Name string `json:\"name\"`\n"+
 		"}")
-	tableNameIsUnknownErr = errors.New("table name is unknown")
-	nullRowErr            = errors.New("row is null")
-	findOneDestTypeErr    = errors.New("dest should is struct/oneField/map")
-	findAllDestTypeErr    = errors.New("dest should is struct/oneField/map slice")
+	tableNameIsUnknownErr  = errors.New("table name is unknown")
+	nullRowErr             = errors.New("row is null")
+	findOneDestTypeErr     = errors.New("dest should is struct/oneField/map")
+	findAllDestTypeErr     = errors.New("dest should is struct/oneField/map slice")
+	getField2ColInfoMapErr = "%q GetField2ColInfoMap initArgs is not ok"
 )
 
 // log 处理

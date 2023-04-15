@@ -38,6 +38,7 @@ type SqlStrObj struct {
 	isCallCacheInit bool  // 标记是否为 NewCacheSql 初始化生产的对象
 	actionNum       uint8 // INSERT/DELETE/SELECT/UPDATE
 	callerSkip      uint8 // 跳过调用栈的数
+	strSymbol       byte  // 记录解析字符串值的符号, 默认: ""
 	limitStr        string
 	orderByStr      string
 	groupByStr      string
@@ -183,9 +184,20 @@ func (s *SqlStrObj) init() {
 	s.needAddBracket = false
 	s.callerSkip = 1
 	s.actionNum = none
+	s.strSymbol = '"'
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
+}
+
+// SetStrSymbol 设置在解析值时字符串符号, 不同的数据库符号不同
+// 如: mysql 字符串值可以用 ""或''; pg 字符串值只能用 ''
+func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
+	if strSymbol != '"' && strSymbol != '\'' {
+		return s
+	}
+	s.strSymbol = strSymbol
+	return s
 }
 
 // SetPrintLog 设置是否打印 sqlStr log
@@ -236,9 +248,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 		case string:
 			// 如果占位符?在最后一位时, 就不往下执行了防止 panic
 			if i >= sqlLen-1 {
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 				buf.WriteString(s.toEscape(val, false))
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 				break
 			}
 
@@ -251,9 +263,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				buf.WriteString(val)
 				i++
 			} else {
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 				buf.WriteString(s.toEscape(val, false))
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 			}
 		case []string:
 			lastIndex := len(val) - 1
@@ -267,11 +279,11 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 				for i1 := 0; i1 <= lastIndex; i1++ {
 					if isAdd {
-						buf.WriteByte('"')
+						buf.WriteByte(s.strSymbol)
 					}
 					buf.WriteString(s.toEscape(val[i1], !isAdd))
 					if isAdd {
-						buf.WriteByte('"')
+						buf.WriteByte(s.strSymbol)
 					}
 					if i1 < lastIndex {
 						buf.WriteByte(',')
@@ -280,16 +292,18 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			} else {
 				// 最后一个占位符
 				for i1 := 0; i1 <= lastIndex; i1++ {
-					buf.WriteByte('"')
+					buf.WriteByte(s.strSymbol)
 					buf.WriteString(s.toEscape(val[i1], false))
-					buf.WriteByte('"')
+					buf.WriteByte(s.strSymbol)
 					if i1 < lastIndex {
 						buf.WriteByte(',')
 					}
 				}
 			}
 		case []byte:
-			buf.WriteString("\"" + s.toEscape(string(val), false) + "\"")
+			buf.WriteByte('\'')
+			buf.Write(val)
+			buf.WriteByte('\'')
 		case int:
 			buf.WriteString(s.Int2Str(int64(val)))
 		case int32:

@@ -9,8 +9,10 @@ import (
 	"strconv"
 	"testing"
 
+	"gitee.com/xuesongtao/spellsql/test"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+
 	gmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -431,8 +433,8 @@ func TestFindOne(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -443,8 +445,8 @@ func TestFindOne(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -471,8 +473,8 @@ func TestFindOne(t *testing.T) {
 			Data: "test json1 marshal",
 		}
 		t.Logf("%+v", m)
-		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) || !structValEqual(m.JsonTxt, jsonTxt) || !structValEqual(m.XmlTxt, xmlTxt) || !structValEqual(m.Json1Txt, json1Txt) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) || !test.StructValEqual(m.JsonTxt, jsonTxt) || !test.StructValEqual(m.XmlTxt, xmlTxt) || !test.StructValEqual(m.Json1Txt, json1Txt) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -482,8 +484,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -493,8 +495,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -505,8 +507,8 @@ func TestFindOne(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !equal(name, sureName) {
-			t.Error(noEqErr)
+		if !test.Equal(name, sureName) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -519,8 +521,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(name, sureName) || !equal(age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(name, sureName) || !test.Equal(age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -530,8 +532,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(b["name"], sureName) || !equal(b["age"], fmt.Sprintf("%d", sureAge)) {
-			t.Error(noEqErr)
+		if !test.Equal(b["name"], sureName) || !test.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -548,8 +550,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(m.Name, tmpName) || !equal(m.Age, tmpAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, tmpName) || !test.Equal(m.Age, tmpAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -566,8 +568,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(name, tmp) {
-			t.Error(noEqErr)
+		if !test.Equal(name, tmp) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -584,8 +586,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(b["name"], tmp) {
-			t.Error(noEqErr)
+		if !test.Equal(b["name"], tmp) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -610,8 +612,8 @@ func TestFindOne(t *testing.T) {
 		// 	t.Logf("%d>%+v", id, info)
 		// }
 		id1Info := id2InfoMap[1]
-		if !equal(id1Info.Name, tmp) || !equal(id1Info.Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(id1Info.Name, tmp) || !test.Equal(id1Info.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -630,8 +632,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name1, sureName) || !test.Equal(m.Age1, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -646,8 +648,8 @@ func TestFindWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(name, sureName) {
-			t.Error(noEqErr)
+		if !test.Equal(name, sureName) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -657,8 +659,8 @@ func TestFindWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -674,8 +676,8 @@ func TestFindWhere(t *testing.T) {
 		}
 
 		// 按 id=1 判断
-		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -685,8 +687,8 @@ func TestFindWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(b["name"], sureName) || !equal(b["age"], fmt.Sprintf("%d", sureAge)) {
-			t.Error(noEqErr)
+		if !test.Equal(b["name"], sureName) || !test.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -702,8 +704,8 @@ func TestFindWhere(t *testing.T) {
 		}
 
 		// 按 id=1 判断
-		if !equal(b[0]["name"], sureName) || !equal(b[0]["age"], fmt.Sprintf("%d", sureAge)) {
-			t.Error(noEqErr)
+		if !test.Equal(b[0]["name"], sureName) || !test.Equal(b[0]["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -730,8 +732,8 @@ func TestFindWhere(t *testing.T) {
 			Data: "test json1 marshal",
 		}
 		// t.Logf("%+v", m)
-		if !equal(m.Name, sureName) || !equal(m.Age, sureAge) || !structValEqual(m.JsonTxt, jsonTxt) || !structValEqual(m.XmlTxt, xmlTxt) || !structValEqual(m.Json1Txt, json1Txt) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) || !test.StructValEqual(m.JsonTxt, jsonTxt) || !test.StructValEqual(m.XmlTxt, xmlTxt) || !test.StructValEqual(m.Json1Txt, json1Txt) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -749,8 +751,8 @@ func TestFindWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(m.Name1, sureName) || !equal(m.Age1, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m.Name1, sureName) || !test.Equal(m.Age1, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 	t.Log("find where test end")
@@ -768,8 +770,8 @@ func TestFindForJoin(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -789,8 +791,8 @@ func TestFindForJoin(t *testing.T) {
 			return
 		}
 		// t.Logf("%+v", m)
-		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) || !equal(m[0].SName, "1") {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) || !test.Equal(m[0].SName, "1") {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -817,8 +819,8 @@ func TestFindForJoin(t *testing.T) {
 			return
 		}
 
-		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 }
@@ -841,7 +843,7 @@ func TestCount(t *testing.T) {
 	}
 	t.Log("total: ", total2)
 	if total1 != total2 || total2 != total3 {
-		t.Error(noEqErr)
+		t.Error(test.NoEqErr)
 	}
 }
 
@@ -931,8 +933,8 @@ func TestFindAll(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -947,8 +949,8 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 		age, _ := strconv.Atoi(m[0]["age"])
-		if !equal(m[0]["name"], sureName) || !equal(int32(age), sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m[0]["name"], sureName) || !test.Equal(int32(age), sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -976,14 +978,14 @@ func TestFindAll(t *testing.T) {
 			})
 			// t.Log(id, name, age, addr.String, nickname)
 		}
-		if !equal(m[0].Name, sureName) || !equal(m[0].Age, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findAll oneField slice", func(t *testing.T) {
 		var names []string
-		err := NewTable(db, "man").Select("name").Where("id>?", 0).FindAll(&names)
+		err := NewTable(db, "man").Select("name").Where("id>?", 0).OrderBy("id").FindAll(&names)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -991,8 +993,8 @@ func TestFindAll(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-		if !equal(names[0], sureName) {
-			t.Error(noEqErr)
+		if !test.Equal(names[0], sureName) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1015,8 +1017,8 @@ func TestFindAll(t *testing.T) {
 			}
 			names = append(names, tmp...)
 		}
-		if !equal(len(names), total) {
-			t.Error(noEqErr)
+		if !test.Equal(len(names), total) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1039,8 +1041,8 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 
-		if !equal(m[0].Name, tmp) || !equal(m[0].Age, sureAge) || !equal(m[0].Addr, "") {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name, tmp) || !test.Equal(m[0].Age, sureAge) || !test.Equal(m[0].Addr, "") {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1062,8 +1064,8 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 		age, _ := strconv.Atoi(b[0]["age"])
-		if !equal(b[0]["name"], tmp) || !equal(int32(age), sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(b[0]["name"], tmp) || !test.Equal(int32(age), sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1096,8 +1098,8 @@ func TestFindAll(t *testing.T) {
 		}
 		// t.Logf("%+v", m)
 		first := m[0]
-		if !equal(first.Name, sureName) || !equal(first.Age, sureAge) || !structValEqual(first.JsonTxt, jsonTxt) || !structValEqual(first.XmlTxt, xmlTxt) || !structValEqual(first.Json1Txt, json1Txt) {
-			t.Error(noEqErr)
+		if !test.Equal(first.Name, sureName) || !test.Equal(first.Age, sureAge) || !test.StructValEqual(first.JsonTxt, jsonTxt) || !test.StructValEqual(first.XmlTxt, xmlTxt) || !test.StructValEqual(first.Json1Txt, json1Txt) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1116,8 +1118,8 @@ func TestFindAll(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !equal(m[0].Name1, sureName) || !equal(m[0].Age1, sureAge) {
-			t.Error(noEqErr)
+		if !test.Equal(m[0].Name1, sureName) || !test.Equal(m[0].Age1, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 

@@ -25,6 +25,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 		}
 		if i == 0 {
 			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+			insertSql.SetStrSymbol(t.getStrSymbol())
 		}
 		insertSql.SetInsertValues(values...)
 	}
@@ -47,6 +48,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 		return t
 	}
 	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql.SetStrSymbol(t.getStrSymbol())
 	insertSql.SetInsertValues(values...)
 	kv := make([]string, 0, len(columns))
 	if len(keys) == 0 {
@@ -75,6 +77,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 		return t
 	}
 	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql.SetStrSymbol(t.getStrSymbol())
 	insertSql.SetInsertValues(values...)
 	t.tmpSqlObj = insertSql
 	return t
@@ -91,7 +94,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 
 		l := len(columns)
-		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
+		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name).SetStrSymbol(t.getStrSymbol())
 		for i := 0; i < l; i++ {
 			k := columns[i]
 			v := values[i]
@@ -117,7 +120,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 	}
 
 	l := len(columns)
-	t.tmpSqlObj = NewCacheSql("UPDATE ?v SET", t.name)
+	t.tmpSqlObj = NewCacheSql("UPDATE ?v SET", t.name).SetStrSymbol(t.getStrSymbol())
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]
@@ -160,13 +163,14 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 			continue
 		}
 
-		if isExcludePri && tableField.Key == "PRI" { // 主键, 防止更新
+		// 空值处理
+		val := tv.Field(i)
+		isZero := val.IsZero()
+		if isExcludePri && tableField.IsPri() && isZero { // 主键, 防止更新
 			continue
 		}
 
-		// 空值处理
-		val := tv.Field(i)
-		if val.IsZero() {
+		if isZero {
 			if t.checkNull { // 检查下 null
 				tmp, ok := t.waitHandleStructFieldMap[tag]
 				if ok && tmp.defaultVal != nil && tableField.NotNull() { // orm 中设置了默认值
@@ -185,7 +189,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 			if err != nil {
 				return nil, nil, err
 			}
-			values = append(values, string(dataBytes))
+			values = append(values, dataBytes)
 		} else {
 			values = append(values, val.Interface())
 		}
