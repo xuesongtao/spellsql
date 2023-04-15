@@ -9,24 +9,6 @@ import (
 	"sync"
 )
 
-// 公共部分
-var (
-	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
-)
-
-func getTmpBuf(size ...int) *strings.Builder {
-	obj := tmpBuf.Get().(*strings.Builder)
-	if len(size) > 0 {
-		obj.Grow(size[0])
-	}
-	return obj
-}
-
-func putTmpBuf(obj *strings.Builder) {
-	obj.Reset()
-	tmpBuf.Put(obj)
-}
-
 // spellsql 部分
 var (
 	sqlSyncPool = sync.Pool{New: func() interface{} { return new(SqlStrObj) }} // 考虑到性能问题, 这里用 pool
@@ -63,8 +45,26 @@ var (
 	once sync.Once
 )
 
+// 公共部分
+var (
+	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
+)
+
 func init() {
 	sLog = NewCjLogger()
+}
+
+func getTmpBuf(size ...int) *strings.Builder {
+	obj := tmpBuf.Get().(*strings.Builder)
+	if len(size) > 0 {
+		obj.Grow(size[0])
+	}
+	return obj
+}
+
+func putTmpBuf(obj *strings.Builder) {
+	obj.Reset()
+	tmpBuf.Put(obj)
 }
 
 // SetLogger 设置 logger
