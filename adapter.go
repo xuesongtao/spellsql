@@ -34,10 +34,16 @@ func (t *TableColInfo) NotNull() bool {
 // 如: NewTable(db).Tmer(Pg("man")).xxx
 func (t *Table) Tmer(obj TableMetaer) *Table {
 	if obj != nil {
+		old := t.tmer
+		if old != nil {
+			sLog.Warningf("Tmer old %q to new %q", old.GetAdapterName(), obj.GetAdapterName())
+		}
 		t.tmer = obj
 	}
 	return t
 }
+
+// 以下为适配多个不同类型的 db
 
 // *******************************************************************************
 // *                             mysql                                           *
@@ -49,8 +55,16 @@ type MysqlTable struct {
 
 // Mysql
 // initArgs 只允许一个参数, table name
-func Mysql(initArgs ...string) *MysqlTable {
-	return &MysqlTable{initArgs: initArgs}
+func Mysql() *MysqlTable {
+	return &MysqlTable{}
+}
+
+func (m *MysqlTable) GetAdapterName() string {
+	return "mysql"
+}
+
+func (m *MysqlTable) SetName(name string) {
+	m.initArgs = []string{name}
 }
 
 func (m *MysqlTable) GetStrSymbol() byte {
@@ -89,13 +103,28 @@ type PgTable struct {
 }
 
 // Pg
-// initArgs 允许自定义两个参数, 如果只有一个的时候, 会将其处理为 table name
+// initArgs 允许自定义两个参数
+// initArgs[0] 为 schema
+// initArgs[1] 为 table name
 func Pg(initArgs ...string) *PgTable {
-	args := initArgs
-	if len(initArgs) == 1 {
-		args = []string{"public", initArgs[0]} // 默认 public
+	obj := &PgTable{make([]string, 2)}
+	l := len(initArgs)
+	switch l {
+	case 1:
+		obj.initArgs[0] = initArgs[0]
+	case 2:
+		obj.initArgs[0] = initArgs[0]
+		obj.initArgs[1] = initArgs[1]
 	}
-	return &PgTable{initArgs: args}
+	return obj
+}
+
+func (p *PgTable) GetAdapterName() string {
+	return "pg"
+}
+
+func (p *PgTable) SetName(name string) {
+	p.initArgs[1] = name
 }
 
 func (p *PgTable) GetStrSymbol() byte {

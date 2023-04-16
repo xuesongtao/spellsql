@@ -156,7 +156,9 @@ func (t *Table) initCacheCol2InfoMap() error {
 		}
 	}
 
-	t.initTmer()
+	if err := t.initTmer(); err != nil {
+		return err
+	}
 	var err error
 	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db)
 	if err != nil {
@@ -167,16 +169,20 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
-func (t *Table) initTmer() {
+func (t *Table) initTmer() error {
 	// 默认按 mysql 的方式处理
-	if t.tmer != nil {
-		return
+	if t.tmer == nil {
+		t.tmer = defaultTmerObj
 	}
-	t.Tmer(Mysql(t.name))
+	if null(t.name) {
+		return tableNameIsUnknownErr
+	}
+	t.tmer.SetName(t.name)
+	return nil
 }
 
 func (t *Table) getStrSymbol() byte {
-	t.initTmer()
+	_ = t.initTmer()
 	return t.tmer.GetStrSymbol()
 }
 

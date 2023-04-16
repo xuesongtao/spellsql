@@ -60,9 +60,6 @@ func (t *Table) Select(fields string) *Table {
 	}
 
 	if !null(t.name) {
-		if t.tmer == nil {
-			t.Tmer(Mysql(t.name))
-		}
 		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fields, t.name).SetStrSymbol(t.getStrSymbol())
 	} else {
 		t.handleCols = fields

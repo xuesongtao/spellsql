@@ -47,6 +47,9 @@ func init() {
 	}
 	pgDb.SetMaxOpenConns(1)
 	pgDb.SetMaxIdleConns(1)
+
+	// 初始化 pg tmer
+	spellsql.GlobalTmer(spellsql.Pg("public"))
 }
 
 func TestInsertForPg(t *testing.T) {
@@ -69,7 +72,7 @@ func TestInsertForPg(t *testing.T) {
 		},
 	}
 
-	tableObj := spellsql.NewTable(pgDb, "man").Tmer(spellsql.Pg("man"))
+	tableObj := spellsql.NewTable(pgDb, "man")
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
 	res, err := tableObj.Insert(m).Exec()
@@ -89,7 +92,7 @@ func TestDeleteForPg(t *testing.T) {
 	m := Man{
 		Id: 9,
 	}
-	_, err := spellsql.NewTable(pgDb).Tmer(spellsql.Pg("man")).Delete(m).Exec()
+	_, err := spellsql.NewTable(pgDb).Delete(m).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +109,7 @@ func TestUpdateForPg(t *testing.T) {
 		},
 	}
 
-	tableObj := spellsql.NewTable(pgDb, "man").Tmer(spellsql.Pg("man"))
+	tableObj := spellsql.NewTable(pgDb, "man")
 	tableObj.SetMarshalFn(json.Marshal, "json_txt")
 	_, err := tableObj.Update(m, "id=?", 2).Exec()
 	if err != nil {
@@ -114,9 +117,22 @@ func TestUpdateForPg(t *testing.T) {
 	}
 }
 
+func TestRawPg(t *testing.T) {
+	var m Man
+	sqlObj := spellsql.NewCacheSql("SELECT name,age FROM man WHERE id=1")
+	err := spellsql.NewTable(pgDb).Raw(sqlObj).FindOne(&m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%+v", m)
+	if !Equal(m.Name, sureName) || !Equal(m.Age, sureAge) {
+		t.Error(NoEqErr)
+	}
+}
+
 func TestFindOneForPg(t *testing.T) {
 	var m Man
-	tableObj := spellsql.NewTable(pgDb).Tmer(spellsql.Pg("man"))
+	tableObj := spellsql.NewTable(pgDb)
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
 	err := tableObj.SelectAuto(Man{}).Where("id=1").FindOneFn(&m)
@@ -145,7 +161,7 @@ func TestFindOneForPg(t *testing.T) {
 func TestFindAllForPg(t *testing.T) {
 	var m []Man
 	var err error
-	tableObj := spellsql.NewTable(pgDb).Tmer(spellsql.Pg("man"))
+	tableObj := spellsql.NewTable(pgDb)
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
 	err = tableObj.SelectAuto(Man{}).FindWhere(&m, "id>0")

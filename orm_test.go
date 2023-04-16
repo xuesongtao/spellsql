@@ -788,6 +788,7 @@ func TestFindForJoin(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
+		t.Logf("%+v", m)
 		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
 			t.Error(test.NoEqErr)
 		}

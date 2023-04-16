@@ -66,6 +66,8 @@ var (
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 
+	defaultTmerObj TableMetaer = Mysql() // 默认为 mysql
+
 	// error
 	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
 		"    Name string `json:\"name\"`\n"+
@@ -77,17 +79,22 @@ var (
 	getField2ColInfoMapErr = "%q GetField2ColInfoMap initArgs is not ok"
 )
 
+// GlobalTmer 设置全局 tmer
+func GlobalTmer(obj TableMetaer) {
+	defaultTmerObj = obj
+}
+
 // ====================================== other =============================================
+
+// 公共部分
+var (
+	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
+)
 
 // log 处理
 var (
 	sLog Logger
 	once sync.Once
-)
-
-// 公共部分
-var (
-	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
 )
 
 func init() {
