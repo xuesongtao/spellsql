@@ -1,4 +1,4 @@
-package test
+package internal
 
 import (
 	"fmt"
@@ -9,10 +9,6 @@ const (
 	NoEqErr = "src, dest is not eq"
 )
 
-const (
-	sureName = "xue1234"
-	sureAge  = int32(18)
-)
 
 type Man struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`

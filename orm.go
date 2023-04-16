@@ -187,9 +187,10 @@ func (t *Table) initCacheCol2InfoMap() error {
 
 func (t *Table) initTmer() {
 	// 默认按 mysql 的方式处理
-	if t.tmer == nil {
-		t.Tmer(Mysql(t.name))
+	if t.tmer != nil {
+		return
 	}
+	t.Tmer(Mysql(t.name))
 }
 
 func (t *Table) getStrSymbol() byte {

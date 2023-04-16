@@ -1,4 +1,4 @@
-package test
+package internal
 
 import (
 	"database/sql"
@@ -7,7 +7,13 @@ import (
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql"
+	"gitee.com/xuesongtao/spellsql/test/internal"
 	_ "github.com/lib/pq"
+)
+
+const (
+	sureName = "xue1234"
+	sureAge  = int32(18)
 )
 
 // CREATE TABLE "public"."man" (
@@ -45,20 +51,20 @@ func init() {
 }
 
 func TestInsertForPg(t *testing.T) {
-	m := Man{
+	m := internal.Man{
 		Name:  "xue1234",
 		Age:   18,
 		Addr:  "成都市",
 		Hobby: "打篮球",
-		JsonTxt: Tmp{
+		JsonTxt: internal.Tmp{
 			Name: "json",
 			Data: "test json marshal",
 		},
-		XmlTxt: Tmp{
+		XmlTxt: internal.Tmp{
 			Name: "xml",
 			Data: "test xml marshal",
 		},
-		Json1Txt: Tmp{
+		Json1Txt: internal.Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		},
@@ -81,7 +87,7 @@ func TestInsertForPg(t *testing.T) {
 }
 
 func TestDeleteForPg(t *testing.T) {
-	m := Man{
+	m := internal.Man{
 		Id: 9,
 	}
 	_, err := spellsql.NewTable(pgDb).Tmer(spellsql.Pg("man")).Delete(m).Exec()
@@ -91,11 +97,11 @@ func TestDeleteForPg(t *testing.T) {
 }
 
 func TestUpdateForPg(t *testing.T) {
-	m := Man{
+	m := internal.Man{
 		Name: "xue12",
 		Age:  20,
 		Addr: "测试",
-		JsonTxt: Tmp{
+		JsonTxt: internal.Tmp{
 			Name: "json",
 			Data: "test update json marshal",
 		},
@@ -110,40 +116,40 @@ func TestUpdateForPg(t *testing.T) {
 }
 
 func TestFindOneForPg(t *testing.T) {
-	var m Man
+	var m internal.Man
 	tableObj := spellsql.NewTable(pgDb).Tmer(spellsql.Pg("man"))
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-	err := tableObj.SelectAuto(Man{}).Where("id=1").FindOneFn(&m)
+	err := tableObj.SelectAuto(internal.Man{}).Where("id=1").FindOneFn(&m)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	jsonTxt := Tmp{
+	jsonTxt := internal.Tmp{
 		Name: "json",
 		Data: "test json marshal",
 	}
-	xmlTxt := Tmp{
+	xmlTxt := internal.Tmp{
 		Name: "xml",
 		Data: "test xml marshal",
 	}
-	json1Txt := Tmp{
+	json1Txt := internal.Tmp{
 		Name: "json1",
 		Data: "test json1 marshal",
 	}
 	t.Logf("%+v", m)
-	if !Equal(m.Name, sureName) || !Equal(m.Age, sureAge) || !StructValEqual(m.JsonTxt, jsonTxt) || !StructValEqual(m.XmlTxt, xmlTxt) || !StructValEqual(m.Json1Txt, json1Txt) {
-		t.Error(NoEqErr)
+	if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) || !internal.StructValEqual(m.JsonTxt, jsonTxt) || !internal.StructValEqual(m.XmlTxt, xmlTxt) || !internal.StructValEqual(m.Json1Txt, json1Txt) {
+		t.Error(internal.NoEqErr)
 	}
 }
 
 func TestFindAllForPg(t *testing.T) {
-	var m []Man
+	var m []internal.Man
 	var err error
 	tableObj := spellsql.NewTable(pgDb).Tmer(spellsql.Pg("man"))
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-	err = tableObj.SelectAuto(Man{}).FindWhere(&m, "id>0")
+	err = tableObj.SelectAuto(internal.Man{}).FindWhere(&m, "id>0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,21 +158,21 @@ func TestFindAllForPg(t *testing.T) {
 		return
 	}
 
-	jsonTxt := Tmp{
+	jsonTxt := internal.Tmp{
 		Name: "json",
 		Data: "test json marshal",
 	}
-	xmlTxt := Tmp{
+	xmlTxt := internal.Tmp{
 		Name: "xml",
 		Data: "test xml marshal",
 	}
-	json1Txt := Tmp{
+	json1Txt := internal.Tmp{
 		Name: "json1",
 		Data: "test json1 marshal",
 	}
 	t.Logf("%+v", m)
 	first := m[0]
-	if !Equal(first.Name, sureName) || !Equal(first.Age, sureAge) || !StructValEqual(first.JsonTxt, jsonTxt) || !StructValEqual(first.XmlTxt, xmlTxt) || !StructValEqual(first.Json1Txt, json1Txt) {
-		t.Error(NoEqErr)
+	if !internal.Equal(first.Name, sureName) || !internal.Equal(first.Age, sureAge) || !internal.StructValEqual(first.JsonTxt, jsonTxt) || !internal.StructValEqual(first.XmlTxt, xmlTxt) || !internal.StructValEqual(first.Json1Txt, json1Txt) {
+		t.Error(internal.NoEqErr)
 	}
 }
