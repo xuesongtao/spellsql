@@ -3,6 +3,7 @@ package spellsql
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -131,12 +132,12 @@ func DistinctIdsStr(s string, split string) string {
 		s = s[index+1:]
 
 		// 这样可以防止最后一位为 split 字符, 到时就会出现一个空
-		if s == "" {
+		if null(s) {
 			break
 		}
 	}
-	buf := new(strings.Builder)
-	buf.Grow(strLen / 2)
+	buf := getTmpBuf(strLen / 2)
+	defer putTmpBuf(buf)
 	lastIndex := len(sortSlice) - 1
 	for index, val := range sortSlice {
 		v := distinctMap[val]
@@ -163,6 +164,19 @@ func DistinctIds(ids []string) []string {
 	return res
 }
 
+// parseFileName 解析文件名
+func parseFileName(filePath string) string {
+	sysSplit := "/"
+	if runtime.GOOS == "windows" {
+		sysSplit = "\\"
+	}
+	lastIndex := IndexForBF(false, filePath, sysSplit)
+	if lastIndex == -1 {
+		return ""
+	}
+	return filePath[lastIndex+1:]
+}
+
 // removeValuePtr 移除多指针
 func removeValuePtr(v reflect.Value) reflect.Value {
 	for v.Kind() == reflect.Ptr {
@@ -181,9 +195,17 @@ func removeTypePtr(t reflect.Type) reflect.Type {
 
 // isExported 是可导出
 func isExported(fieldName string) bool {
-	if fieldName == "" {
+	if null(fieldName) {
 		return false
 	}
 	first := fieldName[0]
 	return first >= 'A' && first <= 'Z'
+}
+
+func null(val string) bool {
+	return val == ""
+}
+
+func equal(a, b uint8) bool {
+	return a == b
 }

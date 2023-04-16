@@ -34,7 +34,7 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 	if l > 0 {
 		sqlStr += "?"
 	}
-	for i := 1; i < len(args); i++ {
+	for i := 1; i < l; i++ {
 		sqlStr += ", ?"
 	}
 	sqlStr += ")"

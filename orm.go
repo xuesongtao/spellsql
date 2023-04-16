@@ -3,44 +3,10 @@ package spellsql
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"reflect"
 	"sort"
 	"strings"
 )
-
-const (
-	defaultTableTag        = "json"
-	defaultBatchSelectSize = 10 // 批量查询默认条数
-)
-
-const (
-	_ uint8 = iota
-	// 查询时, 用于标记查询的 dest type
-	structFlag   // struct
-	sliceFlag    // 切片
-	mapFlag      // map
-	oneFieldFlag // 单字段
-
-	// 标记是否需要对字段进行序列化处理
-	sureMarshal
-	sureUnmarshal
-)
-
-// tableColInfo 表列详情
-type tableColInfo struct {
-	Field   string // 字段名
-	Type    string // 数据库类型
-	Null    string // 是否为 NULL
-	Key     string
-	Default sql.NullString
-	Extra   string
-}
-
-// NotNull 数据库字段非空约束, NO 不能为 NULL, YES 能为 NULL
-func (t *tableColInfo) NotNull() bool {
-	return t.Null == "NO"
-}
 
 // handleStructField 用于记录 struct 字段的处理方法
 type handleStructField struct {
@@ -60,18 +26,19 @@ type structField struct {
 // Table 表的信息
 type Table struct {
 	db                       DBer
+	tmer                     TableMetaer                   // 记录表初始化元信息对象
 	printSqlCallSkip         uint8                         // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                         // 查询时, 用于标记 dest 类型的
 	isPrintSql               bool                          // 标记是否打印 sql
 	haveFree                 bool                          // 标记 table 释放已释放
 	needSetSize              bool                          // 标记批量查询的时候是否需要设置默认返回条数
-	checkNull                bool                          // 是否检查 null
+	checkNull                bool                          // 在 Insert 时, db 字段为非 null 时检查
 	tag                      string                        // 记录解析 struct 中字段名的 tag
 	name                     string                        // 表名
 	handleCols               string                        // Insert/Update/Delete/Select 操作的表字段名
 	clonedSqlStr             string                        // 记录克隆前的 sqlStr
 	tmpSqlObj                *SqlStrObj                    // 暂存 SqlStrObj 对象
-	cacheCol2InfoMap         map[string]*tableColInfo      // 记录该表的所有字段名
+	cacheCol2InfoMap         map[string]*TableColInfo      // 记录该表的所有字段名
 	waitHandleStructFieldMap map[string]*handleStructField // 处理 struct 字段的方法, key: tag, value: 处理方法集
 }
 
@@ -110,7 +77,7 @@ func (t *Table) init() {
 // free 释放
 func (t *Table) free() {
 	// clone 了对象就不放回
-	if t.clonedSqlStr != "" {
+	if !null(t.clonedSqlStr) {
 		return
 	}
 
@@ -123,6 +90,7 @@ func (t *Table) free() {
 
 	// 释放内容
 	t.db = nil
+	t.tmer = nil
 	t.name = ""
 	t.handleCols = ""
 	t.clonedSqlStr = ""
@@ -136,11 +104,12 @@ func (t *Table) free() {
 
 // Clone 克隆对象
 func (t *Table) Clone() *Table {
-	if t.clonedSqlStr == "" {
+	if null(t.clonedSqlStr) {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
 	t.init()
+	_ = t.initTmer()
 	return t
 }
 
@@ -173,7 +142,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return err
 	}
 
-	if t.name == "" {
+	if null(t.name) {
 		return tableNameIsUnknownErr
 	}
 
@@ -182,32 +151,44 @@ func (t *Table) initCacheCol2InfoMap() error {
 
 	// 先判断下缓存中有没有
 	if info, ok := cacheTableName2ColInfoMap.Load(tableName); ok {
-		t.cacheCol2InfoMap, ok = info.(map[string]*tableColInfo)
+		t.cacheCol2InfoMap, ok = info.(map[string]*TableColInfo)
 		if ok {
 			return nil
 		}
 	}
 
-	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", tableName).SetPrintLog(t.isPrintSql).GetSqlStr()
-	rows, err := t.db.Query(sqlStr)
+	// 获取表元数据
+	err := t.initTmer()
 	if err != nil {
-		return fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
+		return err
 	}
-	defer rows.Close()
-
-	columns, _ := rows.Columns()
-	t.cacheCol2InfoMap = make(map[string]*tableColInfo, len(columns))
-	for rows.Next() {
-		var info tableColInfo
-		err = rows.Scan(&info.Field, &info.Type, &info.Null, &info.Key, &info.Default, &info.Extra)
-		if err != nil {
-			return fmt.Errorf("mysql scan is failed, err: %v", err)
-		}
-		t.cacheCol2InfoMap[info.Field] = &info
+	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db)
+	if err != nil {
+		return err
 	}
 
+	// 缓存
 	cacheTableName2ColInfoMap.Store(t.name, t.cacheCol2InfoMap)
 	return nil
+}
+
+// initTmer 初始化表元数据对象
+func (t *Table) initTmer() error {
+	// 默认按 mysql 的方式处理
+	if t.tmer == nil {
+		t.tmer = defaultTmerObj
+	}
+	if null(t.name) {
+		return tableNameIsUnknownErr
+	}
+	t.tmer.SetTableName(t.name)
+	return nil
+}
+
+// getStrSymbol 获取适配器对应的字符串对应符号
+func (t *Table) getStrSymbol() byte {
+	_ = t.initTmer()
+	return t.tmer.GetStrSymbol()
 }
 
 // setWaitHandleStructFieldMap 设置 waitHandleStructFieldMap 值
@@ -313,7 +294,7 @@ func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2Stru
 	sortCol = make([]string, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		col, tag, _ := t.parseStructField(ty.Field(i), sureUnmarshal)
-		if col == "" {
+		if null(col) {
 			continue
 		}
 
@@ -338,7 +319,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 
 	// 解析 tag 中的列名
 	tag = fieldInfo.Tag.Get(t.tag)
-	if tag == "" {
+	if null(tag) {
 		return
 	}
 
@@ -377,7 +358,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 	}
 
 	col = tag
-	if alias != "" {
+	if !null(alias) {
 		col = alias
 	}
 	return
@@ -426,7 +407,9 @@ func (t *Table) Raw(sql interface{}) *Table {
 		t.tmpSqlObj = val
 	default:
 		sLog.Error("sql only support string/SqlStrObjPtr")
+		return t
 	}
+	t.tmpSqlObj.SetStrSymbol(t.getStrSymbol())
 	return t
 }
 
@@ -455,7 +438,7 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 	}
 
 	if defaultCheckSqlObj && t.sqlObjIsNil() {
-		if t.name == "" {
+		if null(t.name) {
 			return tableNameIsUnknownErr
 		}
 		return errors.New("tmpSqlObj is nil")
@@ -473,7 +456,8 @@ func parseTableName(objName string) string {
 	}
 
 	// 解析对象名
-	res := new(strings.Builder)
+	res := getTmpBuf(len(objName))
+	defer putTmpBuf(res)
 	for i, v := range objName {
 		if v >= 'A' && v <= 'Z' {
 			if i > 0 {

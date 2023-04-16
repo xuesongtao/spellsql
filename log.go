@@ -75,16 +75,3 @@ func (d *defaultLogger) callInfo(skip int) (string, int) {
 	file = parseFileName(file)
 	return file, line
 }
-
-// parseFileName 解析文件名
-func parseFileName(filePath string) string {
-	sysSplit := "/"
-	if runtime.GOOS == "windows" {
-		sysSplit = "\\"
-	}
-	lastIndex := IndexForBF(false, filePath, sysSplit)
-	if lastIndex == -1 {
-		return ""
-	}
-	return filePath[lastIndex+1:]
-}

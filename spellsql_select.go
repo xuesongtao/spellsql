@@ -1,6 +1,8 @@
 package spellsql
 
-import "strings"
+import (
+	"strings"
+)
 
 // SetJoin 设置 join
 func (s *SqlStrObj) SetJoin(tableName string, on string, joinType ...uint8) *SqlStrObj {
@@ -15,6 +17,16 @@ func (s *SqlStrObj) SetJoin(tableName string, on string, joinType ...uint8) *Sql
 	}
 	s.buf.WriteString(" " + deferJoinStr + " " + tableName + " ON " + on)
 	return s
+}
+
+// SetLeftJoin 设置 left join
+func (s *SqlStrObj) SetLeftJoin(tableName string, on string) *SqlStrObj {
+	return s.SetJoin(tableName, on, LJI)
+}
+
+// SetRightJoin 设置 right join
+func (s *SqlStrObj) SetRightJoin(tableName string, on string) *SqlStrObj {
+	return s.SetJoin(tableName, on, RJI)
 }
 
 // SetWhere 设置过滤条件, 连接符为 AND
@@ -112,6 +124,7 @@ func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
 		sqlStr += " ("
 		if v, ok := arg.(string); ok {
 			// 子查询就原样输入
+			v = strings.TrimPrefix(v, "") // 去掉空
 			if len(v) > 6 && toUpper(v[:6]) == "SELECT" {
 				sqlStr += "?v"
 				needAdd = false
@@ -192,18 +205,40 @@ func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 	return s
 }
 
+// GetOffset 根据分页获取 offset
+// page, size 只支持 int32, int, int64 类型
+func (s *SqlStrObj) GetOffset(page, size interface{}) (int64, int64) {
+	pageInt64, sizeInt64 := s.toInt64(page), s.toInt64(size)
+	if pageInt64 <= 0 {
+		pageInt64 = 1
+	}
+	if sizeInt64 <= 0 {
+		sizeInt64 = 10
+	}
+	return sizeInt64, (pageInt64 - 1) * sizeInt64
+}
+
+// toInt64 将数字型类型转为 int64
+func (s *SqlStrObj) toInt64(num interface{}) int64 {
+	switch v := num.(type) {
+	case int32:
+		return int64(v)
+	case int:
+		return int64(v)
+	case int64:
+		return v
+	default:
+		sLog.Error("num toInt64 is nonsupport")
+	}
+	return 0
+}
+
 // SetLimit 设置分页
 // page 从 1 开始
-func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
-	if page <= 0 {
-		page = 1
-	}
-	if size <= 0 {
-		size = 10
-	}
-	offset := (page - 1) * size
-	s.limitStr = " LIMIT " + s.Int2Str(int64(offset)) + ", " + s.Int2Str(int64(size))
-	return s
+// page, size 只支持 int32, int, int64 类型
+func (s *SqlStrObj) SetLimit(page, size interface{}) *SqlStrObj {
+	sizeInt64, offsetInt64 := s.GetOffset(page, size)
+	return s.SetLimitStr(s.Int2Str(sizeInt64) + " OFFSET " + s.Int2Str(offsetInt64))
 }
 
 // SetLimitStr 字符串来设置
@@ -214,7 +249,7 @@ func (s *SqlStrObj) SetLimitStr(limitStr string) *SqlStrObj {
 
 // LimitIsEmpty 是否添加 limit
 func (s *SqlStrObj) LimitIsEmpty() bool {
-	return s.limitStr == ""
+	return null(s.limitStr)
 }
 
 // SetGroupByStr 设置 groupBy
@@ -225,7 +260,8 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 
 // SetHaving 设置 Having
 func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
-	tmpBuf := new(strings.Builder)
+	tmpBuf := getTmpBuf()
+	defer putTmpBuf(tmpBuf)
 	s.writeSqlStr2Buf(tmpBuf, having, args...)
 	s.groupByStr += " HAVING " + tmpBuf.String()
 	return s

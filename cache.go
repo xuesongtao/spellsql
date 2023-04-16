@@ -2,7 +2,6 @@ package spellsql
 
 import (
 	"container/list"
-	"strings"
 	"sync"
 )
 
@@ -121,8 +120,9 @@ func (l *LRUCache) Len() int {
 
 func (l *LRUCache) Dump() string {
 	head := l.list.Front()
-	buf := new(strings.Builder)
-	defer buf.Reset()
+	buf := getTmpBuf()
+	defer putTmpBuf(buf)
+	
 	for head != nil {
 		buf.WriteString(Str(head.Value))
 		head = head.Next()

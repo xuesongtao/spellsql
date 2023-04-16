@@ -7,24 +7,6 @@ import (
 	"strings"
 )
 
-const (
-	// sql 操作数字
-	none uint8 = iota
-	INSERT
-	DELETE
-	SELECT
-	UPDATE
-
-	// sql LIKE 语句
-	ALK // 全模糊 如: xxx LIKE "%xxx%"
-	RLK // 右模糊 如: xxx LIKE "xxx%"
-	LLK // 左模糊 如: xxx LIKE "%xxx"
-
-	// sql join 语句
-	LJI // 左连接
-	RJI // 右连接
-)
-
 // SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
 	hasWhereStr     bool  // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
@@ -38,6 +20,7 @@ type SqlStrObj struct {
 	isCallCacheInit bool  // 标记是否为 NewCacheSql 初始化生产的对象
 	actionNum       uint8 // INSERT/DELETE/SELECT/UPDATE
 	callerSkip      uint8 // 跳过调用栈的数
+	strSymbol       byte  // 记录解析字符串值的符号, 默认: ""
 	limitStr        string
 	orderByStr      string
 	groupByStr      string
@@ -168,7 +151,7 @@ func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 	if len(target) > 0 {
 		defaultNum = target[0]
 	}
-	return defaultNum == op
+	return equal(op, defaultNum)
 }
 
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
@@ -182,10 +165,21 @@ func (s *SqlStrObj) init() {
 	s.isCallCacheInit = false
 	s.needAddBracket = false
 	s.callerSkip = 1
-	s.actionNum = 0
+	s.actionNum = none
+	s.strSymbol = '"'
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
+}
+
+// SetStrSymbol 设置在解析值时字符串符号, 不同的数据库符号不同
+// 如: mysql 字符串值可以用 ""或''; pg 字符串值只能用 ''
+func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
+	if strSymbol != '"' && strSymbol != '\'' {
+		return s
+	}
+	s.strSymbol = strSymbol
+	return s
 }
 
 // SetPrintLog 设置是否打印 sqlStr log
@@ -236,9 +230,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 		case string:
 			// 如果占位符?在最后一位时, 就不往下执行了防止 panic
 			if i >= sqlLen-1 {
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 				buf.WriteString(s.toEscape(val, false))
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 				break
 			}
 
@@ -251,9 +245,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				buf.WriteString(val)
 				i++
 			} else {
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 				buf.WriteString(s.toEscape(val, false))
-				buf.WriteByte('"')
+				buf.WriteByte(s.strSymbol)
 			}
 		case []string:
 			lastIndex := len(val) - 1
@@ -267,11 +261,11 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 				for i1 := 0; i1 <= lastIndex; i1++ {
 					if isAdd {
-						buf.WriteByte('"')
+						buf.WriteByte(s.strSymbol)
 					}
 					buf.WriteString(s.toEscape(val[i1], !isAdd))
 					if isAdd {
-						buf.WriteByte('"')
+						buf.WriteByte(s.strSymbol)
 					}
 					if i1 < lastIndex {
 						buf.WriteByte(',')
@@ -280,16 +274,18 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			} else {
 				// 最后一个占位符
 				for i1 := 0; i1 <= lastIndex; i1++ {
-					buf.WriteByte('"')
+					buf.WriteByte(s.strSymbol)
 					buf.WriteString(s.toEscape(val[i1], false))
-					buf.WriteByte('"')
+					buf.WriteByte(s.strSymbol)
 					if i1 < lastIndex {
 						buf.WriteByte(',')
 					}
 				}
 			}
 		case []byte:
-			buf.WriteString("\"" + s.toEscape(string(val), false) + "\"")
+			buf.WriteByte('\'')
+			buf.Write(val)
+			buf.WriteByte('\'')
 		case int:
 			buf.WriteString(s.Int2Str(int64(val)))
 		case int32:
@@ -315,7 +311,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 			}
 		default:
-			// 不常用的走慢处理
+			// slow path
 			reflectValue := reflect.ValueOf(val)
 			switch reflectValue.Kind() {
 			case reflect.Slice, reflect.Array: // 这里不会有 []string, 不需要处理符号, 所以直接处理即可
@@ -480,24 +476,18 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
 	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
-		if title[1] == "" {
+		if null(title[1]) {
 			endMarkStr = ""
 		}
 	}
 
 	sqlStr = s.buf.String() + endMarkStr
 	if s.isPrintSqlLog {
-		var finalTitle string
-		_, file, line, ok := runtime.Caller(int(s.callerSkip))
-		if ok {
-			finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
-		}
-		sqlStrTitle := "sqlStr"
+		defTitle := "sqlStr"
 		if argsLen > 0 {
-			sqlStrTitle = title[0]
+			defTitle = title[0]
 		}
-		finalTitle += sqlStrTitle
-		sLog.Info(finalTitle+":", sqlStr)
+		sLog.Info(s.getLogTitle(defTitle), sqlStr)
 	}
 	return
 }
@@ -512,8 +502,9 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	sqlStr := s.buf.String()
 	bufLen := s.buf.Len()
 
-	tmpBuf := new(strings.Builder)
-	tmpBuf.Grow(bufLen)
+	tmpBuf := getTmpBuf(bufLen)
+	defer putTmpBuf(tmpBuf)
+
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
 	for i := 0; i < bufLen; i++ {
@@ -546,25 +537,31 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	}
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
-	if len(title) > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
-		if title[1] == "" {
+	argsLen := len(title)
+	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
+		if null(title[1]) {
 			endMarkStr = ""
 		}
 	}
 	findSqlStr = tmpBuf.String() + endMarkStr
 	if s.isPrintSqlLog {
-		var finalTitle string
-		_, file, line, ok := runtime.Caller(int(s.callerSkip))
-		if ok {
-			finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
+		defTitle := "sqlTotalStr"
+		if argsLen > 0 {
+			defTitle = title[0]
 		}
-		sqlStrTitle := "sqlTotalStr"
-		if len(title) > 0 {
-			sqlStrTitle = title[0]
-		}
-		finalTitle += sqlStrTitle
-		sLog.Info(finalTitle+":", findSqlStr)
+		sLog.Info(s.getLogTitle(defTitle), findSqlStr)
 	}
+	return
+}
+
+// getLogTitle 获取 log title
+func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
+	// 跳过当前
+	_, file, line, ok := runtime.Caller(int(s.callerSkip) + 1)
+	if ok {
+		finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
+	}
+	finalTitle += title + ":"
 	return
 }
 
