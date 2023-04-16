@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"testing"
 
-	"gitee.com/xuesongtao/spellsql/test/internal"
+	"gitee.com/xuesongtao/spellsql/test"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 
@@ -100,7 +100,7 @@ func init() {
 }
 
 func TestParseTable(t *testing.T) {
-	m := internal.Man{
+	m := test.Man{
 		Id:   1,
 		Name: "测试",
 		// Age:      20,
@@ -172,19 +172,19 @@ func TestGetNullType(t *testing.T) {
 }
 
 func TestInsert(t *testing.T) {
-	m := internal.Man{
+	m := test.Man{
 		Name: "xue1234",
 		Age:  18,
 		Addr: "成都市",
-		JsonTxt: internal.Tmp{
+		JsonTxt: test.Tmp{
 			Name: "json",
 			Data: "test json marshal",
 		},
-		XmlTxt: internal.Tmp{
+		XmlTxt: test.Tmp{
 			Name: "xml",
 			Data: "test xml marshal",
 		},
-		Json1Txt: internal.Tmp{
+		Json1Txt: test.Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		},
@@ -318,7 +318,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	m := internal.Man{
+	m := test.Man{
 		Id: 9,
 	}
 	t.Run("delete for obj", func(t *testing.T) {
@@ -346,19 +346,19 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	m := internal.Man{
+	m := test.Man{
 		Name: "xue12",
 		Age:  20,
 		Addr: "测试",
-		JsonTxt: internal.Tmp{
+		JsonTxt: test.Tmp{
 			Name: "json",
 			Data: "test json marshal",
 		},
-		XmlTxt: internal.Tmp{
+		XmlTxt: test.Tmp{
 			Name: "xml",
 			Data: "test xml marshal",
 		},
-		Json1Txt: internal.Tmp{
+		Json1Txt: test.Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		},
@@ -413,76 +413,76 @@ func TestUpdate(t *testing.T) {
 func TestFindOne(t *testing.T) {
 	t.Log("find one test start")
 	t.Run("select struct", func(t *testing.T) {
-		var m internal.Man
+		var m test.Man
 		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("select ptr struct", func(t *testing.T) {
-		var m *internal.Man
+		var m *test.Man
 		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findOne unmarshal", func(t *testing.T) {
-		var m internal.Man
+		var m test.Man
 		tableObj := NewTable(db)
 		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-		err := tableObj.SelectAuto(internal.Man{}).Where("id=1").FindOneFn(&m)
+		err := tableObj.SelectAuto(test.Man{}).Where("id=1").FindOneFn(&m)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		jsonTxt := internal.Tmp{
+		jsonTxt := test.Tmp{
 			Name: "json",
 			Data: "test json marshal",
 		}
-		xmlTxt := internal.Tmp{
+		xmlTxt := test.Tmp{
 			Name: "xml",
 			Data: "test xml marshal",
 		}
-		json1Txt := internal.Tmp{
+		json1Txt := test.Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		}
 		t.Logf("%+v", m)
-		if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) || !internal.StructValEqual(m.JsonTxt, jsonTxt) || !internal.StructValEqual(m.XmlTxt, xmlTxt) || !internal.StructValEqual(m.Json1Txt, json1Txt) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) || !test.StructValEqual(m.JsonTxt, jsonTxt) || !test.StructValEqual(m.XmlTxt, xmlTxt) || !test.StructValEqual(m.Json1Txt, json1Txt) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("selectAuto 2 struct", func(t *testing.T) {
-		var m *internal.Man
+		var m *test.Man
 		err := SelectFindOne(db, m, "man", FmtSqlStr("id=?", 1), &m)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findOne for sql", func(t *testing.T) {
-		var m internal.Man
+		var m test.Man
 		err := FindOne(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -493,8 +493,8 @@ func TestFindOne(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if !internal.Equal(name, sureName) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(name, sureName) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -507,8 +507,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(name, sureName) || !internal.Equal(age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(name, sureName) || !test.Equal(age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -518,17 +518,17 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(b["name"], sureName) || !internal.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(b["name"], sureName) || !test.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findOne selectCallBack 2 struct", func(t *testing.T) {
-		var m internal.Man
+		var m test.Man
 		tmpName := "被修改了哦"
 		tmpAge := int32(1000)
 		err := FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row interface{}) error {
-			v := _row.(*internal.Man)
+			v := _row.(*test.Man)
 			v.Name = tmpName
 			v.Age = tmpAge
 			return nil
@@ -536,8 +536,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(m.Name, tmpName) || !internal.Equal(m.Age, tmpAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, tmpName) || !test.Equal(m.Age, tmpAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -554,8 +554,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(name, tmp) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(name, tmp) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -564,7 +564,7 @@ func TestFindOne(t *testing.T) {
 			tmp = "被修改了哦"
 		)
 		var b map[string]string
-		err := NewTable(db).SelectAuto(internal.Man{}).Where("id=1").FindOneFn(&b, func(_row interface{}) error {
+		err := NewTable(db).SelectAuto(test.Man{}).Where("id=1").FindOneFn(&b, func(_row interface{}) error {
 			v := _row.(map[string]string)
 			v["name"] = tmp
 			return nil
@@ -572,19 +572,19 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(b["name"], tmp) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(b["name"], tmp) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findOneIgnoreRes", func(t *testing.T) {
 		var (
-			id2InfoMap = make(map[int32]internal.Man)
+			id2InfoMap = make(map[int32]test.Man)
 			tmp        = "被修改了哦"
-			m          internal.Man
+			m          test.Man
 		)
 		err := NewTable(db).SelectAuto(m).Where("id>0").Limit(0, 10).FindOneIgnoreResult(&m, func(_row interface{}) error {
-			v := _row.(*internal.Man)
+			v := _row.(*test.Man)
 			if v.Id == 1 {
 				v.Name = tmp
 			}
@@ -598,8 +598,8 @@ func TestFindOne(t *testing.T) {
 		// 	t.Logf("%d>%+v", id, info)
 		// }
 		id1Info := id2InfoMap[1]
-		if !internal.Equal(id1Info.Name, tmp) || !internal.Equal(id1Info.Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(id1Info.Name, tmp) || !test.Equal(id1Info.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -618,8 +618,8 @@ func TestFindOne(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(m.Name1, sureName) || !internal.Equal(m.Age1, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name1, sureName) || !test.Equal(m.Age1, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -634,24 +634,24 @@ func TestFindWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(name, sureName) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(name, sureName) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findWhere 2 struct", func(t *testing.T) {
-		var m internal.Man
+		var m test.Man
 		err := FindWhere(db, "man", &m, "id=?", 1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findWhere 2 struct slice", func(t *testing.T) {
-		var m []internal.Man
+		var m []test.Man
 		err := FindWhere(db, "man", &m, "id>0")
 		if err != nil {
 			t.Fatal(err)
@@ -662,8 +662,8 @@ func TestFindWhere(t *testing.T) {
 		}
 
 		// 按 id=1 判断
-		if !internal.Equal(m[0].Name, sureName) || !internal.Equal(m[0].Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -673,8 +673,8 @@ func TestFindWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(b["name"], sureName) || !internal.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(b["name"], sureName) || !test.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -690,36 +690,36 @@ func TestFindWhere(t *testing.T) {
 		}
 
 		// 按 id=1 判断
-		if !internal.Equal(b[0]["name"], sureName) || !internal.Equal(b[0]["age"], fmt.Sprintf("%d", sureAge)) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(b[0]["name"], sureName) || !test.Equal(b[0]["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findWhere unmarshal", func(t *testing.T) {
-		var m internal.Man
+		var m test.Man
 		tableObj := NewTable(db)
 		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-		err := tableObj.SelectAuto(internal.Man{}).FindWhere(&m, "id=?", 1)
+		err := tableObj.SelectAuto(test.Man{}).FindWhere(&m, "id=?", 1)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		jsonTxt := internal.Tmp{
+		jsonTxt := test.Tmp{
 			Name: "json",
 			Data: "test json marshal",
 		}
-		xmlTxt := internal.Tmp{
+		xmlTxt := test.Tmp{
 			Name: "xml",
 			Data: "test xml marshal",
 		}
-		json1Txt := internal.Tmp{
+		json1Txt := test.Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		}
 		// t.Logf("%+v", m)
-		if !internal.Equal(m.Name, sureName) || !internal.Equal(m.Age, sureAge) || !internal.StructValEqual(m.JsonTxt, jsonTxt) || !internal.StructValEqual(m.XmlTxt, xmlTxt) || !internal.StructValEqual(m.Json1Txt, json1Txt) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name, sureName) || !test.Equal(m.Age, sureAge) || !test.StructValEqual(m.JsonTxt, jsonTxt) || !test.StructValEqual(m.XmlTxt, xmlTxt) || !test.StructValEqual(m.Json1Txt, json1Txt) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -737,8 +737,8 @@ func TestFindWhere(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(m.Name1, sureName) || !internal.Equal(m.Age1, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m.Name1, sureName) || !test.Equal(m.Age1, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 	t.Log("find where test end")
@@ -746,7 +746,7 @@ func TestFindWhere(t *testing.T) {
 
 func TestFindForJoin(t *testing.T) {
 	t.Run("find simple join", func(t *testing.T) {
-		var m []internal.Man
+		var m []test.Man
 		sqlStr := NewCacheSql("SELECT m.name,m.age FROM man m JOIN student s ON m.id=s.u_id WHERE m.id=1")
 		err := NewTable(db).Raw(sqlStr).FindAll(&m)
 		if err != nil {
@@ -756,13 +756,13 @@ func TestFindForJoin(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-		if !internal.Equal(m[0].Name, sureName) || !internal.Equal(m[0].Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("find alias", func(t *testing.T) {
-		var m []internal.Man
+		var m []test.Man
 		tableObj := NewTable(db).
 			Select("m.name,m.age,s.name as s_name").
 			From("man m").
@@ -777,8 +777,8 @@ func TestFindForJoin(t *testing.T) {
 			return
 		}
 		// t.Logf("%+v", m)
-		if !internal.Equal(m[0].Name, sureName) || !internal.Equal(m[0].Age, sureAge) || !internal.Equal(m[0].SName, "1") {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) || !test.Equal(m[0].SName, "1") {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -790,9 +790,9 @@ func TestFindForJoin(t *testing.T) {
 		}
 		defer rows.Close()
 
-		var m []internal.Man
+		var m []test.Man
 		for rows.Next() {
-			var v internal.Man
+			var v test.Man
 			err = rows.Scan(&v.Name, &v.Age)
 			if err != nil {
 				t.Fatal(err)
@@ -805,8 +805,8 @@ func TestFindForJoin(t *testing.T) {
 			return
 		}
 
-		if !internal.Equal(m[0].Name, sureName) || !internal.Equal(m[0].Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 }
@@ -829,7 +829,7 @@ func TestCount(t *testing.T) {
 	}
 	t.Log("total: ", total2)
 	if total1 != total2 || total2 != total3 {
-		t.Error(internal.NoEqErr)
+		t.Error(test.NoEqErr)
 	}
 }
 
@@ -853,7 +853,7 @@ func BenchmarkFindOneGorm(b *testing.B) {
 func BenchmarkFindOneOrmQueryRowScan(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m internal.Man
+		var m test.Man
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 1).QueryRowScan(&m.Id, &m.Age, &m.Addr)
 	}
 
@@ -867,7 +867,7 @@ func BenchmarkFindOneOrmQueryRowScan(b *testing.B) {
 func BenchmarkFindOneQueryRowScan(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m internal.Man
+		var m test.Man
 		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id=?", 1)
 		_ = db.QueryRow(sqlStr).Scan(&m.Id, &m.Age, &m.Addr)
 	}
@@ -882,7 +882,7 @@ func BenchmarkFindOneQueryRowScan(b *testing.B) {
 func BenchmarkFindOneOrm(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m internal.Man
+		var m test.Man
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 1).FindOne(&m)
 	}
 
@@ -896,7 +896,7 @@ func BenchmarkFindOneOrm(b *testing.B) {
 func BenchmarkFindOneOrmForRaw(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m internal.Man
+		var m test.Man
 		_ = NewTable(db).IsPrintSql(false).Raw(NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1)).FindOne(&m)
 	}
 
@@ -910,7 +910,7 @@ func BenchmarkFindOneOrmForRaw(b *testing.B) {
 func TestFindAll(t *testing.T) {
 	t.Log("find all test start")
 	t.Run("findAll 2 struct ptr slice", func(t *testing.T) {
-		var m []*internal.Man
+		var m []*test.Man
 		err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 0).FindAll(&m)
 		if err != nil {
 			t.Fatal(err)
@@ -919,8 +919,8 @@ func TestFindAll(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-		if !internal.Equal(m[0].Name, sureName) || !internal.Equal(m[0].Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -935,19 +935,19 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 		age, _ := strconv.Atoi(m[0]["age"])
-		if !internal.Equal(m[0]["name"], sureName) || !internal.Equal(int32(age), sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0]["name"], sureName) || !test.Equal(int32(age), sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("query", func(t *testing.T) {
-		rows, err := NewTable(db).SelectAuto(internal.Man{}).Where("id>?", 0).Query()
+		rows, err := NewTable(db).SelectAuto(test.Man{}).Where("id>?", 0).Query()
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer rows.Close()
 
-		var m []internal.Man
+		var m []test.Man
 		for rows.Next() {
 			var (
 				id, age               int
@@ -958,14 +958,14 @@ func TestFindAll(t *testing.T) {
 			if err != nil {
 				t.Log(err)
 			}
-			m = append(m, internal.Man{
+			m = append(m, test.Man{
 				Name: name,
 				Age:  int32(age),
 			})
 			// t.Log(id, name, age, addr.String, nickname)
 		}
-		if !internal.Equal(m[0].Name, sureName) || !internal.Equal(m[0].Age, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name, sureName) || !test.Equal(m[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -979,8 +979,8 @@ func TestFindAll(t *testing.T) {
 			t.Error("select res is no ok")
 			return
 		}
-		if !internal.Equal(names[0], sureName) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(names[0], sureName) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1003,16 +1003,16 @@ func TestFindAll(t *testing.T) {
 			}
 			names = append(names, tmp...)
 		}
-		if !internal.Equal(len(names), total) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(len(names), total) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findAll selectCallBack struct slice", func(t *testing.T) {
-		var m []*internal.Man
+		var m []*test.Man
 		tmp := "被修改了"
 		err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 0).FindAll(&m, func(_row interface{}) error {
-			v := _row.(*internal.Man)
+			v := _row.(*test.Man)
 			if v.Id == 1 {
 				v.Name = tmp
 
@@ -1027,15 +1027,15 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 
-		if !internal.Equal(m[0].Name, tmp) || !internal.Equal(m[0].Age, sureAge) || !internal.Equal(m[0].Addr, "") {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name, tmp) || !test.Equal(m[0].Age, sureAge) || !test.Equal(m[0].Addr, "") {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findAll selectCallBack map slice", func(t *testing.T) {
 		var b []map[string]string
 		tmp := "被修改了"
-		err := NewTable(db).SelectAuto(internal.Man{}).Where("id>0").FindAll(&b, func(_row interface{}) error {
+		err := NewTable(db).SelectAuto(test.Man{}).Where("id>0").FindAll(&b, func(_row interface{}) error {
 			v := _row.(map[string]string)
 			if v["id"] == "1" {
 				v["name"] = tmp
@@ -1050,18 +1050,18 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 		age, _ := strconv.Atoi(b[0]["age"])
-		if !internal.Equal(b[0]["name"], tmp) || !internal.Equal(int32(age), sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(b[0]["name"], tmp) || !test.Equal(int32(age), sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
 	t.Run("findWhere unmarshal", func(t *testing.T) {
-		var m []internal.Man
+		var m []test.Man
 		var err error
 		tableObj := NewTable(db)
 		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-		err = tableObj.SelectAuto(internal.Man{}).FindWhere(&m, "id>0")
+		err = tableObj.SelectAuto(test.Man{}).FindWhere(&m, "id>0")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1070,22 +1070,22 @@ func TestFindAll(t *testing.T) {
 			return
 		}
 
-		jsonTxt := internal.Tmp{
+		jsonTxt := test.Tmp{
 			Name: "json",
 			Data: "test json marshal",
 		}
-		xmlTxt := internal.Tmp{
+		xmlTxt := test.Tmp{
 			Name: "xml",
 			Data: "test xml marshal",
 		}
-		json1Txt := internal.Tmp{
+		json1Txt := test.Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		}
 		// t.Logf("%+v", m)
 		first := m[0]
-		if !internal.Equal(first.Name, sureName) || !internal.Equal(first.Age, sureAge) || !internal.StructValEqual(first.JsonTxt, jsonTxt) || !internal.StructValEqual(first.XmlTxt, xmlTxt) || !internal.StructValEqual(first.Json1Txt, json1Txt) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(first.Name, sureName) || !test.Equal(first.Age, sureAge) || !test.StructValEqual(first.JsonTxt, jsonTxt) || !test.StructValEqual(first.XmlTxt, xmlTxt) || !test.StructValEqual(first.Json1Txt, json1Txt) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1104,8 +1104,8 @@ func TestFindAll(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !internal.Equal(m[0].Name1, sureName) || !internal.Equal(m[0].Age1, sureAge) {
-			t.Error(internal.NoEqErr)
+		if !test.Equal(m[0].Name1, sureName) || !test.Equal(m[0].Age1, sureAge) {
+			t.Error(test.NoEqErr)
 		}
 	})
 
@@ -1114,7 +1114,7 @@ func TestFindAll(t *testing.T) {
 
 func TestSqlxSelect(t *testing.T) {
 	t.Skip()
-	var m []*internal.Man
+	var m []*test.Man
 	sqlStr := FmtSqlStr("SELECT id,name,age,addr FROM man WHERE id>? LIMIT ?, ?", 1, 0, 10)
 	err := sqlxdb.Select(&m, sqlStr)
 	if err != nil { // 没有处理 NULL

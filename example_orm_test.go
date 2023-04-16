@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gitee.com/xuesongtao/spellsql/test/internal"
+	"gitee.com/xuesongtao/spellsql/test"
 )
 
 func myPrint(v interface{}, isStruct bool) {
@@ -160,7 +160,7 @@ func ExampleDeleteWhere() {
 }
 
 func ExampleFindWhere() {
-	var m internal.Man
+	var m test.Man
 	_ = FindWhere(db, "man", &m, "id=?", 1)
 
 	myPrint(m, true)
@@ -170,7 +170,7 @@ func ExampleFindWhere() {
 }
 
 func ExampleSelectFindWhere() {
-	var m internal.Man
+	var m test.Man
 	_ = SelectFindWhere(db, "name,addr", "man", &m, "id=?", 1)
 
 	myPrint(m, true)
@@ -180,7 +180,7 @@ func ExampleSelectFindWhere() {
 }
 
 func ExampleSelectFindOne() {
-	var m internal.Man
+	var m test.Man
 	_ = SelectFindOne(db, "name,addr", "man", "id=1", &m)
 
 	myPrint(m, true)
@@ -190,9 +190,9 @@ func ExampleSelectFindOne() {
 }
 
 func ExampleSelectFindOneFn() {
-	var m internal.Man
+	var m test.Man
 	_ = SelectFindOneFn(db, "name,age", "man", "id=1", &m, func(_row interface{}) error {
-		v := _row.(*internal.Man)
+		v := _row.(*test.Man)
 		v.Name = "被修改了哦"
 		return nil
 	})
@@ -204,10 +204,10 @@ func ExampleSelectFindOneFn() {
 }
 
 func ExampleSelectFindOneIgnoreResult() {
-	var m internal.Man
+	var m test.Man
 	var idMap = make(map[int32]string, 10)
 	_ = SelectFindOneIgnoreResult(db, "id,name", "man", "id<10", &m, func(_row interface{}) error {
-		v := _row.(*internal.Man)
+		v := _row.(*test.Man)
 		idMap[v.Id] = v.Name
 		return nil
 	})
@@ -219,7 +219,7 @@ func ExampleSelectFindOneIgnoreResult() {
 }
 
 func ExampleSelectFindAll() {
-	var m []internal.Man
+	var m []test.Man
 	_ = SelectFindAll(db, "id,name", "man", "id<3", &m)
 
 	myPrint(m, true)
@@ -229,7 +229,7 @@ func ExampleSelectFindAll() {
 }
 
 func ExampleFindOne() {
-	var m internal.Man
+	var m test.Man
 	sqlObj := NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1)
 	_ = FindOne(db, sqlObj, &m)
 
