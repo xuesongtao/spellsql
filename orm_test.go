@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"gitee.com/xuesongtao/spellsql/test"
 	// _ "github.com/go-sql-driver/mysql"
 	// gmysql "gorm.io/driver/mysql"
 	// "gorm.io/gorm"
@@ -55,23 +56,24 @@ var (
 	// gdb   *gorm.DB
 )
 
-func init() {
-	// db=Db
-	InitMyDb(1)
-}
+// 说明: 如果要调试可以在 dev 分支上, 此分支为减少依赖, 会屏蔽所有第三方依赖
 
-func InitMyDb(...uint8) {
-	db, dbErr = sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/mystudy")
-	if dbErr != nil {
-		panic(dbErr)
-	}
-	dbErr = db.Ping()
-	if dbErr != nil {
-		panic(dbErr)
-	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
-}
+// func init() {
+// 	InitMyDb(1)
+// }
+
+// func InitMyDb(...uint8) {
+// 	db, dbErr = sql.Open("mysql", "root:12345678@tcp(127.0.0.1:3306)/mystudy")
+// 	if dbErr != nil {
+// 		panic(dbErr)
+// 	}
+// 	dbErr = db.Ping()
+// 	if dbErr != nil {
+// 		panic(dbErr)
+// 	}
+// 	db.SetMaxOpenConns(1)
+// 	db.SetMaxIdleConns(1)
+// }
 
 // func init() {
 // 	gdb, dbErr = gorm.Open(gmysql.Open("root:12345678@tcp(127.0.0.1:3306)/mystudy"), &gorm.Config{})
@@ -864,7 +866,6 @@ func TestCount(t *testing.T) {
 // 		var m ManCopy
 // 		gdb.Table("man").Find(&m, "id=?", 1)
 // 	}
-	
 
 // 	// BenchmarkFindOneGorm-8                     16958             66604 ns/op            4364 B/op         78 allocs/op
 // 	// BenchmarkFindOneGorm-8                     18019             66307 ns/op            4365 B/op         78 allocs/op
@@ -1159,7 +1160,6 @@ func TestFindAll(t *testing.T) {
 // 		gdb.Table("man").Limit(10).Find(&m, "id>?", 1)
 // 		// b.Log(m)
 // 	}
-	
 
 // 	// BenchmarkFindAllGorm-8             11581             92114 ns/op            8962 B/op        273 allocs/op
 // 	// BenchmarkFindAllGorm-8             12896             91718 ns/op            8962 B/op        273 allocs/op
@@ -1176,7 +1176,6 @@ func TestFindAll(t *testing.T) {
 // 		sqlxdb.Select(&m, sqlStr)
 // 		// b.Log(m)
 // 	}
-	
 
 // 	// 说明: sqlx 不能自动处理 null 这里的查询结果不全
 // 	// BenchmarkFindAllSqlx-8             23478             51939 ns/op            2057 B/op         64 allocs/op
