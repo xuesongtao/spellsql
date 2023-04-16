@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
+	"math"
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql"
@@ -159,35 +160,62 @@ func TestFindOneForPg(t *testing.T) {
 }
 
 func TestFindAllForPg(t *testing.T) {
-	var m []Man
-	var err error
-	tableObj := spellsql.NewTable(pgDb)
-	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
-	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-	err = tableObj.SelectAuto(Man{}).FindWhere(&m, "id>0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(m) == 0 {
-		t.Error("res is null")
-		return
-	}
+	t.Run("ummarshal", func(t *testing.T) {
+		var m []Man
+		var err error
+		tableObj := spellsql.NewTable(pgDb)
+		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
+		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
+		err = tableObj.SelectAuto(Man{}).FindWhere(&m, "id>0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(m) == 0 {
+			t.Error("res is null")
+			return
+		}
 
-	jsonTxt := Tmp{
-		Name: "json",
-		Data: "test json marshal",
-	}
-	xmlTxt := Tmp{
-		Name: "xml",
-		Data: "test xml marshal",
-	}
-	json1Txt := Tmp{
-		Name: "json1",
-		Data: "test json1 marshal",
-	}
-	t.Logf("%+v", m)
-	first := m[0]
-	if !Equal(first.Name, sureName) || !Equal(first.Age, sureAge) || !StructValEqual(first.JsonTxt, jsonTxt) || !StructValEqual(first.XmlTxt, xmlTxt) || !StructValEqual(first.Json1Txt, json1Txt) {
-		t.Error(NoEqErr)
-	}
+		jsonTxt := Tmp{
+			Name: "json",
+			Data: "test json marshal",
+		}
+		xmlTxt := Tmp{
+			Name: "xml",
+			Data: "test xml marshal",
+		}
+		json1Txt := Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		}
+		t.Logf("%+v", m)
+		first := m[0]
+		if !Equal(first.Name, sureName) || !Equal(first.Age, sureAge) || !StructValEqual(first.JsonTxt, jsonTxt) || !StructValEqual(first.XmlTxt, xmlTxt) || !StructValEqual(first.Json1Txt, json1Txt) {
+			t.Error(NoEqErr)
+		}
+	})
+
+	t.Run("findAll page", func(t *testing.T) {
+		size := 5
+		tableObj := spellsql.NewTable(pgDb).Select("name").From("man")
+		var total int
+		_ = tableObj.Count(&total)
+		if total == 0 {
+			return
+		}
+
+		totalPage := math.Ceil(float64(total) / float64(size))
+		var names []string
+		for page := int32(1); page <= int32(totalPage); page++ {
+			var tmp []string
+			err := tableObj.Clone().OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			names = append(names, tmp...)
+		}
+		// t.Logf("%+v", names)
+		if !Equal(len(names), total) {
+			t.Error(NoEqErr)
+		}
+	})
 }

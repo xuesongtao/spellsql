@@ -109,6 +109,7 @@ func (t *Table) Clone() *Table {
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
 	t.init()
+	_ = t.initTmer()
 	return t
 }
 
@@ -156,15 +157,17 @@ func (t *Table) initCacheCol2InfoMap() error {
 		}
 	}
 
-	if err := t.initTmer(); err != nil {
+	// 获取表元数据
+	err := t.initTmer()
+	if err != nil {
 		return err
 	}
-	var err error
 	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db)
 	if err != nil {
 		return err
 	}
 
+	// 缓存
 	cacheTableName2ColInfoMap.Store(t.name, t.cacheCol2InfoMap)
 	return nil
 }
@@ -178,7 +181,7 @@ func (t *Table) initTmer() error {
 	if null(t.name) {
 		return tableNameIsUnknownErr
 	}
-	t.tmer.SetName(t.name)
+	t.tmer.SetTableName(t.name)
 	return nil
 }
 

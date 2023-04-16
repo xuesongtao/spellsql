@@ -55,7 +55,6 @@ type MysqlTable struct {
 }
 
 // Mysql
-// initArgs 只允许一个参数, table name
 func Mysql() *MysqlTable {
 	return &MysqlTable{}
 }
@@ -64,7 +63,7 @@ func (m *MysqlTable) GetAdapterName() string {
 	return "mysql"
 }
 
-func (m *MysqlTable) SetName(name string) {
+func (m *MysqlTable) SetTableName(name string) {
 	m.initArgs = []string{name}
 }
 
@@ -124,7 +123,7 @@ func (p *PgTable) GetAdapterName() string {
 	return "pg"
 }
 
-func (p *PgTable) SetName(name string) {
+func (p *PgTable) SetTableName(name string) {
 	p.initArgs[1] = name
 }
 

@@ -213,12 +213,7 @@ func (s *SqlStrObj) SetLimit(page, size int32) *SqlStrObj {
 		size = 10
 	}
 	offset := (page - 1) * size
-	return s.SetLimitStr(s.Int2Str(int64(offset)) + ", " + s.Int2Str(int64(size)))
-}
-
-// SetLimit1 设置分页
-func (s *SqlStrObj) SetLimit1(page, size interface{}) *SqlStrObj {
-	return s.SetLimitStr(Str(page) + ", " + Str(size))
+	return s.SetLimitStr(s.Int2Str(int64(size)) + " OFFSET " + s.Int2Str(int64(offset)))
 }
 
 // SetLimitStr 字符串来设置

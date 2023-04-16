@@ -217,15 +217,6 @@ func (t *Table) Limit(page, size int32) *Table {
 	return t
 }
 
-// Limit1 分页
-// 不会对 page, size 进行校验处理
-func (t *Table) Limit1(page, size interface{}) *Table {
-	if !t.sqlObjIsNil() {
-		t.tmpSqlObj.SetLimit1(page, size)
-	}
-	return t
-}
-
 // GroupBy
 func (t *Table) GroupBy(sqlStr string) *Table {
 	if !t.sqlObjIsNil() {

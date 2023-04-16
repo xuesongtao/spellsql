@@ -36,7 +36,7 @@ func ExampleSpellSqlList() {
 
 	// Output:
 	// SELECT COUNT(*) FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大");
-	// SELECT username, password FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大") ORDER BY create_time DESC LIMIT 0, 10;
+	// SELECT username, password FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大") ORDER BY create_time DESC LIMIT 10 OFFSET 0;
 }
 
 func ExampleSpellSqlInsert() {
@@ -99,9 +99,9 @@ func ExampleNewCacheSqlPageHandle() {
 	}
 
 	// Output:
-	// SELECT * FROM user_info WHERE status = 1 LIMIT 0, 10;
-	// SELECT * FROM user_info WHERE status = 1 LIMIT 10, 10;
-	// SELECT * FROM user_info WHERE status = 1 LIMIT 20, 10;
+	// SELECT * FROM user_info WHERE status = 1 LIMIT 10 OFFSET 0;
+	// SELECT * FROM user_info WHERE status = 1 LIMIT 10 OFFSET 10;
+	// SELECT * FROM user_info WHERE status = 1 LIMIT 10 OFFSET 20;
 }
 
 // NewSql 分页处理场景
@@ -125,9 +125,9 @@ func ExampleNewSqlPageHandle() {
 	}
 
 	// Output:
-	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 0, 10;
-	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10, 10;
-	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 20, 10;
+	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10 OFFSET 0;
+	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10 OFFSET 10;
+	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10 OFFSET 20;
 }
 
 func ExampleFmtSqlStr() {
