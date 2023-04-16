@@ -618,7 +618,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 
 // isDestType
 func (t *Table) isDestType(typeNum uint8) bool {
-	return t.destTypeFlag == typeNum
+	return equal(t.destTypeFlag, typeNum)
 }
 
 // getScanValues 获取待 Scan 的内容

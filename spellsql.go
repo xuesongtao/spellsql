@@ -504,7 +504,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 
 	tmpBuf := getTmpBuf(bufLen)
 	defer putTmpBuf(tmpBuf)
-	
+
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
 	for i := 0; i < bufLen; i++ {
