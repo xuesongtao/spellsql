@@ -12,10 +12,10 @@ const (
 
 // TableColInfo 表列详情
 type TableColInfo struct {
-	Field   string         // 字段名
+	Field   string         // 字段名(必须)
 	Type    string         // 数据库类型
-	Null    string         // 是否为 NULL
-	Key     string         // 索引名
+	Null    string         // 是否为 NULL(建议)
+	Key     string         // 索引名(建议)
 	Default sql.NullString // 默认值
 	Extra   string         // 预留字段
 }

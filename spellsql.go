@@ -311,7 +311,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 			}
 		default:
-			// 不常用的走慢处理
+			// slow path
 			reflectValue := reflect.ValueOf(val)
 			switch reflectValue.Kind() {
 			case reflect.Slice, reflect.Array: // 这里不会有 []string, 不需要处理符号, 所以直接处理即可
