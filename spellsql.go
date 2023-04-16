@@ -7,24 +7,6 @@ import (
 	"strings"
 )
 
-const (
-	// sql 操作数字
-	none uint8 = iota
-	INSERT
-	DELETE
-	SELECT
-	UPDATE
-
-	// sql LIKE 语句
-	ALK // 全模糊 如: xxx LIKE "%xxx%"
-	RLK // 右模糊 如: xxx LIKE "xxx%"
-	LLK // 左模糊 如: xxx LIKE "%xxx"
-
-	// sql join 语句
-	LJI // 左连接
-	RJI // 右连接
-)
-
 // SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
 	hasWhereStr     bool  // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
@@ -169,7 +151,7 @@ func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 	if len(target) > 0 {
 		defaultNum = target[0]
 	}
-	return defaultNum == op
+	return equal(op, defaultNum)
 }
 
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
@@ -520,8 +502,9 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	sqlStr := s.buf.String()
 	bufLen := s.buf.Len()
 
-	tmpBuf := new(strings.Builder)
-	tmpBuf.Grow(bufLen)
+	tmpBuf := getTmpBuf(bufLen)
+	defer putTmpBuf(tmpBuf)
+	
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
 	for i := 0; i < bufLen; i++ {

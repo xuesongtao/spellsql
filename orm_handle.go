@@ -18,7 +18,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	t.checkNull = true
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
-		columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
 		if err != nil {
 			sLog.Error("getHandleTableCol2Val is failed, err:", err)
 			return t
@@ -42,7 +42,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 	}
 
 	t.checkNull = true
-	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
+	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
@@ -71,7 +71,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 	}
 
 	t.checkNull = true
-	columns, values, err := t.getHandleTableCol2Val(insertObj, true, t.name)
+	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
@@ -87,7 +87,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
-		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], false, t.name)
+		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], DELETE, t.name)
 		if err != nil {
 			sLog.Error("getHandleTableCol2Val is failed, err:", err)
 			return t
@@ -113,7 +113,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 // Update 会更新输入的值
 // 默认排除更新主键, 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
-	columns, values, err := t.getHandleTableCol2Val(updateObj, true, t.name)
+	columns, values, err := t.getHandleTableCol2Val(updateObj, UPDATE, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
@@ -132,7 +132,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 
 // getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
 // 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
-func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableName ...string) (columns []string, values []interface{}, err error) {
+func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...string) (columns []string, values []interface{}, err error) {
 	tv := removeValuePtr(reflect.ValueOf(v))
 	if tv.Kind() != reflect.Struct {
 		err = errors.New("it must is struct")
@@ -166,8 +166,12 @@ func (t *Table) getHandleTableCol2Val(v interface{}, isExcludePri bool, tableNam
 		// 空值处理
 		val := tv.Field(i)
 		isZero := val.IsZero()
-		if isExcludePri && tableField.IsPri() && isZero { // 主键, 防止更新
-			continue
+		if tableField.IsPri() { // 主键, 防止更新
+			if (equal(op, INSERT) && isZero) ||
+				(equal(op, DELETE) && isZero) ||
+				equal(op, UPDATE) {
+				continue
+			}
 		}
 
 		if isZero {

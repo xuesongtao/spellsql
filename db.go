@@ -30,10 +30,12 @@ func (t *TableColInfo) NotNull() bool {
 	return t.Null == NotNullFlag
 }
 
-// Tmer 设置不同数据库表初始化方式, 调用的时候应该首先调用
+// Tmer 设置不同数据库表初始化表方式, 调用的时候应该首先调用
 // 如: NewTable(db).Tmer(Pg("man")).xxx
 func (t *Table) Tmer(obj TableMetaer) *Table {
-	t.tmer = obj
+	if obj != nil {
+		t.tmer = obj
+	}
 	return t
 }
 

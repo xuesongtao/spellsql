@@ -3,6 +3,7 @@ package spellsql
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -135,8 +136,8 @@ func DistinctIdsStr(s string, split string) string {
 			break
 		}
 	}
-	buf := new(strings.Builder)
-	buf.Grow(strLen / 2)
+	buf := getTmpBuf(strLen / 2)
+	defer putTmpBuf(buf)
 	lastIndex := len(sortSlice) - 1
 	for index, val := range sortSlice {
 		v := distinctMap[val]
@@ -161,6 +162,19 @@ func DistinctIds(ids []string) []string {
 		}
 	}
 	return res
+}
+
+// parseFileName 解析文件名
+func parseFileName(filePath string) string {
+	sysSplit := "/"
+	if runtime.GOOS == "windows" {
+		sysSplit = "\\"
+	}
+	lastIndex := IndexForBF(false, filePath, sysSplit)
+	if lastIndex == -1 {
+		return ""
+	}
+	return filePath[lastIndex+1:]
 }
 
 // removeValuePtr 移除多指针
@@ -190,4 +204,8 @@ func isExported(fieldName string) bool {
 
 func null(val string) bool {
 	return val == ""
+}
+
+func equal(a, b uint8) bool {
+	return a == b
 }

@@ -6,14 +6,12 @@ import (
 	"encoding/xml"
 	"fmt"
 	"math"
-	"reflect"
 	"strconv"
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql/test"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
-
 	gmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -22,12 +20,6 @@ const (
 	sureName = "测试1"
 	sureAge  = int32(20)
 )
-
-func TestTmp(t *testing.T) {
-	var a map[string]string
-	var b interface{} = a
-	t.Log(reflect.ValueOf(b).IsNil())
-}
 
 // 测试表
 // CREATE TABLE `man` (
@@ -107,11 +99,51 @@ func TestParseTable(t *testing.T) {
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
-	c, v, e := NewTable(db).getHandleTableCol2Val(m, false, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, INSERT, "man")
 	t.Log(c, v, e)
 
-	c, v, e = NewTable(db).getHandleTableCol2Val(m, false, "man")
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, UPDATE, "man")
 	t.Log(c, v, e)
+}
+
+func TestParseTableName(t *testing.T) {
+	type args struct {
+		objName string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "have alias",
+			args: args{
+				objName: "user_info ui",
+			},
+			want: "user_info",
+		},
+		{
+			name: "normal",
+			args: args{
+				objName: "user_info",
+			},
+			want: "user_info",
+		},
+		{
+			name: "objName",
+			args: args{
+				objName: "UserInfo",
+			},
+			want: "user_info",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseTableName(tt.args.objName); got != tt.want {
+				t.Errorf("parseTableName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestGetNullType(t *testing.T) {

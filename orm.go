@@ -8,24 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	defaultTableTag        = "json"
-	defaultBatchSelectSize = 10 // 批量查询默认条数
-)
-
-const (
-	_ uint8 = iota
-	// 查询时, 用于标记查询的 dest type
-	structFlag   // struct
-	sliceFlag    // 切片
-	mapFlag      // map
-	oneFieldFlag // 单字段
-
-	// 标记是否需要对字段进行序列化处理
-	sureMarshal
-	sureUnmarshal
-)
-
 // handleStructField 用于记录 struct 字段的处理方法
 type handleStructField struct {
 	needExclude bool        // 是否需要排除
@@ -463,7 +445,8 @@ func parseTableName(objName string) string {
 	}
 
 	// 解析对象名
-	res := new(strings.Builder)
+	res := getTmpBuf(len(objName))
+	defer putTmpBuf(res)
 	for i, v := range objName {
 		if v >= 'A' && v <= 'Z' {
 			if i > 0 {

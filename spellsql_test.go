@@ -399,7 +399,7 @@ func BenchmarkSqlStr_GetSql(b *testing.B) {
 	b.ResetTimer()
 	totalSqlStr, sqlStr := "", ""
 	for i := 0; i < b.N; i++ {
-		s := NewSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
+		s := NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id")
 		s.SetWhere("u.username", "test")
 		s.SetWhere("u.password", "test")
 		s.SetWhere("u.password", "IN", "SELECT id FROM t WHERE id = 10")

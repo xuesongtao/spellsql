@@ -9,12 +9,50 @@ import (
 	"sync"
 )
 
-// spellsql 部分
+// ====================================== spellsql =============================================
+
+const (
+	// sql 操作数字
+	none uint8 = iota
+	INSERT
+	DELETE
+	SELECT
+	UPDATE
+
+	// sql LIKE 语句
+	ALK // 全模糊 如: xxx LIKE "%xxx%"
+	RLK // 右模糊 如: xxx LIKE "xxx%"
+	LLK // 左模糊 如: xxx LIKE "%xxx"
+
+	// sql join 语句
+	LJI // 左连接
+	RJI // 右连接
+)
+
 var (
 	sqlSyncPool = sync.Pool{New: func() interface{} { return new(SqlStrObj) }} // 考虑到性能问题, 这里用 pool
 )
 
-// orm 部分
+// ====================================== orm =============================================
+
+const (
+	defaultTableTag        = "json"
+	defaultBatchSelectSize = 10 // 批量查询默认条数
+)
+
+const (
+	_ uint8 = iota
+	// 查询时, 用于标记查询的 dest type
+	structFlag   // struct
+	sliceFlag    // 切片
+	mapFlag      // map
+	oneFieldFlag // 单字段
+
+	// 标记是否需要对字段进行序列化处理
+	sureMarshal
+	sureUnmarshal
+)
+
 var (
 	cacheTableName2ColInfoMap      = NewLRU(lruSize) // 缓存表的字段元信息, key: tableName, value: tableColInfo
 	cacheStructType2StructFieldMap = NewLRU(lruSize) // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
@@ -38,6 +76,8 @@ var (
 	findAllDestTypeErr     = errors.New("dest should is struct/oneField/map slice")
 	getField2ColInfoMapErr = "%q GetField2ColInfoMap initArgs is not ok"
 )
+
+// ====================================== other =============================================
 
 // log 处理
 var (
