@@ -169,6 +169,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 	return nil
 }
 
+// initTmer 初始化表元数据对象
 func (t *Table) initTmer() error {
 	// 默认按 mysql 的方式处理
 	if t.tmer == nil {
@@ -181,6 +182,7 @@ func (t *Table) initTmer() error {
 	return nil
 }
 
+// getStrSymbol 获取适配器对应的字符串对应符号
 func (t *Table) getStrSymbol() byte {
 	_ = t.initTmer()
 	return t.tmer.GetStrSymbol()

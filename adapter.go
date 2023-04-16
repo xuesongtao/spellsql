@@ -31,6 +31,7 @@ func (t *TableColInfo) NotNull() bool {
 }
 
 // Tmer 设置不同数据库表初始化表方式, 调用的时候应该首先调用
+// 说明: 此方法为局部方法, 如果要全局设置可以 GlobalTmer
 // 如: NewTable(db).Tmer(Pg("man")).xxx
 func (t *Table) Tmer(obj TableMetaer) *Table {
 	if obj != nil {
@@ -73,7 +74,7 @@ func (m *MysqlTable) GetStrSymbol() byte {
 
 func (m *MysqlTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) {
 	if len(m.initArgs) != 1 {
-		return nil, fmt.Errorf(getField2ColInfoMapErr, "mysql")
+		return nil, fmt.Errorf(getField2ColInfoMapErr, m.GetAdapterName())
 	}
 	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).GetSqlStr()
 	rows, err := db.Query(sqlStr)
@@ -133,7 +134,7 @@ func (p *PgTable) GetStrSymbol() byte {
 
 func (p *PgTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) {
 	if len(p.initArgs) != 2 {
-		return nil, fmt.Errorf(getField2ColInfoMapErr, "pg")
+		return nil, fmt.Errorf(getField2ColInfoMapErr, p.GetAdapterName())
 	}
 	sqlStr := NewCacheSql(
 		"SELECT c.column_name,c.data_type,c.is_nullable,tc.constraint_type,c.column_default FROM information_schema.columns AS c "+

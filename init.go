@@ -79,7 +79,7 @@ var (
 	getField2ColInfoMapErr = "%q GetField2ColInfoMap initArgs is not ok"
 )
 
-// GlobalTmer 设置全局 tmer
+// GlobalTmer 设置全局 tmer, 如果要局部使用, 请使用 Tmer
 func GlobalTmer(obj TableMetaer) {
 	defaultTmerObj = obj
 }
@@ -94,7 +94,6 @@ var (
 // log 处理
 var (
 	sLog Logger
-	once sync.Once
 )
 
 func init() {
@@ -116,7 +115,5 @@ func putTmpBuf(obj *strings.Builder) {
 
 // SetLogger 设置 logger
 func SetLogger(logger Logger) {
-	once.Do(func() {
-		sLog = logger
-	})
+	sLog = logger
 }
