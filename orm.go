@@ -26,7 +26,7 @@ type structField struct {
 // Table 表的信息
 type Table struct {
 	db                       DBer
-	tmer                     TableMetaer                   // 记录表初始化元信息对象
+	tmer                     TableMetaer                   // 获取表元信息对象
 	printSqlCallSkip         uint8                         // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                         // 查询时, 用于标记 dest 类型的
 	isPrintSql               bool                          // 标记是否打印 sql
@@ -76,7 +76,7 @@ func (t *Table) init() {
 
 // free 释放
 func (t *Table) free() {
-	// clone 了对象就不放回
+	// clone 对象就不放回
 	if !null(t.clonedSqlStr) {
 		return
 	}
@@ -109,7 +109,6 @@ func (t *Table) Clone() *Table {
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
 	t.init()
-	_ = t.initTmer()
 	return t
 }
 
@@ -409,7 +408,6 @@ func (t *Table) Raw(sql interface{}) *Table {
 		sLog.Error("sql only support string/SqlStrObjPtr")
 		return t
 	}
-	t.tmpSqlObj.SetStrSymbol(t.getStrSymbol())
 	return t
 }
 
