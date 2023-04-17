@@ -210,7 +210,8 @@ func (t *Table) OrderBy(sqlStr string) *Table {
 
 // Limit 分页
 // 会对 page, size 进行校验处理
-func (t *Table) Limit(page, size int32) *Table {
+// 注: page, size 只支持 int 系列类型
+func (t *Table) Limit(page, size interface{}) *Table {
 	if !t.sqlObjIsNil() {
 		t.tmpSqlObj.SetLimit(page, size)
 	}

@@ -206,9 +206,9 @@ func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 }
 
 // GetOffset 根据分页获取 offset
-// page, size 只支持 int32, int, int64 类型
+// 注: page, size 只支持 int 系列类型
 func (s *SqlStrObj) GetOffset(page, size interface{}) (int64, int64) {
-	pageInt64, sizeInt64 := s.toInt64(page), s.toInt64(size)
+	pageInt64, sizeInt64 := Int64(page), Int64(size)
 	if pageInt64 <= 0 {
 		pageInt64 = 1
 	}
@@ -218,24 +218,9 @@ func (s *SqlStrObj) GetOffset(page, size interface{}) (int64, int64) {
 	return sizeInt64, (pageInt64 - 1) * sizeInt64
 }
 
-// toInt64 将数字型类型转为 int64
-func (s *SqlStrObj) toInt64(num interface{}) int64 {
-	switch v := num.(type) {
-	case int32:
-		return int64(v)
-	case int:
-		return int64(v)
-	case int64:
-		return v
-	default:
-		sLog.Error("num toInt64 is nonsupport")
-	}
-	return 0
-}
-
 // SetLimit 设置分页
 // page 从 1 开始
-// page, size 只支持 int32, int, int64 类型
+// 注: page, size 只支持 int 系列类型
 func (s *SqlStrObj) SetLimit(page, size interface{}) *SqlStrObj {
 	sizeInt64, offsetInt64 := s.GetOffset(page, size)
 	return s.SetLimitStr(s.Int2Str(sizeInt64) + " OFFSET " + s.Int2Str(offsetInt64))
