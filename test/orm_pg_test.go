@@ -118,7 +118,7 @@ func TestUpdateForPg(t *testing.T) {
 	}
 }
 
-func TestRawPg(t *testing.T) {
+func TestRawForPg(t *testing.T) {
 	var m Man
 	sqlObj := spellsql.NewCacheSql("SELECT name,age FROM man WHERE id=1")
 	err := spellsql.NewTable(pgDb).Raw(sqlObj).FindOne(&m)

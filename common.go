@@ -102,6 +102,25 @@ func Str(src interface{}) string {
 	}
 }
 
+// Int64 将数字型类型转为 int64
+func Int64(num interface{}) int64 {
+	switch v := num.(type) {
+	case int:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case int64:
+		return v
+	case int16:
+		return int64(v)
+	case int8:
+		return int64(v)
+	default:
+		sLog.Error("num to Int64 is nonsupport")
+	}
+	return 0
+}
+
 // DistinctIdsStr 将输入拼接 id 参数按照指定字符进行去重, 如:
 // DistinctIdsStr("12345,123,20,123,20,15", ",")
 // => 12345,123,20,15
