@@ -66,10 +66,6 @@ var (
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 
-	// 获取表初始化表元信息, 默认 mysql
-	getTmerFn   = func() TableMetaer { return Mysql() }
-	getTmerOnce sync.Once
-
 	// error
 	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
 		"    Name string `json:\"name\"`\n"+
@@ -81,18 +77,15 @@ var (
 	getField2ColInfoMapErr = "%q GetField2ColInfoMap initArgs is not ok"
 )
 
-// GlobalTmer 设置全局 tmer, 如果要局部使用, 请使用 Tmer
-func GlobalTmer(obj TableMetaer) {
-	getTmerOnce.Do(func() {
-		getTmerFn = func() TableMetaer { return obj }
-	})
-}
-
 // ====================================== other =============================================
 
 // 公共部分
 var (
 	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
+
+	// 获取表初始化表元信息, 默认 mysql
+	getTmerOnce sync.Once
+	getTmerFn   = func() TableMetaer { return Mysql() }
 )
 
 // log 处理
@@ -123,4 +116,11 @@ func putTmpBuf(obj *strings.Builder) {
 // SetLogger 设置 logger
 func SetLogger(logger Logger) {
 	sLog = logger
+}
+
+// GlobalTmer 设置全局 tmer, 如果要局部使用, 请使用 Tmer
+func GlobalTmer(f func() TableMetaer) {
+	getTmerOnce.Do(func() {
+		getTmerFn = f
+	})
 }

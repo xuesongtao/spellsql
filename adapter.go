@@ -105,7 +105,7 @@ type PgTable struct {
 // Pg
 // initArgs 允许自定义两个参数
 // initArgs[0] 为 schema
-// initArgs[1] 为 table name
+// initArgs[1] 为 table name (此参数可以忽略, 因为 orm 内部会处理该值)
 func Pg(initArgs ...string) *PgTable {
 	obj := &PgTable{initArgs: make([]string, 2)}
 	l := len(initArgs)
