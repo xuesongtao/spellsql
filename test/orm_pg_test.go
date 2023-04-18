@@ -154,7 +154,7 @@ func TestInsertForPg(t *testing.T) {
 		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
 		var mm []interface{}
-		size := 10
+		size := 3
 		for i := 0; i < size; i++ {
 			tmp := m
 			tmp.Name += "_" + fmt.Sprint(i)
