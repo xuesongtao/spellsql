@@ -66,7 +66,9 @@ var (
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 
-	defaultTmerObj TableMetaer = Mysql() // 默认为 mysql
+	// 获取表初始化表元信息, 默认 mysql
+	getTmerFn   = func() TableMetaer { return Mysql() }
+	getTmerOnce sync.Once
 
 	// error
 	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
@@ -81,7 +83,9 @@ var (
 
 // GlobalTmer 设置全局 tmer, 如果要局部使用, 请使用 Tmer
 func GlobalTmer(obj TableMetaer) {
-	defaultTmerObj = obj
+	getTmerOnce.Do(func() {
+		getTmerFn = func() TableMetaer { return obj }
+	})
 }
 
 // ====================================== other =============================================
@@ -93,11 +97,14 @@ var (
 
 // log 处理
 var (
-	sLog Logger
+	sLog    Logger
+	logOnce sync.Once
 )
 
 func init() {
-	sLog = NewCjLogger()
+	logOnce.Do(func() {
+		sLog = NewCjLogger()
+	})
 }
 
 func getTmpBuf(size ...int) *strings.Builder {

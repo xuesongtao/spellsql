@@ -175,7 +175,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 func (t *Table) initTmer() error {
 	// 默认按 mysql 的方式处理
 	if t.tmer == nil {
-		t.tmer = defaultTmerObj
+		t.tmer = getTmerFn()
 	}
 	if null(t.name) {
 		return tableNameIsUnknownErr
