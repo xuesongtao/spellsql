@@ -66,6 +66,11 @@ var (
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 
+	// 标记每次使用完后, 是否释放, 因为几乎都是共用同一个适配器, 减少初始化, 如果要释放的话将这里
+	isFreeTmerFlag = false
+	getTmerOnce    sync.Once
+	getTmerFn      = func() TableMetaer { return Mysql() } // 获取表初始化表元信息, 默认 mysql
+
 	// error
 	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
 		"    Name string `json:\"name\"`\n"+
@@ -77,15 +82,18 @@ var (
 	getField2ColInfoMapErr = "%q GetField2ColInfoMap initArgs is not ok"
 )
 
+// FreeTmerFlag 是否每次调用 orm 完后需要释放 tmer
+// 如果都是适配相同的数据库, 则可以设置 false, 避免每次都需要初始化适配器
+// 反正应该设置为 true
+func FreeTmerFlag(is bool) {
+	isFreeTmerFlag = is
+}
+
 // ====================================== other =============================================
 
 // 公共部分
 var (
 	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
-
-	// 获取表初始化表元信息, 默认 mysql
-	getTmerOnce sync.Once
-	getTmerFn   = func() TableMetaer { return Mysql() }
 )
 
 // log 处理

@@ -166,16 +166,47 @@ func (s *SqlStrObj) init() {
 	s.needAddBracket = false
 	s.callerSkip = 1
 	s.actionNum = none
-	s.strSymbol = getTmerFn().GetStrSymbol()
+	s.strSymbol = '"'
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
 }
 
+// free 释放
+func (s *SqlStrObj) free(isNeedPutPool bool) {
+	s.valuesBuf.Reset()
+	s.whereBuf.Reset()
+	s.extBuf.Reset()
+	s.groupByStr = ""
+	s.orderByStr = ""
+	s.limitStr = ""
+
+	// 不需要 Put 的条件如下:
+	// 1. 不需要Put的
+	// 2. 只有调用 NewCacheSql 获取的对象才进行 Put
+	// 3. 如果已经Put过了
+	if !isNeedPutPool {
+		return
+	}
+
+	if !s.isCallCacheInit {
+		return
+	}
+
+	if s.isPutPooled {
+		return
+	}
+
+	// 重置 buf
+	s.buf.Reset()
+	sqlSyncPool.Put(s)
+	s.isPutPooled = true
+}
+
 // SetStrSymbol 设置在解析值时字符串符号, 不同的数据库符号不同
 // 如: mysql 字符串值可以用 ""或''; pg 字符串值只能用 ''
 func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
-	if strSymbol != '"' && strSymbol != '\'' {
+	if !equal(strSymbol, '"') && !equal(strSymbol, '\'') {
 		return s
 	}
 	s.strSymbol = strSymbol
@@ -386,37 +417,6 @@ func (s *SqlStrObj) toEscape(val string, is2Num bool) string {
 		}
 	}
 	return string(buf[:pos])
-}
-
-// free 释放
-func (s *SqlStrObj) free(isNeedPutPool bool) {
-	s.valuesBuf.Reset()
-	s.whereBuf.Reset()
-	s.extBuf.Reset()
-	s.groupByStr = ""
-	s.orderByStr = ""
-	s.limitStr = ""
-
-	// 不需要 Put 的条件如下:
-	// 1. 不需要Put的
-	// 2. 只有调用 NewCacheSql 获取的对象才进行 Put
-	// 3. 如果已经Put过了
-	if !isNeedPutPool {
-		return
-	}
-
-	if !s.isCallCacheInit {
-		return
-	}
-
-	if s.isPutPooled {
-		return
-	}
-
-	// 重置 buf
-	s.buf.Reset()
-	sqlSyncPool.Put(s)
-	s.isPutPooled = true
 }
 
 // mergeSql 合并 sql
