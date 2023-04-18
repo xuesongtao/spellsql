@@ -34,7 +34,7 @@ func (t *TableColInfo) NotNull() bool {
 // 说明: 此方法为局部方法, 如果要全局设置可以 GlobalTmer
 // 如: NewTable(db).Tmer(Pg("man")).xxx
 func (t *Table) Tmer(obj TableMetaer) *Table {
-	if obj != nil {
+	if obj != nil { // 出现了修改, 打印下 log
 		old := t.tmer
 		if old != nil {
 			sLog.Warningf("Tmer old %q to new %q", old.GetAdapterName(), obj.GetAdapterName())

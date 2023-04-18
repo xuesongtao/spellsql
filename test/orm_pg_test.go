@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"math"
 	"testing"
 
@@ -52,7 +51,7 @@ func init() {
 
 	// 初始化 pg tmer
 	spellsql.GlobalTmer(func() spellsql.TableMetaer {
-		fmt.Println("call pg")
+		// fmt.Println("call pg")
 		return spellsql.Pg("public")
 	})
 }
