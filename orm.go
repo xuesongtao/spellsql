@@ -90,7 +90,9 @@ func (t *Table) free() {
 
 	// 释放内容
 	t.db = nil
-	t.tmer = nil
+	if isFreeTmerFlag {
+		t.tmer = nil
+	}
 	t.name = ""
 	t.handleCols = ""
 	t.clonedSqlStr = ""

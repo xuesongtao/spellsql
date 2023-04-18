@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"math"
 	"testing"
 
@@ -51,7 +52,7 @@ func init() {
 
 	// 初始化 pg tmer
 	spellsql.GlobalTmer(func() spellsql.TableMetaer {
-		// fmt.Println("call pg")
+		fmt.Println("call pg")
 		return spellsql.Pg("public")
 	})
 }
@@ -93,39 +94,84 @@ func TestLocalPg(t *testing.T) {
 }
 
 func TestInsertForPg(t *testing.T) {
-	m := Man{
-		Name:  "xue1234",
-		Age:   18,
-		Addr:  "成都市",
-		Hobby: "打篮球",
-		JsonTxt: Tmp{
-			Name: "json",
-			Data: "test json marshal",
-		},
-		XmlTxt: Tmp{
-			Name: "xml",
-			Data: "test xml marshal",
-		},
-		Json1Txt: Tmp{
-			Name: "json1",
-			Data: "test json1 marshal",
-		},
-	}
+	t.Run("insert", func(t *testing.T) {
+		m := Man{
+			Name:  "xue1234",
+			Age:   18,
+			Addr:  "成都市",
+			Hobby: "打篮球",
+			JsonTxt: Tmp{
+				Name: "json",
+				Data: "test json marshal",
+			},
+			XmlTxt: Tmp{
+				Name: "xml",
+				Data: "test xml marshal",
+			},
+			Json1Txt: Tmp{
+				Name: "json1",
+				Data: "test json1 marshal",
+			},
+		}
 
-	tableObj := spellsql.NewTable(pgDb, "man")
-	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
-	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	res, err := tableObj.Insert(m).Exec()
-	if err != nil {
-		t.Fatal(err)
-	}
-	r, err := res.RowsAffected()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r == 0 {
-		t.Error("insert is failed")
-	}
+		tableObj := spellsql.NewTable(pgDb, "man")
+		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
+		res, err := tableObj.Insert(m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
+
+	t.Run("insert many", func(t *testing.T) {
+		m := Man{
+			Name:  "xue1234",
+			Age:   18,
+			Addr:  "成都市",
+			Hobby: "打篮球",
+			JsonTxt: Tmp{
+				Name: "json",
+				Data: "test json marshal",
+			},
+			XmlTxt: Tmp{
+				Name: "xml",
+				Data: "test xml marshal",
+			},
+			Json1Txt: Tmp{
+				Name: "json1",
+				Data: "test json1 marshal",
+			},
+		}
+
+		tableObj := spellsql.NewTable(pgDb, "man")
+		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
+		var mm []interface{}
+		size := 10
+		for i := 0; i < size; i++ {
+			tmp := m
+			tmp.Name += "_" + fmt.Sprint(i)
+			mm = append(mm, tmp)
+		}
+		res, err := tableObj.Insert(mm...).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 || r != int64(size) {
+			t.Error("insert is failed")
+		}
+	})
 }
 
 func TestDeleteForPg(t *testing.T) {
