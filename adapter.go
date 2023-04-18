@@ -107,7 +107,7 @@ type PgTable struct {
 // initArgs[0] 为 schema
 // initArgs[1] 为 table name
 func Pg(initArgs ...string) *PgTable {
-	obj := &PgTable{make([]string, 2)}
+	obj := &PgTable{initArgs: make([]string, 2)}
 	l := len(initArgs)
 	switch l {
 	case 1:
