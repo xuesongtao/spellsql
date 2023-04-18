@@ -245,7 +245,7 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 
 // SetHaving 设置 Having
 func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
-	tmpBuf := getTmpBuf()
+	tmpBuf := getTmpBuf(len(having))
 	defer putTmpBuf(tmpBuf)
 	s.writeSqlStr2Buf(tmpBuf, having, args...)
 	s.groupByStr += " HAVING " + tmpBuf.String()

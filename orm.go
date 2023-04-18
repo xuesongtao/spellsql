@@ -145,8 +145,14 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return tableNameIsUnknownErr
 	}
 
-	// 防止 name 中包含 别名
-	tableName := parseTableName(t.name)
+	// 获取表元数据
+	err := t.initTmer()
+	if err != nil {
+		return err
+	}
+
+	// 防止 name 中包含 别名, 格式为: "db_name"
+	tableName := t.tmer.GetAdapterName() + "_" + parseTableName(t.name)
 
 	// 先判断下缓存中有没有
 	if info, ok := cacheTableName2ColInfoMap.Load(tableName); ok {
@@ -156,11 +162,6 @@ func (t *Table) initCacheCol2InfoMap() error {
 		}
 	}
 
-	// 获取表元数据
-	err := t.initTmer()
-	if err != nil {
-		return err
-	}
 	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db)
 	if err != nil {
 		return err
@@ -175,7 +176,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 func (t *Table) initTmer() error {
 	// 默认按 mysql 的方式处理
 	if t.tmer == nil {
-		t.tmer = defaultTmerObj
+		t.tmer = getTmerFn()
 	}
 	if null(t.name) {
 		return tableNameIsUnknownErr
