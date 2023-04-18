@@ -1216,6 +1216,7 @@ func BenchmarkFindAllQuery(b *testing.B) {
 			res = append(res, &info)
 		}
 		rows.Close()
+		_ = res
 	}
 
 	// BenchmarkFindAllQuery-8            23402             51492 ns/op            2769 B/op         99 allocs/op
