@@ -91,7 +91,7 @@ func TestTmp(t *testing.T) {
 	tableObj = spellsql.NewTable(pgDb, "man")
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-	err = tableObj.SelectAll().Where("id=?", 119).FindOne(&mm)
+	err = tableObj.SelectAll().Where("id=?", 1).FindOne(&mm)
 	if err != nil {
 		t.Fatal(err)
 	}
