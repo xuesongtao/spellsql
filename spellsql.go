@@ -262,7 +262,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			// 如果占位符?在最后一位时, 就不往下执行了防止 panic
 			if i >= sqlLen-1 {
 				buf.WriteByte(s.strSymbol)
-				buf.WriteString(s.toEscape(val, false))
+				buf.WriteString(toEscape(val, false))
 				buf.WriteByte(s.strSymbol)
 				break
 			}
@@ -270,14 +270,14 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			// 判断下如果为 ?d 字符的话, 这里不需要加引号
 			// 如果包含字母的话, 就转为 0, 防止数字型注入
 			if sqlStr[i+1] == 'd' {
-				buf.WriteString(s.toEscape(val, true))
+				buf.WriteString(toEscape(val, true))
 				i++
 			} else if sqlStr[i+1] == 'v' { // 原样输出
 				buf.WriteString(val)
 				i++
 			} else {
 				buf.WriteByte(s.strSymbol)
-				buf.WriteString(s.toEscape(val, false))
+				buf.WriteString(toEscape(val, false))
 				buf.WriteByte(s.strSymbol)
 			}
 		case []string:
@@ -294,7 +294,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 					if isAdd {
 						buf.WriteByte(s.strSymbol)
 					}
-					buf.WriteString(s.toEscape(val[i1], !isAdd))
+					buf.WriteString(toEscape(val[i1], !isAdd))
 					if isAdd {
 						buf.WriteByte(s.strSymbol)
 					}
@@ -306,7 +306,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				// 最后一个占位符
 				for i1 := 0; i1 <= lastIndex; i1++ {
 					buf.WriteByte(s.strSymbol)
-					buf.WriteString(s.toEscape(val[i1], false))
+					buf.WriteString(toEscape(val[i1], false))
 					buf.WriteByte(s.strSymbol)
 					if i1 < lastIndex {
 						buf.WriteByte(',')
@@ -364,59 +364,6 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			}
 		}
 	}
-}
-
-// toEscape 转义
-func (s *SqlStrObj) toEscape(val string, is2Num bool) string {
-	pos := 0
-	vLen := len(val)
-
-	// 有可能有中文, 所以这里用 rune
-	buf := make([]rune, vLen*2)
-	for _, v := range val {
-		switch v {
-		case '\'':
-			buf[pos] = '\\'
-			buf[pos+1] = '\''
-			pos += 2
-		case '"':
-			buf[pos] = '\\'
-			buf[pos+1] = '"'
-			pos += 2
-		case '\x00':
-			buf[pos] = '\\'
-			buf[pos+1] = '0'
-			pos += 2
-		case '\n':
-			buf[pos] = '\\'
-			buf[pos+1] = 'n'
-			pos += 2
-		case '\r':
-			buf[pos] = '\\'
-			buf[pos+1] = 'r'
-			pos += 2
-		case '\t':
-			buf[pos] = '\\'
-			buf[pos+1] = 't'
-			pos += 2
-		case '\x1a':
-			buf[pos] = '\\'
-			buf[pos+1] = 'Z'
-			pos += 2
-		case '\\':
-			buf[pos] = '\\'
-			buf[pos+1] = '\\'
-			pos += 2
-		default:
-			// 这里需要判断下在占位符: ?d 时是否包含字母, 如果有的话就转为 0, 防止数字型注入
-			if is2Num && ((v >= 'A' && v <= 'Z') || (v >= 'a' && v <= 'z')) {
-				v = '0'
-			}
-			buf[pos] = v
-			pos++
-		}
-	}
-	return string(buf[:pos])
 }
 
 // mergeSql 合并 sql

@@ -57,6 +57,47 @@ func init() {
 	})
 }
 
+func TestTmp(t *testing.T) {
+	m := Man{
+		Name: "xue1234",
+		Age:  18,
+		Addr: "成都市",
+		JsonTxt: Tmp{
+			Name: "json",
+			Data: "\n" + "test json marshal",
+		},
+		XmlTxt: Tmp{
+			Name: "xml",
+			Data: "\t" + "test xml marshal",
+		},
+		Json1Txt: Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		},
+	}
+	tableObj := spellsql.NewTable(pgDb, "man")
+	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
+	_, err := tableObj.Insert(m).Exec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// r, err := res.LastInsertId()
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+
+	var mm Man
+	tableObj = spellsql.NewTable(pgDb, "man")
+	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
+	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
+	err = tableObj.SelectAll().Where("id=?", 119).FindOne(&mm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(mm)
+}
+
 func TestLocalPg(t *testing.T) {
 	m := Man{
 		Name:  "xue1234",
@@ -251,7 +292,7 @@ func TestFindAllForPg(t *testing.T) {
 		tableObj := spellsql.NewTable(pgDb)
 		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-		err = tableObj.SelectAuto(Man{}).FindWhere(&m, "id>0")
+		err = tableObj.SelectAuto(Man{}).Limit(1, 10).FindWhere(&m, "id>0")
 		if err != nil {
 			t.Fatal(err)
 		}

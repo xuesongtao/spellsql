@@ -91,6 +91,46 @@ func init() {
 	}
 }
 
+func TestTmp(t *testing.T) {
+	m := test.Man{
+		Name: "xue1234",
+		Age:  18,
+		Addr: "成都市",
+		JsonTxt: test.Tmp{
+			Name: "json",
+			Data: "\n" + "test json marshal",
+		},
+		XmlTxt: test.Tmp{
+			Name: "xml",
+			Data: "\t" + "test xml marshal",
+		},
+		Json1Txt: test.Tmp{
+			Name: "json1",
+			Data: "test json1 marshal",
+		},
+	}
+	tableObj := NewTable(db, "man")
+	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
+	res, err := tableObj.Insert(m).Exec()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := res.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var mm test.Man
+	tableObj = NewTable(db, "man")
+	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt")
+	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
+	if err := tableObj.SelectAuto(mm).Where("id=?", r).FindOne(&mm); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(mm)
+}
+
 func TestParseTable(t *testing.T) {
 	m := test.Man{
 		Id:   1,
@@ -1094,7 +1134,7 @@ func TestFindAll(t *testing.T) {
 		tableObj := NewTable(db)
 		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-		err = tableObj.SelectAuto(test.Man{}).FindWhere(&m, "id>0")
+		err = tableObj.SelectAuto(test.Man{}).Limit(1, 10).FindWhere(&m, "id>0")
 		if err != nil {
 			t.Fatal(err)
 		}
