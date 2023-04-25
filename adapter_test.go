@@ -7,11 +7,11 @@ import (
 	"gitee.com/xuesongtao/spellsql/test"
 )
 
-func TestCommonTable(t *testing.T) {
-	c := &CommonTable{}
+func TestEscapeBytes(t *testing.T) {
+	c := Mysql()
 	m := test.Man{
 		JsonTxt: test.Tmp{
-			Name: "json",
+			Name: "<title>北京欢迎你</title>",
 			Data: "\n" + "\t" + "test json marshal",
 		},
 	}
@@ -19,8 +19,10 @@ func TestCommonTable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	escapeBytes := c.escapeBytes(b)
+	escapeBytes := c.EscapeBytes(b)
 	t.Log(len(b), len(escapeBytes))
+	t.Log(string(b))
+	t.Log(string(escapeBytes))
 
 	var mm test.Man
 	if err := json.Unmarshal(escapeBytes, &mm); err != nil {

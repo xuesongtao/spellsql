@@ -193,7 +193,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...stri
 			if err != nil {
 				return nil, nil, err
 			}
-			values = append(values, t.tmer.escapeBytes(dataBytes))
+			values = append(values, t.tmer.EscapeBytes(dataBytes))
 		} else {
 			values = append(values, val.Interface())
 		}

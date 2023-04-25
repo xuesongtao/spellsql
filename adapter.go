@@ -50,7 +50,7 @@ func (t *Table) Tmer(obj TableMetaer) *Table {
 type CommonTable struct {
 }
 
-func (c *CommonTable) escapeBytes(b []byte) []byte {
+func (c *CommonTable) EscapeBytes(b []byte) []byte {
 	return b
 }
 
@@ -82,34 +82,33 @@ func (c *CommonTable) noImplement(name string) {
 
 type MysqlTable struct {
 	CommonTable
-	initArgs []string
+	initArgs       []string
+	escapeBytesMap map[byte]bool
 }
 
 // Mysql
 func Mysql() *MysqlTable {
-	return &MysqlTable{}
+	return &MysqlTable{escapeBytesMap: map[byte]bool{
+		// json 处理
+		'n': true,
+		'r': true,
+		't': true,
+	}}
 }
 
-func (m *MysqlTable) escapeBytes(b []byte) []byte {
+func (m *MysqlTable) EscapeBytes(b []byte) []byte {
 	vLen := len(b)
 	buf := make([]byte, 0, vLen)
 	for i := 0; i < vLen; i++ {
 		v := b[i]
+		buf = append(buf, v)
 		switch v {
 		case '\\': // json 符号转义
 			vv := b[i+1]
-			buf = append(buf, '\\')
-			switch vv {
-			case 'n':
-				buf = append(buf, []byte{'\\', 'n'}...)
-			case 'r':
-				buf = append(buf, []byte{'\\', 'r'}...)
-			case 't':
-				buf = append(buf, []byte{'\\', 't'}...)
+			if m.escapeBytesMap[vv] {
+				buf = append(buf, '\\', vv)
+				i++
 			}
-			i++
-		default:
-			buf = append(buf, v)
 		}
 	}
 	return buf
