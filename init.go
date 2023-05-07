@@ -89,6 +89,13 @@ func FreeTmerFlag(is bool) {
 	isFreeTmerFlag = is
 }
 
+// GlobalTmer 设置全局 tmer, 如果要局部使用, 请使用 Tmer
+func GlobalTmer(f func() TableMetaer) {
+	getTmerOnce.Do(func() {
+		getTmerFn = f
+	})
+}
+
 // ====================================== other =============================================
 
 // 公共部分
@@ -124,11 +131,4 @@ func putTmpBuf(obj *strings.Builder) {
 // SetLogger 设置 logger
 func SetLogger(logger Logger) {
 	sLog = logger
-}
-
-// GlobalTmer 设置全局 tmer, 如果要局部使用, 请使用 Tmer
-func GlobalTmer(f func() TableMetaer) {
-	getTmerOnce.Do(func() {
-		getTmerFn = f
-	})
 }

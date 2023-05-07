@@ -228,3 +228,56 @@ func null(val string) bool {
 func equal(a, b uint8) bool {
 	return a == b
 }
+
+// toEscape 转义
+func toEscape(val string, is2Num bool) string {
+	pos := 0
+	vLen := len(val)
+
+	// 有可能有中文, 所以这里用 rune
+	buf := make([]rune, vLen*2)
+	for _, v := range val {
+		switch v {
+		case '\'':
+			buf[pos] = '\\'
+			buf[pos+1] = '\''
+			pos += 2
+		case '"':
+			buf[pos] = '\\'
+			buf[pos+1] = '"'
+			pos += 2
+		case '\x00':
+			buf[pos] = '\\'
+			buf[pos+1] = '0'
+			pos += 2
+		case '\n':
+			buf[pos] = '\\'
+			buf[pos+1] = 'n'
+			pos += 2
+		case '\r':
+			buf[pos] = '\\'
+			buf[pos+1] = 'r'
+			pos += 2
+		case '\t':
+			buf[pos] = '\\'
+			buf[pos+1] = 't'
+			pos += 2
+		case '\x1a':
+			buf[pos] = '\\'
+			buf[pos+1] = 'Z'
+			pos += 2
+		case '\\':
+			buf[pos] = '\\'
+			buf[pos+1] = '\\'
+			pos += 2
+		default:
+			// 这里需要判断下在占位符: ?d 时是否包含字母, 如果有的话就转为 0, 防止数字型注入
+			if is2Num && ((v >= 'A' && v <= 'Z') || (v >= 'a' && v <= 'z')) {
+				v = '0'
+			}
+			buf[pos] = v
+			pos++
+		}
+	}
+	return string(buf[:pos])
+}

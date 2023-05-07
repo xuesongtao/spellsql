@@ -46,17 +46,72 @@ func (t *Table) Tmer(obj TableMetaer) *Table {
 
 // 以下为适配多个不同类型的 db
 
+// CommonTable 基类
+type CommonTable struct {
+}
+
+func (c *CommonTable) EscapeBytes(b []byte) []byte {
+	return b
+}
+
+func (c *CommonTable) GetStrSymbol() byte {
+	return '"'
+}
+
+func (c *CommonTable) GetAdapterName() string {
+	c.noImplement("GetAdapterName")
+	return ""
+}
+
+func (c *CommonTable) SetTableName(tableName string) {
+	c.noImplement("SetTableName")
+}
+
+func (c *CommonTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) {
+	c.noImplement("GetField2ColInfoMap")
+	return nil, nil
+}
+
+func (c *CommonTable) noImplement(name string) {
+	sLog.Error(name, "no implement")
+}
+
 // *******************************************************************************
 // *                             mysql                                           *
 // *******************************************************************************
 
 type MysqlTable struct {
-	initArgs []string
+	CommonTable
+	initArgs       []string
+	escapeBytesMap map[byte]bool
 }
 
 // Mysql
 func Mysql() *MysqlTable {
-	return &MysqlTable{}
+	return &MysqlTable{escapeBytesMap: map[byte]bool{
+		// json 处理
+		'n': true,
+		'r': true,
+		't': true,
+	}}
+}
+
+func (m *MysqlTable) EscapeBytes(b []byte) []byte {
+	vLen := len(b)
+	buf := make([]byte, 0, vLen)
+	for i := 0; i < vLen; i++ {
+		v := b[i]
+		buf = append(buf, v)
+		switch v {
+		case '\\': // json 符号转义
+			vv := b[i+1]
+			if m.escapeBytesMap[vv] {
+				buf = append(buf, '\\', vv)
+				i++
+			}
+		}
+	}
+	return buf
 }
 
 func (m *MysqlTable) GetAdapterName() string {
@@ -65,10 +120,6 @@ func (m *MysqlTable) GetAdapterName() string {
 
 func (m *MysqlTable) SetTableName(name string) {
 	m.initArgs = []string{name}
-}
-
-func (m *MysqlTable) GetStrSymbol() byte {
-	return '"'
 }
 
 func (m *MysqlTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) {
@@ -99,6 +150,7 @@ func (m *MysqlTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, err
 // *******************************************************************************
 
 type PgTable struct {
+	CommonTable
 	initArgs []string
 }
 
