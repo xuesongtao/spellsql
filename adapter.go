@@ -67,7 +67,7 @@ func (c *CommonTable) SetTableName(tableName string) {
 	c.noImplement("SetTableName")
 }
 
-func (c *CommonTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) {
+func (c *CommonTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) {
 	c.noImplement("GetField2ColInfoMap")
 	return nil, nil
 }
@@ -122,11 +122,11 @@ func (m *MysqlTable) SetTableName(name string) {
 	m.initArgs = []string{name}
 }
 
-func (m *MysqlTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) {
+func (m *MysqlTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) {
 	if len(m.initArgs) != 1 {
 		return nil, fmt.Errorf(getField2ColInfoMapErr, m.GetAdapterName())
 	}
-	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).GetSqlStr()
+	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).SetPrintLog(printLog).GetSqlStr()
 	rows, err := db.Query(sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
@@ -183,7 +183,7 @@ func (p *PgTable) GetStrSymbol() byte {
 	return '\''
 }
 
-func (p *PgTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) {
+func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) {
 	if len(p.initArgs) != 2 {
 		return nil, fmt.Errorf(getField2ColInfoMapErr, p.GetAdapterName())
 	}
@@ -191,7 +191,7 @@ func (p *PgTable) GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error)
 		"SELECT c.column_name,c.data_type,c.is_nullable,tc.constraint_type,c.column_default FROM information_schema.columns AS c "+
 			"LEFT JOIN information_schema.constraint_column_usage AS ccu USING (column_name,table_name) "+
 			"LEFT JOIN information_schema.table_constraints tc ON tc.constraint_name=ccu.constraint_name "+
-			"WHERE c.table_schema='?v' AND c.table_name='?v'", p.initArgs[0], p.initArgs[1]).GetSqlStr()
+			"WHERE c.table_schema='?v' AND c.table_name='?v'", p.initArgs[0], p.initArgs[1]).SetPrintLog(printLog).GetSqlStr()
 	rows, err := db.Query(sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)

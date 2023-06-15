@@ -110,7 +110,7 @@ func (t *Table) Clone() *Table {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
-	t.init()
+	// t.init()
 	return t
 }
 
@@ -164,7 +164,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		}
 	}
 
-	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db)
+	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db, t.isPrintSql)
 	if err != nil {
 		return err
 	}
