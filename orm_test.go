@@ -368,13 +368,14 @@ func TestInsert(t *testing.T) {
 			Name string `json:"name,omitempty"`
 			Age  int32  `json:"age,omitempty"`
 			Addr string `json:"addr,omitempty"`
+			Test string `json:"test,omitempty"`
 		}
 		m := Tmp{
 			Name: "xue1234",
 			// Age:  18, // 如果不设置默认值会报错
 			Addr: "成都市",
 		}
-		tableObj := NewTable(db, "man").TagDefault(map[string]interface{}{"age": 10})
+		tableObj := NewTable(db, "man").TagDefault(map[string]interface{}{"age": 0, "test": "1"})
 		res, err := tableObj.Insert(m).Exec()
 		if err != nil {
 			t.Fatal(err)

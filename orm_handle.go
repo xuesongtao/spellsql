@@ -2,7 +2,6 @@ package spellsql
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 )
@@ -15,7 +14,6 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 		return t
 	}
 
-	t.checkNull = true
 	var insertSql *SqlStrObj
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
@@ -41,7 +39,6 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 		return t
 	}
 
-	t.checkNull = true
 	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
@@ -70,7 +67,6 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 		return t
 	}
 
-	t.checkNull = true
 	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
@@ -175,16 +171,16 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...stri
 		}
 
 		if isZero {
-			if t.checkNull { // 检查下 null
-				tmp, ok := t.waitHandleStructFieldMap[tag]
-				if ok && tmp.defaultVal != nil && tableField.NotNull() { // orm 中设置了默认值
-					columns = append(columns, col)
-					values = append(values, tmp.defaultVal)
-				} else if tableField.NotNull() && !tableField.Default.Valid { // db 中设置了默认值
-					return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
-				}
+			// 判断下是否有设置了默认值
+			tmp, ok := t.waitHandleStructFieldMap[tag]
+			if ok && tmp.defaultVal != nil { // orm 中设置了默认值
+				columns = append(columns, col)
+				values = append(values, tmp.defaultVal)
+				continue
 			}
-			continue
+			// if tableField.NotNull() && !tableField.Default.Valid { // db 中没有设置默认值
+			// 	return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
+			// }
 		}
 
 		columns = append(columns, col)
