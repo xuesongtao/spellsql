@@ -1123,7 +1123,8 @@ func TestFindAll(t *testing.T) {
 		var names []string
 		for page := int32(1); page <= int32(totalPage); page++ {
 			var tmp []string
-			err := tableObj.Clone().OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
+			tableObj = tableObj.Clone()
+			err := tableObj.OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
 			if err != nil {
 				t.Fatal(err)
 			}

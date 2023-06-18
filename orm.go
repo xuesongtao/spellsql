@@ -108,7 +108,7 @@ func (t *Table) Clone() *Table {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
-	// t.init()
+	t.printSqlCallSkip = 2
 	return t
 }
 
