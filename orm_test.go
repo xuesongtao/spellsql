@@ -243,6 +243,17 @@ func TestGetNullType(t *testing.T) {
 	}
 }
 
+func TestParseCol2Val(t *testing.T) {
+	m := test.Man{
+		Name: "xue1234",
+		Age:  18,
+		Addr: "成都市",
+	}
+	cols, vals := NewTable(db).ParseCol2Val(&m)
+	t.Log(cols)
+	t.Log(vals)
+}
+
 func TestInsert(t *testing.T) {
 	m := test.Man{
 		Name: "xue1234",

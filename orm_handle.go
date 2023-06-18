@@ -2,6 +2,7 @@ package spellsql
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -178,9 +179,10 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...stri
 				values = append(values, tmp.defaultVal)
 				continue
 			}
-			// if tableField.NotNull() && !tableField.Default.Valid { // db 中没有设置默认值
-			// 	return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
-			// }
+			if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
+				return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
+			}
+			continue
 		}
 
 		columns = append(columns, col)
