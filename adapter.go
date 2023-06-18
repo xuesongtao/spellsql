@@ -10,6 +10,12 @@ const (
 	NotNullFlag = "NO"  // 非空标识
 )
 
+var (
+	_ TableMetaer = &CommonTable{}
+	_ TableMetaer = &MysqlTable{}
+	_ TableMetaer = &PgTable{}
+)
+
 // TableColInfo 表列详情
 type TableColInfo struct {
 	Field   string         // 字段名(必须)

@@ -172,15 +172,17 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...stri
 		}
 
 		if isZero {
-			// 判断下是否有设置了默认值
-			tmp, ok := t.waitHandleStructFieldMap[tag]
-			if ok && tmp.defaultVal != nil { // orm 中设置了默认值
-				columns = append(columns, col)
-				values = append(values, tmp.defaultVal)
-				continue
-			}
-			if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
-				return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
+			if op == INSERT || op == UPDATE {
+				// 判断下是否有设置了默认值
+				tmp, ok := t.waitHandleStructFieldMap[tag]
+				if ok && tmp.defaultVal != nil { // orm 中设置了默认值
+					columns = append(columns, col)
+					values = append(values, tmp.defaultVal)
+					continue
+				}
+				if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
+					return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
+				}
 			}
 			continue
 		}
@@ -202,4 +204,18 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...stri
 		return
 	}
 	return
+}
+
+// ParseCol2Val 根据对象解析表的 col 和 val
+func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interface{}) {
+	defaultOp := INSERT
+	if len(op) > 0 {
+		defaultOp = op[0]
+	}
+	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, t.name)
+	if err != nil {
+		sLog.Error("getHandleTableCol2Val is failed, err:", err)
+		return nil, nil
+	}
+	return columns, values
 }

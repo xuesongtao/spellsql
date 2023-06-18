@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql/test"
@@ -244,14 +245,33 @@ func TestGetNullType(t *testing.T) {
 }
 
 func TestParseCol2Val(t *testing.T) {
-	m := test.Man{
-		Name: "xue1234",
-		Age:  18,
-		Addr: "成都市",
+	tableObj := NewTable(db)
+	var insertSql *SqlStrObj
+	for i := 0; i < 10; i++ {
+		m := test.Man{
+			Name: "xue1234" + "_" + Str(i),
+			Age:  18,
+			Addr: "成都市",
+		}
+		cols, vals := tableObj.ParseCol2Val(&m)
+		// t.Log(cols)
+		// t.Log(vals)
+		if len(cols) != len(vals) {
+			t.Error("it is not ok")
+		}
+		if i == 0 {
+			insertSql = NewCacheSql("INSERT INTO (?v)", strings.Join(cols, ","))
+		}
+		insertSql.SetInsertValues(vals...)
 	}
-	cols, vals := NewTable(db).ParseCol2Val(&m)
-	t.Log(cols)
-	t.Log(vals)
+	if !insertSql.ValueIsEmpty() {
+		insertSql.Append("ON DUPLICATE KEY UPDATE name=VALUES(name)")
+	}
+	res := insertSql.FmtSql()
+	sureMsg := `INSERT INTO (name,age,addr) VALUES ("xue1234_0", 18, "成都市"), ("xue1234_1", 18, "成都市"), ("xue1234_2", 18, "成都市"), ("xue1234_3", 18, "成都市"), ("xue1234_4", 18, "成都市"), ("xue1234_5", 18, "成都市"), ("xue1234_6", 18, "成都市"), ("xue1234_7", 18, "成都市"), ("xue1234_8", 18, "成都市"), ("xue1234_9", 18, "成都市") ON DUPLICATE KEY UPDATE name=VALUES(name)`
+	if res != sureMsg {
+		t.Error("it is no ok")
+	}
 }
 
 func TestInsert(t *testing.T) {
@@ -398,6 +418,27 @@ func TestInsert(t *testing.T) {
 		if r == 0 {
 			t.Error("insert is failed")
 		}
+	})
+
+	t.Run("insert many value to sqlstr", func(t *testing.T) {
+		type Tmp struct {
+			Id   int32  `json:"id,omitempty"`
+			Name string `json:"name,omitempty"`
+			Age  int32  `json:"age,omitempty"`
+			Addr string `json:"addr,omitempty"`
+			Test string `json:"test,omitempty"`
+		}
+		m := Tmp{Name: "xue1234",
+			Age:  18,
+			Addr: "成都市",
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 100; i++ {
+			mm = append(mm, m)
+		}
+		insertSql := NewTable(db, "man").Insert(mm...).GetSqlObj()
+		insertSql.Append("ON DUPLICATE KEY UPDATE addr=VALUES(addr)")
+		t.Log(insertSql.GetSqlStr())
 	})
 }
 
