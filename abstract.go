@@ -21,11 +21,11 @@ type Logger interface {
 
 // TableMetaer 表元信息, 为了适配不同数据库
 type TableMetaer interface {
-	EscapeBytes(b []byte) []byte                                   // 转义
-	GetStrSymbol() byte                                            // 获取值字符串符号
-	GetAdapterName() string                                        // 获取 db name
-	SetTableName(tableName string)                                 // 方便框架调用设置 tableName 参数
-	GetField2ColInfoMap(db DBer) (map[string]*TableColInfo, error) // key: field
+	EscapeBytes(b []byte) []byte                                                  // 转义
+	GetStrSymbol() byte                                                           // 获取值字符串符号
+	GetAdapterName() string                                                       // 获取 db name
+	SetTableName(tableName string)                                                // 方便框架调用设置 tableName 参数
+	GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) // key: field
 }
 
 // SelectCallBackFn 对每行查询结果进行取出处理

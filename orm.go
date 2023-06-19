@@ -32,7 +32,6 @@ type Table struct {
 	isPrintSql               bool                          // 标记是否打印 sql
 	haveFree                 bool                          // 标记 table 释放已释放
 	needSetSize              bool                          // 标记批量查询的时候是否需要设置默认返回条数
-	checkNull                bool                          // 在 Insert 时, db 字段为非 null 时检查
 	tag                      string                        // 记录解析 struct 中字段名的 tag
 	name                     string                        // 表名
 	handleCols               string                        // Insert/Update/Delete/Select 操作的表字段名
@@ -70,7 +69,6 @@ func (t *Table) init() {
 	t.isPrintSql = true
 	t.haveFree = false
 	t.needSetSize = false
-	t.checkNull = false
 	t.tag = defaultTableTag
 }
 
@@ -110,7 +108,7 @@ func (t *Table) Clone() *Table {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
-	t.init()
+	t.printSqlCallSkip = 2
 	return t
 }
 
@@ -164,7 +162,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		}
 	}
 
-	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db)
+	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db, t.isPrintSql)
 	if err != nil {
 		return err
 	}
