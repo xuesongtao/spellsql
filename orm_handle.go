@@ -207,15 +207,14 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...stri
 }
 
 // ParseCol2Val 根据对象解析表的 col 和 val
-func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interface{}) {
+func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interface{}, error) {
 	defaultOp := INSERT
 	if len(op) > 0 {
 		defaultOp = op[0]
 	}
 	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, t.name)
 	if err != nil {
-		sLog.Error("getHandleTableCol2Val is failed, err:", err)
-		return nil, nil
+		return nil, nil, err
 	}
-	return columns, values
+	return columns, values, nil
 }

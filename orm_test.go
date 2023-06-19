@@ -253,7 +253,7 @@ func TestParseCol2Val(t *testing.T) {
 			Age:  18,
 			Addr: "成都市",
 		}
-		cols, vals := tableObj.ParseCol2Val(&m)
+		cols, vals, _ := tableObj.ParseCol2Val(&m)
 		// t.Log(cols)
 		// t.Log(vals)
 		if len(cols) != len(vals) {
