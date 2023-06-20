@@ -405,6 +405,7 @@ func (t *Table) Raw(sql interface{}) *Table {
 		t.tmpSqlObj = NewCacheSql(val)
 	case *SqlStrObj:
 		t.tmpSqlObj = val
+		t.isPrintSql = val.isPrintSqlLog
 	default:
 		sLog.Error("sql only support string/SqlStrObjPtr")
 		return t
