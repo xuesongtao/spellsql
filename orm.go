@@ -168,7 +168,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 	}
 
 	// 缓存
-	cacheTableName2ColInfoMap.Store(t.name, t.cacheCol2InfoMap)
+	cacheTableName2ColInfoMap.Store(tableName, t.cacheCol2InfoMap)
 	return nil
 }
 
@@ -405,7 +405,7 @@ func (t *Table) Raw(sql interface{}) *Table {
 		t.tmpSqlObj = NewCacheSql(val)
 	case *SqlStrObj:
 		t.tmpSqlObj = val
-		t.isPrintSql = val.isPrintSqlLog
+		t.isPrintSql = val.isPrintSqlLog && t.isPrintSql
 	default:
 		sLog.Error("sql only support string/SqlStrObjPtr")
 		return t
