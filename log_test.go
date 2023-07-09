@@ -3,7 +3,7 @@ package spellsql
 import "testing"
 
 func TestCallFile(t *testing.T) {
-	l := NewCjLogger()
+	l := NewLogger()
 	t.Log(l.callInfo(1))
 	t.Log(l.getPrefix(2))
 }
@@ -21,7 +21,7 @@ func TestDemo(t *testing.T) {
 
 func TestFatal(t *testing.T) {
 	t.Skip()
-	l := NewCjLogger()
+	l := NewLogger()
 	// sLog.Fatal("hello fatal")
 	l.Fatalf("hello fatalf: %v", 1)
 }

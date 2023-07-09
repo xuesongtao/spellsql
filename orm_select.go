@@ -69,9 +69,9 @@ func (t *Table) Select(fields string) *Table {
 
 // SelectAuto 根据输入类型进行自动推断要查询的字段值
 // src 如下:
-// 	1. 为 string 的话会被直接解析成查询字段
-// 	2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
-// 	3. 其他情况会被解析为查询所有
+//  1. 为 string 的话会被直接解析成查询字段
+//  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
+//  3. 其他情况会被解析为查询所有
 func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	if len(tableName) > 0 {
 		t.name = tableName[0]
@@ -509,7 +509,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	col2StructFieldMap, _ := t.parseCol2StructField(ty, false)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	values := make([]interface{}, colLen)
-	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
+	destReflectValue := removeValuePtr(reflect.ValueOf(dest))
 	if destReflectValue.IsNil() {
 		destReflectValue.Set(reflect.MakeSlice(destReflectValue.Type(), 0, colLen))
 	}
@@ -560,7 +560,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 	col2StructFieldMap, _ := t.parseCol2StructField(ty, false)
 	values := make([]interface{}, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
-	destReflectValue := reflect.Indirect(reflect.ValueOf(dest))
+	destReflectValue := removeValuePtr(reflect.ValueOf(dest))
 	haveNoData := true
 	for rows.Next() {
 		haveNoData = false

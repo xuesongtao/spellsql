@@ -111,7 +111,7 @@ var (
 
 func init() {
 	logOnce.Do(func() {
-		sLog = NewCjLogger()
+		sLog = NewLogger()
 	})
 }
 

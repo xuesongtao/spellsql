@@ -198,8 +198,15 @@ func parseFileName(filePath string) string {
 
 // removeValuePtr 移除多指针
 func removeValuePtr(v reflect.Value) reflect.Value {
+	last := v
 	for v.Kind() == reflect.Ptr {
+		// 如果最外层是未初始化的指针类型, 就不要再处理了, 直接返回未初始的类型就可以了, 防止 panic Zero Value
+		if v.IsNil() {
+			v = last
+			break
+		}
 		v = v.Elem()
+		last = v
 	}
 	return v
 }
