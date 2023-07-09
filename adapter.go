@@ -18,6 +18,7 @@ var (
 
 // TableColInfo 表列详情
 type TableColInfo struct {
+	Index   int            // 字段在表的位置
 	Field   string         // 字段名(必须)
 	Type    string         // 数据库类型
 	Null    string         // 是否为 NULL(建议)
@@ -35,6 +36,12 @@ func (t *TableColInfo) IsPri() bool {
 func (t *TableColInfo) NotNull() bool {
 	return t.Null == NotNullFlag
 }
+
+type SortByTableColInfo []*TableColInfo
+
+func (a SortByTableColInfo) Len() int           { return len(a) }
+func (a SortByTableColInfo) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a SortByTableColInfo) Less(i, j int) bool { return a[i].Index < a[j].Index }
 
 // Tmer 设置不同数据库表初始化表方式, 调用的时候应该首先调用
 // 说明: 此方法为局部方法, 如果要全局设置可以 GlobalTmer
@@ -140,13 +147,16 @@ func (m *MysqlTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Ta
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
+	var index int
 	for rows.Next() {
 		var info TableColInfo
 		err = rows.Scan(&info.Field, &info.Type, &info.Null, &info.Key, &info.Default, &info.Extra)
 		if err != nil {
 			return nil, fmt.Errorf("mysql scan is failed, err: %v", err)
 		}
+		info.Index = index
 		cacheCol2InfoMap[info.Field] = &info
+		index++
 	}
 	return cacheCol2InfoMap, nil
 }
@@ -205,6 +215,7 @@ func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Table
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
+	var index int
 	for rows.Next() {
 		var (
 			info TableColInfo
@@ -217,7 +228,9 @@ func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Table
 		if key.String == "PRIMARY KEY" {
 			info.Key = PriFlag
 		}
+		info.Index = index
 		cacheCol2InfoMap[info.Field] = &info
+		index++
 	}
 	return cacheCol2InfoMap, nil
 }

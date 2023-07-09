@@ -187,6 +187,33 @@ func TestParseTableName(t *testing.T) {
 	}
 }
 
+func TestGetCols(t *testing.T) {
+	testCases := []struct {
+		desc     string
+		sure     string
+		skipCols []string
+	}{
+		{
+			desc: "all",
+			sure: "id name age addr hobby json_txt nickname xml_txt json1_txt",
+		},
+		{
+			desc:     "skip id, name, age, addr",
+			sure:     "hobby json_txt nickname xml_txt json1_txt",
+			skipCols: []string{"id", "name", "age", "addr"},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			obj := NewTable(db, "man")
+			cols := obj.GetCols(tC.skipCols...)
+			if tC.sure != strings.Join(cols, " ") {
+				t.Error("it no ok")
+			}
+		})
+	}
+}
+
 func TestGetNullType(t *testing.T) {
 	// DROP TABLE IF EXISTS test_col;
 	// CREATE TABLE `test_col` (

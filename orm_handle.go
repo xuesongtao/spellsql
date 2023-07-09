@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 )
 
@@ -217,4 +218,33 @@ func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interfac
 		return nil, nil, err
 	}
 	return columns, values, nil
+}
+
+// GetCols 获取所有列
+func (t *Table) GetCols(skipCols ...string) []string {
+	var skipMap map[string]bool
+	if len(skipCols) > 0 {
+		skipMap = make(map[string]bool, len(skipCols))
+		for _, v := range skipCols {
+			skipMap[v] = true
+		}
+	}
+	if err := t.initCacheCol2InfoMap(); err != nil {
+		sLog.Error("t.initCacheCol2InfoMap is failed, err:", err)
+		return nil
+	}
+	infos := make([]*TableColInfo, 0, len(t.cacheCol2InfoMap))
+	for _, col := range t.cacheCol2InfoMap {
+		if skipMap[col.Field] {
+			continue
+		}
+		infos = append(infos, col)
+	}
+	sort.Sort(SortByTableColInfo(infos))
+	l := len(infos)
+	cols := make([]string, l)
+	for i := 0; i < l; i++ {
+		cols[i] = infos[i].Field
+	}
+	return cols
 }
