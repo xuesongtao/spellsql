@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql/test"
+	// "gitlab.cd.anpro/go/common/spellsql/test"
 )
 
 func TestEscapeBytes(t *testing.T) {
