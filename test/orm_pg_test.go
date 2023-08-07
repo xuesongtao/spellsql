@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql"
+	// "gitlab.cd.anpro/go/common/spellsql"
 	// _ "github.com/lib/pq"
 )
 

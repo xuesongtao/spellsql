@@ -17,25 +17,24 @@ function main() {
         checkIsOk "mkdir -p ${targetDir}"
     fi
 
-    tmpDir="spellsql"
-    if [[ ! -d $tmpDir ]]; then
-        mkdir -p $tmpDir
-    fi
-    cp ./* $tmpDir
-
-    for goFile in $(find $tmpDir -name "*.go"); do
+    curPath=$(pwd)
+    for goFile in $(find . -name "*.go"); do
         # skipFile=$(awk 'BEGIN {print index("'${goFile}'", "benchmark")}') # 不更新的
         # if [[ $skipFile > 0 ]]; then
         #     printf "${goFile} is skip\n"
         #     continue
         # fi
-
+        goFile=${goFile##"./"}
+        echo $goFile
+        # continue
+        # continue
         # gitee.com
         # gitlab.cd.anpro
+        targetFile="${targetDir}/${goFile}"
         sed -e "s/\/\/ \"gitlab.cd.anpro/\"gitlab.cd.anpro/g" \
-            -e "s/\"gitee.com\\/xuesongtao\\/spellsql\\/test\"/\/\/ \"gitee.com\\/xuesongtao\\/spellsql\\/test\"/g" \
-            $goFile >"${XJ_COMMON_DIR}/${goFile}"
-        checkIsOk "repalce: $goFile ${targetDir}"
+            -e "s/\"gitee.com\\/xuesongtao\\/spellsql/\/\/ \"gitee.com\\/xuesongtao\\/spellsql/g" \
+            $goFile >$targetFile
+        checkIsOk "repalce: ${goFile} ${targetFile}"
     done
 
     # 将 readme.md 也移动过去
