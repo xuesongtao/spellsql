@@ -200,6 +200,10 @@ func TestInsertForPg(t *testing.T) {
 		for i := 0; i < size; i++ {
 			tmp := m
 			tmp.Name += "_" + fmt.Sprint(i)
+			if i == 1 {
+				tmp.Hobby = ""
+				tmp.Age = 1
+			}
 			mm = append(mm, tmp)
 		}
 		res, err := tableObj.Insert(mm...).Exec()
