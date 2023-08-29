@@ -134,16 +134,16 @@ func TestTmp(t *testing.T) {
 
 func TestParseTable(t *testing.T) {
 	m := test.Man{
-		Id:   1,
-		Name: "测试",
-		// Age:      20,
+		Id:       1,
+		Name:     "测试",
+		Age:      20,
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
-	c, v, e := NewTable(db).getHandleTableCol2Val(m, INSERT, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, INSERT, nil, "man")
 	t.Log(c, v, e)
 
-	c, v, e = NewTable(db).getHandleTableCol2Val(m, UPDATE, "man")
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, UPDATE, nil, "man")
 	t.Log(c, v, e)
 }
 
