@@ -74,6 +74,21 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 	return t
 }
 
+// InsertsODKU insert 主键冲突更新批量
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
+	t.Insert(insertObjs...)
+	tmp := t.tmpSqlObj
+	kv := make([]string, 0)
+	for _, key := range keys {
+		kv = append(kv, key+"=VALUES("+key+")")
+	}
+
+	tmp.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
+	t.tmpSqlObj = tmp
+	return t
+}
+
 // InsertIg insert ignore into xxx  新增忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertIg(insertObj interface{}) *Table {
@@ -91,6 +106,15 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 	insertSql.SetStrSymbol(t.getStrSymbol())
 	insertSql.SetInsertValues(values...)
 	t.tmpSqlObj = insertSql
+	return t
+}
+
+// InsertsIg insert ignore into xxx  新增批量忽略
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertsIg(insertObj ...interface{}) *Table {
+	t.Insert(insertObj...)
+	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
+	t.tmpSqlObj = NewCacheSql(insertSqlStr)
 	return t
 }
 
