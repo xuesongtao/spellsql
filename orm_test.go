@@ -467,6 +467,58 @@ func TestInsert(t *testing.T) {
 		insertSql.Append("ON DUPLICATE KEY UPDATE addr=VALUES(addr)")
 		t.Log(insertSql.GetSqlStr())
 	})
+
+	t.Run("insert many value to for on duplicate key update", func(t *testing.T) {
+		type Tmp struct {
+			Id   int32  `json:"id,omitempty"`
+			Name string `json:"name,omitempty"`
+			Age  int32  `json:"age,omitempty"`
+			Addr string `json:"addr,omitempty"`
+			Test string `json:"test,omitempty"`
+		}
+		m := Tmp{Name: "xue1234",
+			Age:  18,
+			Addr: "成都市",
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 100; i++ {
+			tmp := m
+			if i > 0 && i%3 == 0 {
+				tmp.Addr = ""
+			}
+			mm = append(mm, tmp)
+		}
+		_, err := NewTable(db, "man").InsertsODKU(mm, "addr").Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("insert many value to for on duplicate ignore", func(t *testing.T) {
+		type Tmp struct {
+			Id   int32  `json:"id,omitempty"`
+			Name string `json:"name,omitempty"`
+			Age  int32  `json:"age,omitempty"`
+			Addr string `json:"addr,omitempty"`
+			Test string `json:"test,omitempty"`
+		}
+		m := Tmp{Name: "xue1234",
+			Age:  18,
+			Addr: "成都市",
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 100; i++ {
+			tmp := m
+			if i > 0 && i%3 == 0 {
+				tmp.Addr = ""
+			}
+			mm = append(mm, tmp)
+		}
+		_, err := NewTable(db, "man").InsertsIg(mm...).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func TestDelete(t *testing.T) {
