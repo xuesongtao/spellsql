@@ -146,10 +146,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 	}
 
 	// 获取表元数据
-	err := t.initTmer()
-	if err != nil {
-		return err
-	}
+	t.initTmer()
 
 	// 防止 name 中包含 别名, 格式为: "db_name"
 	tableName := t.tmer.GetAdapterName() + "_" + parseTableName(t.name)
@@ -162,6 +159,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		}
 	}
 
+	var err error
 	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db, t.isPrintSql)
 	if err != nil {
 		return err
@@ -173,21 +171,19 @@ func (t *Table) initCacheCol2InfoMap() error {
 }
 
 // initTmer 初始化表元数据对象
-func (t *Table) initTmer() error {
+func (t *Table) initTmer() {
 	// 默认按 mysql 的方式处理
 	if t.tmer == nil {
 		t.tmer = getTmerFn()
 	}
-	if null(t.name) {
-		return tableNameIsUnknownErr
+	if !null(t.name) {
+		t.tmer.SetTableName(t.name)
 	}
-	t.tmer.SetTableName(t.name)
-	return nil
 }
 
 // getStrSymbol 获取适配器对应的字符串对应符号
 func (t *Table) getStrSymbol() byte {
-	_ = t.initTmer()
+	t.initTmer()
 	return t.tmer.GetStrSymbol()
 }
 
@@ -444,6 +440,23 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 		return errors.New("tmpSqlObj is nil")
 	}
 	return nil
+}
+
+// GetParcelFields 获取数据库包裹字段后的字段内容, 会根据数据库的不同结果不同
+// 如: mysql: `id`; pg: "id"
+func (t *Table) GetParcelFields(fields ...string) string {
+	return strings.Join(t.getParcelFieldArr(fields...), ", ")
+}
+
+// getParcelFieldArr 获取被包裹字段内容
+func (t *Table) getParcelFieldArr(fields ...string) []string {
+	t.initTmer()
+	res := make([]string, 0, len(fields))
+	parcelStr := string(t.tmer.GetParcelFieldSymbol())
+	for _, field := range fields {
+		res = append(res, parcelStr+field+parcelStr)
+	}
+	return res
 }
 
 // parseTableName 解析表名

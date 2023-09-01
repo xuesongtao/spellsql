@@ -27,7 +27,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 			return t
 		}
 		if i == 0 {
-			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 			insertSql.SetStrSymbol(t.getStrSymbol())
 			needCols = t.getNeedCols(columns)
 		}
@@ -59,7 +59,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
-	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 	insertSql.SetStrSymbol(t.getStrSymbol())
 	insertSql.SetInsertValues(values...)
 	kv := make([]string, 0, len(columns))
@@ -80,6 +80,7 @@ func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
 	t.Insert(insertObjs...)
 	tmp := t.tmpSqlObj
 	kv := make([]string, 0)
+	keys = t.getParcelFieldArr(keys...)
 	for _, key := range keys {
 		kv = append(kv, key+"=VALUES("+key+")")
 	}
@@ -102,7 +103,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
-	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 	insertSql.SetStrSymbol(t.getStrSymbol())
 	insertSql.SetInsertValues(values...)
 	t.tmpSqlObj = insertSql
@@ -133,7 +134,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		for i := 0; i < l; i++ {
 			k := columns[i]
 			v := values[i]
-			t.tmpSqlObj.SetWhereArgs("?v = ?", k, v)
+			t.tmpSqlObj.SetWhereArgs("?v = ?", t.GetParcelFields(k), v)
 		}
 	} else {
 		if null(t.name) {
@@ -159,7 +160,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]
-		t.tmpSqlObj.SetUpdateValueArgs("?v = ?", k, v)
+		t.tmpSqlObj.SetUpdateValueArgs("?v = ?", t.GetParcelFields(k), v)
 	}
 	t.tmpSqlObj.SetWhereArgs(where, args...)
 	return t

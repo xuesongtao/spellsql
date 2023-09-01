@@ -111,7 +111,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		if len(selectFields) == 0 {
 			sLog.Error("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
 		}
-		t.Select(strings.Join(selectFields, ", "))
+		t.Select(t.GetParcelFields(selectFields...))
 	default:
 		if t.isOneField(kind) { // 因为单字段不能解析查内容, 所以直接返回, 在最终调用处报错
 			return t
@@ -158,11 +158,11 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 	if !t.sqlObjIsNil() {
 		switch likeType {
 		case ALK:
-			t.tmpSqlObj.SetAllLike(filedName, value)
+			t.tmpSqlObj.SetAllLike(t.GetParcelFields(filedName), value)
 		case RLK:
-			t.tmpSqlObj.SetRightLike(filedName, value)
+			t.tmpSqlObj.SetRightLike(t.GetParcelFields(filedName), value)
 		case LLK:
-			t.tmpSqlObj.SetLeftLike(filedName, value)
+			t.tmpSqlObj.SetLeftLike(t.GetParcelFields(filedName), value)
 		}
 	}
 	return t
@@ -171,7 +171,7 @@ func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 // AllLike 全模糊查询
 func (t *Table) AllLike(filedName, value string) *Table {
 	if !t.sqlObjIsNil() {
-		t.tmpSqlObj.SetAllLike(filedName, value)
+		t.tmpSqlObj.SetAllLike(t.GetParcelFields(filedName), value)
 	}
 	return t
 }
@@ -179,7 +179,7 @@ func (t *Table) AllLike(filedName, value string) *Table {
 // LeftLike 左模糊
 func (t *Table) LeftLike(filedName, value string) *Table {
 	if !t.sqlObjIsNil() {
-		t.tmpSqlObj.SetLeftLike(filedName, value)
+		t.tmpSqlObj.SetLeftLike(t.GetParcelFields(filedName), value)
 	}
 	return t
 }
@@ -187,7 +187,7 @@ func (t *Table) LeftLike(filedName, value string) *Table {
 // RightLike 右模糊
 func (t *Table) RightLike(filedName, value string) *Table {
 	if !t.sqlObjIsNil() {
-		t.tmpSqlObj.SetRightLike(filedName, value)
+		t.tmpSqlObj.SetRightLike(t.GetParcelFields(filedName), value)
 	}
 	return t
 }
@@ -195,7 +195,7 @@ func (t *Table) RightLike(filedName, value string) *Table {
 // Between
 func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
 	if !t.sqlObjIsNil() {
-		t.tmpSqlObj.SetBetween(filedName, leftVal, rightVal)
+		t.tmpSqlObj.SetBetween(t.GetParcelFields(filedName), leftVal, rightVal)
 	}
 	return t
 }

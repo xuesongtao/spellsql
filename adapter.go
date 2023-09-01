@@ -71,6 +71,10 @@ func (c *CommonTable) GetStrSymbol() byte {
 	return '"'
 }
 
+func (c *CommonTable) GetParcelFieldSymbol() byte {
+	return '`'
+}
+
 func (c *CommonTable) GetAdapterName() string {
 	c.noImplement("GetAdapterName")
 	return ""
@@ -193,6 +197,10 @@ func (p *PgTable) GetAdapterName() string {
 
 func (p *PgTable) SetTableName(name string) {
 	p.initArgs[1] = name
+}
+
+func (p *PgTable) GetParcelFieldSymbol() byte {
+	return '"'
 }
 
 func (p *PgTable) GetStrSymbol() byte {
