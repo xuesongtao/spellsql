@@ -174,7 +174,7 @@ type PgTable struct {
 	initArgs []string
 }
 
-// Pg
+// Pg, 默认模式: public
 // initArgs 允许自定义两个参数
 // initArgs[0] 为 schema
 // initArgs[1] 为 table name (此参数可以忽略, 因为 orm 内部会处理该值)
@@ -187,6 +187,9 @@ func Pg(initArgs ...string) *PgTable {
 	case 2:
 		obj.initArgs[0] = initArgs[0]
 		obj.initArgs[1] = initArgs[1]
+	}
+	if l == 0 {
+		obj.initArgs[0] = "public"
 	}
 	return obj
 }
