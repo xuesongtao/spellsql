@@ -16,21 +16,34 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 		return t
 	}
 
-	var insertSql *SqlStrObj
+	var (
+		insertSql *SqlStrObj
+		needCols  map[string]bool
+	)
 	for i, insertObj := range insertObjs {
-		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, needCols, t.name)
 		if err != nil {
 			sLog.Error("getHandleTableCol2Val is failed, err:", err)
 			return t
 		}
 		if i == 0 {
-			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 			insertSql.SetStrSymbol(t.getStrSymbol())
+			needCols = t.getNeedCols(columns)
 		}
 		insertSql.SetInsertValues(values...)
 	}
 	t.tmpSqlObj = insertSql
 	return t
+}
+
+// getNeedCols 获取需要 cols
+func (t *Table) getNeedCols(cols []string) map[string]bool {
+	res := make(map[string]bool, len(cols))
+	for _, col := range cols {
+		res[col] = true
+	}
+	return res
 }
 
 // InsertODKU insert 主键冲突更新
@@ -41,12 +54,12 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 		return t
 	}
 
-	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
+	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, nil, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
-	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 	insertSql.SetStrSymbol(t.getStrSymbol())
 	insertSql.SetInsertValues(values...)
 	kv := make([]string, 0, len(columns))
@@ -61,6 +74,22 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 	return t
 }
 
+// InsertsODKU insert 主键冲突更新批量
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
+	t.Insert(insertObjs...)
+	tmp := t.tmpSqlObj
+	kv := make([]string, 0)
+	keys = t.getParcelFieldArr(keys...)
+	for _, key := range keys {
+		kv = append(kv, key+"=VALUES("+key+")")
+	}
+
+	tmp.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
+	t.tmpSqlObj = tmp
+	return t
+}
+
 // InsertIg insert ignore into xxx  新增忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertIg(insertObj interface{}) *Table {
@@ -69,15 +98,24 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 		return t
 	}
 
-	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, t.name)
+	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, nil, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
-	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, strings.Join(columns, ", "))
+	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 	insertSql.SetStrSymbol(t.getStrSymbol())
 	insertSql.SetInsertValues(values...)
 	t.tmpSqlObj = insertSql
+	return t
+}
+
+// InsertsIg insert ignore into xxx  新增批量忽略
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertsIg(insertObj ...interface{}) *Table {
+	t.Insert(insertObj...)
+	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
+	t.tmpSqlObj = NewCacheSql(insertSqlStr)
 	return t
 }
 
@@ -85,7 +123,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
-		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], DELETE, t.name)
+		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], DELETE, nil, t.name)
 		if err != nil {
 			sLog.Error("getHandleTableCol2Val is failed, err:", err)
 			return t
@@ -96,7 +134,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		for i := 0; i < l; i++ {
 			k := columns[i]
 			v := values[i]
-			t.tmpSqlObj.SetWhereArgs("?v = ?", k, v)
+			t.tmpSqlObj.SetWhereArgs("?v = ?", t.GetParcelFields(k), v)
 		}
 	} else {
 		if null(t.name) {
@@ -111,7 +149,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 // Update 会更新输入的值
 // 默认排除更新主键, 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
-	columns, values, err := t.getHandleTableCol2Val(updateObj, UPDATE, t.name)
+	columns, values, err := t.getHandleTableCol2Val(updateObj, UPDATE, nil, t.name)
 	if err != nil {
 		sLog.Error("getHandleTableCol2Val is failed, err:", err)
 		return t
@@ -122,7 +160,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]
-		t.tmpSqlObj.SetUpdateValueArgs("?v = ?", k, v)
+		t.tmpSqlObj.SetUpdateValueArgs("?v = ?", t.GetParcelFields(k), v)
 	}
 	t.tmpSqlObj.SetWhereArgs(where, args...)
 	return t
@@ -130,7 +168,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 
 // getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
 // 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
-func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...string) (columns []string, values []interface{}, err error) {
+func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool, tableName ...string) (columns []string, values []interface{}, err error) {
 	tv := removeValuePtr(reflect.ValueOf(v))
 	if tv.Kind() != reflect.Struct {
 		err = errors.New("it must is struct")
@@ -185,7 +223,10 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, tableName ...stri
 					return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
 				}
 			}
-			continue
+			// 外部需要的跳过
+			if !needCols[col] {
+				continue
+			}
 		}
 
 		columns = append(columns, col)
@@ -213,7 +254,7 @@ func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interfac
 	if len(op) > 0 {
 		defaultOp = op[0]
 	}
-	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, t.name)
+	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, nil, t.name)
 	if err != nil {
 		return nil, nil, err
 	}

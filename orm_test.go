@@ -123,18 +123,25 @@ func TestTmp(t *testing.T) {
 	t.Log(mm)
 }
 
+func TestGetParcelFields(t *testing.T) {
+	obj := NewTable(nil)
+	t.Log(obj.GetParcelFields("id", "name", "age"))
+	obj.Tmer(Pg())
+	t.Log(obj.GetParcelFields("id", "name", "age"))
+}
+
 func TestParseTable(t *testing.T) {
 	m := test.Man{
-		Id:   1,
-		Name: "测试",
-		// Age:      20,
+		Id:       1,
+		Name:     "测试",
+		Age:      20,
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
-	c, v, e := NewTable(db).getHandleTableCol2Val(m, INSERT, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, INSERT, nil, "man")
 	t.Log(c, v, e)
 
-	c, v, e = NewTable(db).getHandleTableCol2Val(m, UPDATE, "man")
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, UPDATE, nil, "man")
 	t.Log(c, v, e)
 }
 
@@ -457,6 +464,58 @@ func TestInsert(t *testing.T) {
 		insertSql := NewTable(db, "man").Insert(mm...).GetSqlObj()
 		insertSql.Append("ON DUPLICATE KEY UPDATE addr=VALUES(addr)")
 		t.Log(insertSql.GetSqlStr())
+	})
+
+	t.Run("insert many value to for on duplicate key update", func(t *testing.T) {
+		type Tmp struct {
+			Id   int32  `json:"id,omitempty"`
+			Name string `json:"name,omitempty"`
+			Age  int32  `json:"age,omitempty"`
+			Addr string `json:"addr,omitempty"`
+			Test string `json:"test,omitempty"`
+		}
+		m := Tmp{Name: "xue1234",
+			Age:  18,
+			Addr: "成都市",
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 100; i++ {
+			tmp := m
+			if i > 0 && i%3 == 0 {
+				tmp.Addr = ""
+			}
+			mm = append(mm, tmp)
+		}
+		_, err := NewTable(db, "man").InsertsODKU(mm, "addr").Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("insert many value to for on duplicate ignore", func(t *testing.T) {
+		type Tmp struct {
+			Id   int32  `json:"id,omitempty"`
+			Name string `json:"name,omitempty"`
+			Age  int32  `json:"age,omitempty"`
+			Addr string `json:"addr,omitempty"`
+			Test string `json:"test,omitempty"`
+		}
+		m := Tmp{Name: "xue1234",
+			Age:  18,
+			Addr: "成都市",
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 100; i++ {
+			tmp := m
+			if i > 0 && i%3 == 0 {
+				tmp.Addr = ""
+			}
+			mm = append(mm, tmp)
+		}
+		_, err := NewTable(db, "man").InsertsIg(mm...).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
 }
 

@@ -84,7 +84,7 @@ var (
 
 // FreeTmerFlag 是否每次调用 orm 完后需要释放 tmer
 // 如果都是适配相同的数据库, 则可以设置 false, 避免每次都需要初始化适配器
-// 反正应该设置为 true
+// 反之应该设置为 true
 func FreeTmerFlag(is bool) {
 	isFreeTmerFlag = is
 }
