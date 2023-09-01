@@ -23,6 +23,7 @@ type Logger interface {
 type TableMetaer interface {
 	EscapeBytes(b []byte) []byte                                                  // 转义
 	GetStrSymbol() byte                                                           // 获取值字符串符号
+	GetParcelFieldSymbol() byte                                                   // 获取字段包裹符号
 	GetAdapterName() string                                                       // 获取 db name
 	SetTableName(tableName string)                                                // 方便框架调用设置 tableName 参数
 	GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) // key: field

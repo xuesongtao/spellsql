@@ -124,6 +124,13 @@ func TestTmp(t *testing.T) {
 	t.Log(mm)
 }
 
+func TestGetParcelFields(t *testing.T) {
+	obj := NewTable(nil)
+	t.Log(obj.GetParcelFields("id", "name", "age"))
+	obj.Tmer(Pg())
+	t.Log(obj.GetParcelFields("id", "name", "age"))
+}
+
 func TestParseTable(t *testing.T) {
 	m := test.Man{
 		Id:       1,
