@@ -11,6 +11,7 @@ import (
 // Insert 提交, 支持批量提交
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
+	// 默认插入全量字段
 	return t.insert(nil, insertObjs...)
 }
 
@@ -48,6 +49,10 @@ func (t *Table) insert(cols []string, insertObjs ...interface{}) *Table {
 
 // getNeedCols 获取需要 cols
 func (t *Table) getNeedCols(cols []string) map[string]bool {
+	if len(cols) == 0 {
+		cols = t.GetCols() // 获取全量字段
+	}
+
 	res := make(map[string]bool, len(cols))
 	for _, col := range cols {
 		res[col] = true
@@ -86,7 +91,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
-	t.Insert(insertObjs...)
+	t.insert(nil, insertObjs...)
 	tmp := t.tmpSqlObj
 	kv := make([]string, 0)
 	keys = t.getParcelFieldArr(keys...)
@@ -121,8 +126,8 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 
 // InsertsIg insert ignore into xxx  新增批量忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) InsertsIg(insertObj ...interface{}) *Table {
-	t.Insert(insertObj...)
+func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
+	t.insert(nil, insertObjs...)
 	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
 	t.tmpSqlObj = NewCacheSql(insertSqlStr)
 	return t
@@ -235,7 +240,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		}
 
 		// 需要的跳过
-		if !needCols[col] {
+		if needCols != nil && !needCols[col] {
 			continue
 		}
 
