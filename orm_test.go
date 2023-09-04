@@ -518,6 +518,23 @@ func TestInsert(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+
+	t.Run("insert field", func(t *testing.T) {
+		tableObj := NewTable(db, "man")
+		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
+		res, err := tableObj.InsertOfFields(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
 }
 
 func TestDelete(t *testing.T) {
