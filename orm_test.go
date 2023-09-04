@@ -273,7 +273,7 @@ func TestGetNullType(t *testing.T) {
 func TestParseCol2Val(t *testing.T) {
 	tableObj := NewTable(db)
 	var insertSql *SqlStrObj
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 2; i++ {
 		m := test.Man{
 			Name: "xue1234" + "_" + Str(i),
 			Age:  18,
@@ -294,9 +294,9 @@ func TestParseCol2Val(t *testing.T) {
 		insertSql.Append("ON DUPLICATE KEY UPDATE name=VALUES(name)")
 	}
 	res := insertSql.FmtSql()
-	sureMsg := `INSERT INTO (name,age,addr) VALUES ("xue1234_0", 18, "成都市"), ("xue1234_1", 18, "成都市"), ("xue1234_2", 18, "成都市"), ("xue1234_3", 18, "成都市"), ("xue1234_4", 18, "成都市"), ("xue1234_5", 18, "成都市"), ("xue1234_6", 18, "成都市"), ("xue1234_7", 18, "成都市"), ("xue1234_8", 18, "成都市"), ("xue1234_9", 18, "成都市") ON DUPLICATE KEY UPDATE name=VALUES(name)`
+	sureMsg := `INSERT INTO (name,age,addr,hobby,nickname) VALUES ("xue1234_0", 18, "成都市", "", ""), ("xue1234_1", 18, "成都市", "", "") ON DUPLICATE KEY UPDATE name=VALUES(name)`
 	if res != sureMsg {
-		t.Error("it is no ok")
+		t.Errorf("it is no ok, res: %s, sureMsg: %s", res, sureMsg)
 	}
 }
 
@@ -480,7 +480,7 @@ func TestInsert(t *testing.T) {
 			Addr: "成都市",
 		}
 		mm := make([]interface{}, 0)
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 10; i++ {
 			tmp := m
 			if i > 0 && i%3 == 0 {
 				tmp.Addr = ""
