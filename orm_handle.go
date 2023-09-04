@@ -11,6 +11,15 @@ import (
 // Insert 提交, 支持批量提交
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
+	return t.insert(nil, insertObjs...)
+}
+
+// InsertOfField 批量新增, 指定新增列
+func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
+	return t.insert(cols, insertObjs...)
+}
+
+func (t *Table) insert(cols []string, insertObjs ...interface{}) *Table {
 	if len(insertObjs) == 0 {
 		sLog.Error("insertObjs is empty")
 		return t
@@ -18,7 +27,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 
 	var (
 		insertSql *SqlStrObj
-		needCols  map[string]bool
+		needCols  = t.getNeedCols(cols)
 	)
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, needCols, t.name)
@@ -223,10 +232,11 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 					return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
 				}
 			}
-			// 外部需要的跳过
-			if !needCols[col] {
-				continue
-			}
+		}
+
+		// 需要的跳过
+		if !needCols[col] {
+			continue
 		}
 
 		columns = append(columns, col)

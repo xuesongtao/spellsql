@@ -48,8 +48,11 @@ func (a SortByTableColInfo) Less(i, j int) bool { return a[i].Index < a[j].Index
 // 如: NewTable(db).Tmer(Pg("man")).xxx
 func (t *Table) Tmer(obj TableMetaer) *Table {
 	if obj != nil { // 出现了修改, 打印下 log
-		old := t.tmer
-		if old != obj {
+		var old TableMetaer
+		if t.tmer != nil {
+			old = t.tmer
+		}
+		if old != nil && old != obj {
 			sLog.Warningf("Tmer old %q to new %q", old.GetAdapterName(), obj.GetAdapterName())
 		}
 		t.tmer = obj
