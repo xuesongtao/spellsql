@@ -28,37 +28,38 @@ type SqlStrObj struct {
 	whereBuf        strings.Builder // 记录 WHERE 条件
 	valuesBuf       strings.Builder // 记录 INSERT/UPDATE 设置的值
 	extBuf          strings.Builder // 追加到最后, 辅助字段
+	escapeMap       map[byte][]byte // 对 UPDATE/INSERT 操作中值进行转义, map: key 为待转义的字符, value [0]为如何处理转义 [1]转义为
 }
 
 // NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效(有缓存)
 //
-// 1. 注意:
-// 		a. 此函数只支持调用一次 GetSqlStr 方法, 如果要调用多次需要使用 NewSql
-// 		b. 此函数不支持 Clone 方法, 如果要使用 Clone 需要调用 NewSql
-//      说明: 是防止同一对象被两个协程共同使用
+//  1. 注意:
+//     a. 此函数只支持调用一次 GetSqlStr 方法, 如果要调用多次需要使用 NewSql
+//     b. 此函数不支持 Clone 方法, 如果要使用 Clone 需要调用 NewSql
+//     说明: 是防止同一对象被两个协程共同使用
 //
-// 2. 占位符为: ?, 直接根据 args 中类型来自动推动 arg 的类型
-//      第一种用法: 根据 args 中类型来自动推动 arg 的类型
-//      如: NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?", "test", 123)
-//      => SELECT username, password FROM sys_user WHERE username = "test" AND password = 123
+//  2. 占位符为: ?, 直接根据 args 中类型来自动推动 arg 的类型
+//     第一种用法: 根据 args 中类型来自动推动 arg 的类型
+//     如: NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?", "test", 123)
+//     => SELECT username, password FROM sys_user WHERE username = "test" AND password = 123
 //
-// 		第二种用法: 当 arg 为 []int8/int 等
-// 		如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?)", []int{1, 2, 3})
-// 		=> SELECT username, password FROM sys_user WHERE id IN (1,2,3)
+//     第二种用法: 当 arg 为 []int8/int 等
+//     如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?)", []int{1, 2, 3})
+//     => SELECT username, password FROM sys_user WHERE id IN (1,2,3)
 //
-// 3. 占位符为: ?d, 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 0, 如: "123" => 123; []string{"1", "2", "3"} => 1,2,3
-// 		第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个
-// 		如: NewCacheSql("SELECT username, password FROM sys_user WHERE id = ?d", "123")
-// 		=> SELECT username, password FROM sys_user WHERE id = 123
+//  3. 占位符为: ?d, 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 0, 如: "123" => 123; []string{"1", "2", "3"} => 1,2,3
+//     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个
+//     如: NewCacheSql("SELECT username, password FROM sys_user WHERE id = ?d", "123")
+//     => SELECT username, password FROM sys_user WHERE id = 123
 //
-//      第二种用法: 当 arg 为 []string, 又想把解析后的单个元素不加引号
-// 		如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?d)", []string{"1", "2", "3"})
-// 		=> SELECT username, password FROM sys_user WHERE id IN (1,2,3)
+//     第二种用法: 当 arg 为 []string, 又想把解析后的单个元素不加引号
+//     如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?d)", []string{"1", "2", "3"})
+//     => SELECT username, password FROM sys_user WHERE id IN (1,2,3)
 //
-// 4. 占位符为: ?v, 这样会让字符串类型不加引号, 原样输出, 如: "test" => test;
-// 		第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型
-// 		如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123")
-// 		=> SELECT username, password FROM sys_user WHERE id = 123
+//  4. 占位符为: ?v, 这样会让字符串类型不加引号, 原样输出, 如: "test" => test;
+//     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型
+//     如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123")
+//     => SELECT username, password FROM sys_user WHERE id = 123
 func NewCacheSql(sqlStr string, args ...interface{}) *SqlStrObj {
 	obj := sqlSyncPool.Get().(*SqlStrObj)
 	obj.initSql(sqlStr, args...)
@@ -204,7 +205,7 @@ func (s *SqlStrObj) free(isNeedPutPool bool) {
 }
 
 // SetStrSymbol 设置在解析值时字符串符号, 不同的数据库符号不同
-// 如: mysql 字符串值可以用 ""或''; pg 字符串值只能用 ''
+// 如: mysql 字符串值可以用 ""或”; pg 字符串值只能用 ”
 func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
 	if !equal(strSymbol, '"') && !equal(strSymbol, '\'') {
 		return s
@@ -262,7 +263,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			// 如果占位符?在最后一位时, 就不往下执行了防止 panic
 			if i >= sqlLen-1 {
 				buf.WriteByte(s.strSymbol)
-				buf.WriteString(toEscape(val, false))
+				buf.WriteString(toEscape(val, false, s.escapeMap))
 				buf.WriteByte(s.strSymbol)
 				break
 			}
@@ -270,14 +271,14 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			// 判断下如果为 ?d 字符的话, 这里不需要加引号
 			// 如果包含字母的话, 就转为 0, 防止数字型注入
 			if sqlStr[i+1] == 'd' {
-				buf.WriteString(toEscape(val, true))
+				buf.WriteString(toEscape(val, true, s.escapeMap))
 				i++
 			} else if sqlStr[i+1] == 'v' { // 原样输出
 				buf.WriteString(val)
 				i++
 			} else {
 				buf.WriteByte(s.strSymbol)
-				buf.WriteString(toEscape(val, false))
+				buf.WriteString(toEscape(val, false, s.escapeMap))
 				buf.WriteByte(s.strSymbol)
 			}
 		case []string:
@@ -294,7 +295,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 					if isAdd {
 						buf.WriteByte(s.strSymbol)
 					}
-					buf.WriteString(toEscape(val[i1], !isAdd))
+					buf.WriteString(toEscape(val[i1], !isAdd, s.escapeMap))
 					if isAdd {
 						buf.WriteByte(s.strSymbol)
 					}
@@ -306,7 +307,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				// 最后一个占位符
 				for i1 := 0; i1 <= lastIndex; i1++ {
 					buf.WriteByte(s.strSymbol)
-					buf.WriteString(toEscape(val[i1], false))
+					buf.WriteString(toEscape(val[i1], false, s.escapeMap))
 					buf.WriteByte(s.strSymbol)
 					if i1 < lastIndex {
 						buf.WriteByte(',')
@@ -405,6 +406,12 @@ func (s *SqlStrObj) SqlStrLen() int {
 // SetCallerSkip 设置打印调用跳过的层数
 func (s *SqlStrObj) SetCallerSkip(skip uint8) *SqlStrObj {
 	s.callerSkip = skip
+	return s
+}
+
+// SetEscapeMap 设置对值的转义处理
+func (s *SqlStrObj) SetEscapeMap(escapeMap map[byte][]byte) *SqlStrObj {
+	s.escapeMap = escapeMap
 	return s
 }
 

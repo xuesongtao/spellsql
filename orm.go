@@ -188,7 +188,7 @@ func (t *Table) initTmer() {
 // getStrSymbol 获取适配器对应的字符串对应符号
 func (t *Table) getStrSymbol() byte {
 	t.initTmer()
-	return t.tmer.GetStrSymbol()
+	return t.tmer.GetValueStrSymbol()
 }
 
 // setWaitHandleStructFieldMap 设置 waitHandleStructFieldMap 值
