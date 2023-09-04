@@ -105,6 +105,10 @@ func (t *Table) free() {
 // Clone 克隆对象
 func (t *Table) Clone() *Table {
 	if null(t.clonedSqlStr) {
+		// 没有数据时, 这里为 nil
+		if t.tmpSqlObj == nil {
+			t.tmpSqlObj = NewCacheSql("clone")
+		}
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
 	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
