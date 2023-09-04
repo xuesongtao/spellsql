@@ -66,12 +66,12 @@ func (t *Table) Tmer(obj TableMetaer) *Table {
 type CommonTable struct {
 }
 
-func (c *CommonTable) EscapeBytes(b []byte) []byte {
-	return b
+func (c *CommonTable) GetValueStrSymbol() byte {
+	return '"'
 }
 
-func (c *CommonTable) GetStrSymbol() byte {
-	return '"'
+func (c *CommonTable) GetValueEscapeMap() map[byte][]byte {
+	return GetValueEscapeMap()
 }
 
 func (c *CommonTable) GetParcelFieldSymbol() byte {
@@ -102,36 +102,12 @@ func (c *CommonTable) noImplement(name string) {
 
 type MysqlTable struct {
 	CommonTable
-	initArgs       []string
-	escapeBytesMap map[byte]bool
+	initArgs []string
 }
 
 // Mysql
 func Mysql() *MysqlTable {
-	return &MysqlTable{escapeBytesMap: map[byte]bool{
-		// json 处理
-		'n': true,
-		'r': true,
-		't': true,
-	}}
-}
-
-func (m *MysqlTable) EscapeBytes(b []byte) []byte {
-	vLen := len(b)
-	buf := make([]byte, 0, vLen)
-	for i := 0; i < vLen; i++ {
-		v := b[i]
-		buf = append(buf, v)
-		switch v {
-		case '\\': // json 符号转义
-			vv := b[i+1]
-			if m.escapeBytesMap[vv] {
-				buf = append(buf, '\\', vv)
-				i++
-			}
-		}
-	}
-	return buf
+	return &MysqlTable{}
 }
 
 func (m *MysqlTable) GetAdapterName() string {
@@ -209,7 +185,14 @@ func (p *PgTable) GetParcelFieldSymbol() byte {
 	return '"'
 }
 
-func (p *PgTable) GetStrSymbol() byte {
+func (p *PgTable) GetValueEscapeMap() map[byte][]byte {
+	escapeMap := GetValueEscapeMap()
+	// 将 "'" 进行转义
+	escapeMap['\''] = []byte{'\'', '\''}
+	return escapeMap
+}
+
+func (p *PgTable) GetValueStrSymbol() byte {
 	return '\''
 }
 

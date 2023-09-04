@@ -12,39 +12,44 @@ import (
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	// 默认插入全量字段
-	return t.insert(nil, insertObjs...)
+	t.insert(nil, insertObjs...)
+	return t
 }
 
 // InsertOfField 批量新增, 指定新增列
 func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
-	return t.insert(cols, insertObjs...)
+	t.insert(cols, insertObjs...)
+	return t
 }
 
-func (t *Table) insert(cols []string, insertObjs ...interface{}) *Table {
+func (t *Table) insert(cols []string, insertObjs ...interface{}) []string {
 	if len(insertObjs) == 0 {
 		sLog.Error("insertObjs is empty")
-		return t
+		return nil
 	}
 
 	var (
-		insertSql *SqlStrObj
-		needCols  = t.getNeedCols(cols)
+		insertSql  *SqlStrObj
+		needCols   = t.getNeedCols(cols)
+		handleCols []string
 	)
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, needCols, t.name)
 		if err != nil {
 			sLog.Error("getHandleTableCol2Val is failed, err:", err)
-			return t
+			return nil
 		}
 		if i == 0 {
 			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 			insertSql.SetStrSymbol(t.getStrSymbol())
+			insertSql.SetEscapeMap(t.tmer.GetValueEscapeMap())
 			needCols = t.getNeedCols(columns)
+			handleCols = columns
 		}
 		insertSql.SetInsertValues(values...)
 	}
 	t.tmpSqlObj = insertSql
-	return t
+	return handleCols
 }
 
 // getNeedCols 获取需要 cols
@@ -63,65 +68,29 @@ func (t *Table) getNeedCols(cols []string) map[string]bool {
 // InsertODKU insert 主键冲突更新
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
-	if insertObj == nil {
-		sLog.Error("insertObj is nil")
-		return t
-	}
-
-	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, nil, t.name)
-	if err != nil {
-		sLog.Error("getHandleTableCol2Val is failed, err:", err)
-		return t
-	}
-	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
-	insertSql.SetStrSymbol(t.getStrSymbol())
-	insertSql.SetInsertValues(values...)
-	kv := make([]string, 0, len(columns))
-	if len(keys) == 0 {
-		keys = columns
-	}
-	for _, key := range keys {
-		kv = append(kv, key+"=VALUES("+key+")")
-	}
-	insertSql.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
-	t.tmpSqlObj = insertSql
-	return t
+	return t.InsertsODKU([]interface{}{insertObj}, keys...)
 }
 
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
 	t.insert(nil, insertObjs...)
-	tmp := t.tmpSqlObj
 	kv := make([]string, 0)
 	keys = t.getParcelFieldArr(keys...)
 	for _, key := range keys {
 		kv = append(kv, key+"=VALUES("+key+")")
 	}
 
-	tmp.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
-	t.tmpSqlObj = tmp
+	if len(kv) > 0 {
+		t.tmpSqlObj.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
+	}
 	return t
 }
 
 // InsertIg insert ignore into xxx  新增忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertIg(insertObj interface{}) *Table {
-	if insertObj == nil {
-		sLog.Error("insertObj is nil")
-		return t
-	}
-
-	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, nil, t.name)
-	if err != nil {
-		sLog.Error("getHandleTableCol2Val is failed, err:", err)
-		return t
-	}
-	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
-	insertSql.SetStrSymbol(t.getStrSymbol())
-	insertSql.SetInsertValues(values...)
-	t.tmpSqlObj = insertSql
-	return t
+	return t.InsertsIg(insertObj)
 }
 
 // InsertsIg insert ignore into xxx  新增批量忽略
@@ -170,7 +139,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 	}
 
 	l := len(columns)
-	t.tmpSqlObj = NewCacheSql("UPDATE ?v SET", t.name).SetStrSymbol(t.getStrSymbol())
+	t.tmpSqlObj = NewCacheSql("UPDATE ?v SET", t.name).SetStrSymbol(t.getStrSymbol()).SetEscapeMap(t.tmer.GetValueEscapeMap())
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]
@@ -250,7 +219,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 			if err != nil {
 				return nil, nil, err
 			}
-			values = append(values, t.tmer.EscapeBytes(dataBytes))
+			values = append(values, dataBytes)
 		} else {
 			values = append(values, val.Interface())
 		}

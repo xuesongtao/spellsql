@@ -91,11 +91,11 @@ func TestTmp(t *testing.T) {
 		Addr: "成都市",
 		JsonTxt: test.Tmp{
 			Name: "json",
-			Data: "\n" + "test json marshal",
+			Data: "\\n" + "test json marshal",
 		},
 		XmlTxt: test.Tmp{
 			Name: "xml",
-			Data: "\t" + "test xml marshal",
+			Data: "\\t" + "test xml marshal",
 		},
 		Json1Txt: test.Tmp{
 			Name: "json1",
