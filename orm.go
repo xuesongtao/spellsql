@@ -426,7 +426,12 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
+	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()
+	res, err := t.db.Exec(sqlStr)
+	if err != nil {
+		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
+	}
+	return res, nil
 }
 
 // prevCheck 查询预检查
