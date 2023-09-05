@@ -42,7 +42,6 @@ func (t *Table) insert(cols []string, insertObjs ...interface{}) []string {
 			insertSql = t.getSqlObj("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 			insertSql.SetStrSymbol(t.getStrSymbol())
 			insertSql.SetEscapeMap(t.tmer.GetValueEscapeMap())
-			needCols = t.getNeedCols(columns)
 			handleCols = columns
 		}
 		insertSql.SetInsertValues(values...)
