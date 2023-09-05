@@ -52,7 +52,7 @@ func (t *Table) Tmer(obj TableMetaer) *Table {
 		if t.tmer != nil {
 			old = t.tmer
 		}
-		if old != nil && old != obj {
+		if old != nil && old.GetAdapterName() != obj.GetAdapterName() {
 			sLog.Warningf("Tmer old %q to new %q", old.GetAdapterName(), obj.GetAdapterName())
 		}
 		t.tmer = obj
