@@ -426,7 +426,12 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
+	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()
+	res, err := t.db.Exec(sqlStr)
+	if err != nil {
+		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
+	}
+	return res, nil
 }
 
 // prevCheck 查询预检查
@@ -456,11 +461,11 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 // GetParcelFields 获取数据库包裹字段后的字段内容, 会根据数据库的不同结果不同
 // 如: mysql: `id`; pg: "id"
 func (t *Table) GetParcelFields(fields ...string) string {
-	return strings.Join(t.getParcelFieldArr(fields...), ", ")
+	return strings.Join(t.GetParcelFieldArr(fields...), ", ")
 }
 
-// getParcelFieldArr 获取被包裹字段内容
-func (t *Table) getParcelFieldArr(fields ...string) []string {
+// GetParcelFieldArr 获取被包裹字段内容
+func (t *Table) GetParcelFieldArr(fields ...string) []string {
 	t.initTmer()
 	res := make([]string, 0, len(fields))
 	parcelStr := string(t.tmer.GetParcelFieldSymbol())
