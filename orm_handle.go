@@ -74,13 +74,21 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
 	t.insert(nil, insertObjs...)
 	kv := make([]string, 0)
-	keys = t.getParcelFieldArr(keys...)
+	keys = t.GetParcelFieldArr(keys...)
 	for _, key := range keys {
 		kv = append(kv, key+"=VALUES("+key+")")
 	}
 
 	if len(kv) > 0 {
-		t.tmpSqlObj.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
+		t.AppendSql("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
+	}
+	return t
+}
+
+// AppendSql 对 sql 进行自定义追加
+func (t *Table) AppendSql(sqlStr string, args ...interface{}) *Table {
+	if sqlStr != "" {
+		t.tmpSqlObj.Append(sqlStr, args...)
 	}
 	return t
 }

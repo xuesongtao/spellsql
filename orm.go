@@ -456,11 +456,11 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 // GetParcelFields 获取数据库包裹字段后的字段内容, 会根据数据库的不同结果不同
 // 如: mysql: `id`; pg: "id"
 func (t *Table) GetParcelFields(fields ...string) string {
-	return strings.Join(t.getParcelFieldArr(fields...), ", ")
+	return strings.Join(t.GetParcelFieldArr(fields...), ", ")
 }
 
-// getParcelFieldArr 获取被包裹字段内容
-func (t *Table) getParcelFieldArr(fields ...string) []string {
+// GetParcelFieldArr 获取被包裹字段内容
+func (t *Table) GetParcelFieldArr(fields ...string) []string {
 	t.initTmer()
 	res := make([]string, 0, len(fields))
 	parcelStr := string(t.tmer.GetParcelFieldSymbol())
