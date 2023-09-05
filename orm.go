@@ -104,16 +104,23 @@ func (t *Table) free() {
 
 // Clone 克隆对象
 func (t *Table) Clone() *Table {
-	if null(t.clonedSqlStr) {
-		// 没有数据时, 这里为 nil
-		if t.tmpSqlObj == nil {
-			t.tmpSqlObj = NewCacheSql("clone")
-		}
+	if !t.sqlObjIsNil() && null(t.clonedSqlStr) {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
-	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
+	if t.clonedSqlStr == "" {
+		t.clonedSqlStr = "clone" // 进行占位, 便于区别使用什么函数来初始化 tmpSqlObj
+	}
+	t.tmpSqlObj = t.getSqlObj(t.clonedSqlStr)
 	t.printSqlCallSkip = 2
 	return t
+}
+
+func (t *Table) getSqlObj(sqlStr string, args ...interface{}) *SqlStrObj {
+	if null(t.clonedSqlStr) {
+		return NewCacheSql(sqlStr, args...)
+	}
+	// 克隆模式
+	return NewSql(sqlStr, args...)
 }
 
 // IsPrintSql 是否打印 sql
