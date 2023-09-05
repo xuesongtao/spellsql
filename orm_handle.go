@@ -11,20 +11,27 @@ import (
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	// 默认插入全量字段
-	t.insert(nil, insertObjs...)
+	_, err := t.insert(nil, insertObjs...)
+	if err != nil {
+		sLog.Error(err)
+		return nil
+	}
 	return t
 }
 
 // InsertOfField 批量新增, 指定新增列
 func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
-	t.insert(cols, insertObjs...)
+	_, err := t.insert(cols, insertObjs...)
+	if err != nil {
+		sLog.Error(err)
+		return nil
+	}
 	return t
 }
 
-func (t *Table) insert(cols []string, insertObjs ...interface{}) []string {
+func (t *Table) insert(cols []string, insertObjs ...interface{}) ([]string, error) {
 	if len(insertObjs) == 0 {
-		sLog.Error("insertObjs is empty")
-		return nil
+		return nil, errors.New("insertObjs is empty")
 	}
 
 	var (
@@ -35,8 +42,7 @@ func (t *Table) insert(cols []string, insertObjs ...interface{}) []string {
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, needCols, t.name)
 		if err != nil {
-			sLog.Error("getHandleTableCol2Val is failed, err:", err)
-			return nil
+			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
 		}
 		if i == 0 {
 			insertSql = t.getSqlObj("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
@@ -47,7 +53,7 @@ func (t *Table) insert(cols []string, insertObjs ...interface{}) []string {
 		insertSql.SetInsertValues(values...)
 	}
 	t.tmpSqlObj = insertSql
-	return handleCols
+	return handleCols, nil
 }
 
 // getNeedCols 获取需要 cols
@@ -72,7 +78,11 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
-	t.insert(nil, insertObjs...)
+	_, err := t.insert(nil, insertObjs...)
+	if err != nil {
+		sLog.Error(err)
+		return nil
+	}
 	kv := make([]string, 0)
 	keys = t.GetParcelFieldArr(keys...)
 	for _, key := range keys {
@@ -102,7 +112,11 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // InsertsIg insert ignore into xxx  新增批量忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
-	t.insert(nil, insertObjs...)
+	_, err := t.insert(nil, insertObjs...)
+	if err != nil {
+		sLog.Error(err)
+		return nil
+	}
 	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
 	t.tmpSqlObj = t.getSqlObj(insertSqlStr)
 	return t
