@@ -11,8 +11,7 @@ import (
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	// 默认插入全量字段
-	_, err := t.insert(nil, insertObjs...)
-	if err != nil {
+	if _, err := t.insert(nil, insertObjs...); err != nil {
 		sLog.Error(err)
 		return nil
 	}
@@ -21,8 +20,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 
 // InsertOfField 批量新增, 指定新增列
 func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
-	_, err := t.insert(cols, insertObjs...)
-	if err != nil {
+	if _, err := t.insert(cols, insertObjs...); err != nil {
 		sLog.Error(err)
 		return nil
 	}
@@ -78,8 +76,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
-	_, err := t.insert(nil, insertObjs...)
-	if err != nil {
+	if _, err := t.insert(nil, insertObjs...); err != nil {
 		sLog.Error(err)
 		return nil
 	}
@@ -112,8 +109,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // InsertsIg insert ignore into xxx  新增批量忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
-	_, err := t.insert(nil, insertObjs...)
-	if err != nil {
+	if _, err := t.insert(nil, insertObjs...); err != nil {
 		sLog.Error(err)
 		return nil
 	}
