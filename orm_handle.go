@@ -40,7 +40,7 @@ func (t *Table) insert(cols []string, insertObjs ...interface{}) []string {
 			return nil
 		}
 		if i == 0 {
-			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
+			insertSql = t.getSqlObj("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
 			insertSql.SetStrSymbol(t.getStrSymbol())
 			insertSql.SetEscapeMap(t.tmer.GetValueEscapeMap())
 			needCols = t.getNeedCols(columns)
@@ -98,7 +98,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 	t.insert(nil, insertObjs...)
 	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
-	t.tmpSqlObj = NewCacheSql(insertSqlStr)
+	t.tmpSqlObj = t.getSqlObj(insertSqlStr)
 	return t
 }
 
@@ -113,7 +113,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 
 		l := len(columns)
-		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name).SetStrSymbol(t.getStrSymbol())
+		t.tmpSqlObj = t.getSqlObj("DELETE FROM ?v WHERE", t.name).SetStrSymbol(t.getStrSymbol())
 		for i := 0; i < l; i++ {
 			k := columns[i]
 			v := values[i]
@@ -124,7 +124,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 			sLog.Error(tableNameIsUnknownErr)
 			return t
 		}
-		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
+		t.tmpSqlObj = t.getSqlObj("DELETE FROM ?v WHERE", t.name)
 	}
 	return t
 }
@@ -139,7 +139,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 	}
 
 	l := len(columns)
-	t.tmpSqlObj = NewCacheSql("UPDATE ?v SET", t.name).SetStrSymbol(t.getStrSymbol()).SetEscapeMap(t.tmer.GetValueEscapeMap())
+	t.tmpSqlObj = t.getSqlObj("UPDATE ?v SET", t.name).SetStrSymbol(t.getStrSymbol()).SetEscapeMap(t.tmer.GetValueEscapeMap())
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]

@@ -60,7 +60,7 @@ func (t *Table) Select(fields string) *Table {
 	}
 
 	if !null(t.name) {
-		t.tmpSqlObj = NewCacheSql("SELECT ?v FROM ?v", fields, t.name)
+		t.tmpSqlObj = t.getSqlObj("SELECT ?v FROM ?v", fields, t.name)
 	} else {
 		t.handleCols = fields
 	}

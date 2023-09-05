@@ -337,6 +337,32 @@ func TestInsert(t *testing.T) {
 		}
 	})
 
+	t.Run("insert for many clone", func(t *testing.T) {
+		mm := make([]test.Man, 0, 10)
+		for i := 0; i < 10; i++ {
+			mm = append(mm, m)
+		}
+
+		tmp := make([]interface{}, 0)
+		tableObj := NewTable(db, "man")
+		for i := 0; i < len(mm); i++ {
+			if len(tmp) >= 2 {
+				tableObj = tableObj.Clone()
+				if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
+					t.Errorf("insert is failed, err: %v, sqlStr: %v", err, tableObj.GetSqlObj().FmtSql())
+				}
+				tmp = make([]interface{}, 0)
+			} else {
+				tmp = append(tmp, mm[i])
+			}
+		}
+		if len(tmp) > 0 {
+			if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
+				t.Errorf("insert is failed, err: %v, sqlStr: %v", err, tableObj.GetSqlObj().FmtSql())
+			}
+		}
+	})
+
 	t.Run("insert duplicate", func(t *testing.T) {
 		r, err := InsertODKUForObj(db, "man", m)
 		if err != nil {
