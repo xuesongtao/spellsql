@@ -336,12 +336,12 @@ func TestInsert(t *testing.T) {
 		}
 
 		tmp := make([]interface{}, 0)
-		tableObj := NewTable(db, "man")
+		tableObj := NewTable(db, "man").IsPrintSql(true).TagDefault(map[string]interface{}{"nickname": "哈喽"})
 		for i := 0; i < len(mm); i++ {
 			if len(tmp) >= 2 {
 				tableObj = tableObj.Clone()
 				if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
-					t.Errorf("insert is failed, err: %v, sqlStr: %v", err, tableObj.GetSqlObj().FmtSql())
+					t.Errorf("insert is failed, err: %v", err)
 				}
 				tmp = make([]interface{}, 0)
 			} else {
@@ -350,7 +350,7 @@ func TestInsert(t *testing.T) {
 		}
 		if len(tmp) > 0 {
 			if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
-				t.Errorf("insert is failed, err: %v, sqlStr: %v", err, tableObj.GetSqlObj().FmtSql())
+				t.Errorf("insert is failed, err: %v", err)
 			}
 		}
 	})
