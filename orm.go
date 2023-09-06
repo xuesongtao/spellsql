@@ -115,12 +115,18 @@ func (t *Table) Clone() *Table {
 	return t
 }
 
+// getSqlObj 获取 sql 对象
 func (t *Table) getSqlObj(sqlStr string, args ...interface{}) *SqlStrObj {
-	if null(t.clonedSqlStr) {
-		return NewCacheSql(sqlStr, args...)
+	var obj *SqlStrObj
+	if !null(t.clonedSqlStr) { // 克隆模式
+		obj = NewSql(sqlStr, args...)
+	} else {
+		obj = NewCacheSql(sqlStr, args...)
 	}
-	// 克隆模式
-	return NewSql(sqlStr, args...)
+	t.initTmer()
+	obj.SetStrSymbol(t.tmer.GetValueStrSymbol())
+	obj.SetEscapeMap(t.tmer.GetValueEscapeMap())
+	return obj
 }
 
 // IsPrintSql 是否打印 sql
@@ -190,12 +196,6 @@ func (t *Table) initTmer() {
 	if !null(t.name) {
 		t.tmer.SetTableName(t.name)
 	}
-}
-
-// getStrSymbol 获取适配器对应的字符串对应符号
-func (t *Table) getStrSymbol() byte {
-	t.initTmer()
-	return t.tmer.GetValueStrSymbol()
 }
 
 // setWaitHandleStructFieldMap 设置 waitHandleStructFieldMap 值
