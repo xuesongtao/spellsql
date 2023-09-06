@@ -50,6 +50,7 @@ type Table struct {
 func NewTable(db DBer, args ...string) *Table {
 	t := cacheTabObj.Get().(*Table)
 	t.init()
+	t.initTmer()
 
 	// 赋值
 	t.db = db
@@ -466,7 +467,6 @@ func (t *Table) GetParcelFields(fields ...string) string {
 
 // GetParcelFieldArr 获取被包裹字段内容
 func (t *Table) GetParcelFieldArr(fields ...string) []string {
-	t.initTmer()
 	res := make([]string, 0, len(fields))
 	parcelStr := string(t.tmer.GetParcelFieldSymbol())
 	for _, field := range fields {
