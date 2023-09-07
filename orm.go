@@ -410,7 +410,7 @@ func (t *Table) sqlObjIsNil() bool {
 func (t *Table) Raw(sql interface{}) *Table {
 	switch val := sql.(type) {
 	case string:
-		t.tmpSqlObj = NewCacheSql(val)
+		t.tmpSqlObj = t.getSqlObj(val)
 	case *SqlStrObj:
 		t.tmpSqlObj = val
 		t.isPrintSql = val.isPrintSqlLog && t.isPrintSql
