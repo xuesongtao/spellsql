@@ -50,6 +50,7 @@ type Table struct {
 func NewTable(db DBer, args ...string) *Table {
 	t := cacheTabObj.Get().(*Table)
 	t.init()
+	t.initTmer()
 
 	// 赋值
 	t.db = db
@@ -104,12 +105,29 @@ func (t *Table) free() {
 
 // Clone 克隆对象
 func (t *Table) Clone() *Table {
-	if null(t.clonedSqlStr) {
+	if !t.sqlObjIsNil() && null(t.clonedSqlStr) {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
 	}
-	t.tmpSqlObj = NewCacheSql(t.clonedSqlStr)
+	if t.clonedSqlStr == "" {
+		t.clonedSqlStr = "clone" // 进行占位, 便于区别使用什么函数来初始化 tmpSqlObj
+	}
+	t.tmpSqlObj = t.getSqlObj(t.clonedSqlStr)
 	t.printSqlCallSkip = 2
 	return t
+}
+
+// getSqlObj 获取 sql 对象
+func (t *Table) getSqlObj(sqlStr string, args ...interface{}) *SqlStrObj {
+	var obj *SqlStrObj
+	if !null(t.clonedSqlStr) { // 克隆模式
+		obj = NewSql(sqlStr, args...)
+	} else {
+		obj = NewCacheSql(sqlStr, args...)
+	}
+	t.initTmer()
+	obj.SetStrSymbol(t.tmer.GetValueStrSymbol())
+	obj.SetEscapeMap(t.tmer.GetValueEscapeMap())
+	return obj
 }
 
 // IsPrintSql 是否打印 sql
@@ -179,12 +197,6 @@ func (t *Table) initTmer() {
 	if !null(t.name) {
 		t.tmer.SetTableName(t.name)
 	}
-}
-
-// getStrSymbol 获取适配器对应的字符串对应符号
-func (t *Table) getStrSymbol() byte {
-	t.initTmer()
-	return t.tmer.GetStrSymbol()
 }
 
 // setWaitHandleStructFieldMap 设置 waitHandleStructFieldMap 值
@@ -398,7 +410,7 @@ func (t *Table) sqlObjIsNil() bool {
 func (t *Table) Raw(sql interface{}) *Table {
 	switch val := sql.(type) {
 	case string:
-		t.tmpSqlObj = NewCacheSql(val)
+		t.tmpSqlObj = t.getSqlObj(val)
 	case *SqlStrObj:
 		t.tmpSqlObj = val
 		t.isPrintSql = val.isPrintSqlLog && t.isPrintSql
@@ -415,7 +427,12 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	return t.db.Exec(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
+	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()
+	res, err := t.db.Exec(sqlStr)
+	if err != nil {
+		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
+	}
+	return res, nil
 }
 
 // prevCheck 查询预检查
@@ -445,12 +462,11 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 // GetParcelFields 获取数据库包裹字段后的字段内容, 会根据数据库的不同结果不同
 // 如: mysql: `id`; pg: "id"
 func (t *Table) GetParcelFields(fields ...string) string {
-	return strings.Join(t.getParcelFieldArr(fields...), ", ")
+	return strings.Join(t.GetParcelFieldArr(fields...), ", ")
 }
 
-// getParcelFieldArr 获取被包裹字段内容
-func (t *Table) getParcelFieldArr(fields ...string) []string {
-	t.initTmer()
+// GetParcelFieldArr 获取被包裹字段内容
+func (t *Table) GetParcelFieldArr(fields ...string) []string {
 	res := make([]string, 0, len(fields))
 	parcelStr := string(t.tmer.GetParcelFieldSymbol())
 	for _, field := range fields {

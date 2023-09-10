@@ -48,8 +48,11 @@ func (a SortByTableColInfo) Less(i, j int) bool { return a[i].Index < a[j].Index
 // 如: NewTable(db).Tmer(Pg("man")).xxx
 func (t *Table) Tmer(obj TableMetaer) *Table {
 	if obj != nil { // 出现了修改, 打印下 log
-		old := t.tmer
-		if old != nil {
+		var old TableMetaer
+		if t.tmer != nil {
+			old = t.tmer
+		}
+		if old != nil && old.GetAdapterName() != obj.GetAdapterName() {
 			sLog.Warningf("Tmer old %q to new %q", old.GetAdapterName(), obj.GetAdapterName())
 		}
 		t.tmer = obj
@@ -63,12 +66,12 @@ func (t *Table) Tmer(obj TableMetaer) *Table {
 type CommonTable struct {
 }
 
-func (c *CommonTable) EscapeBytes(b []byte) []byte {
-	return b
+func (c *CommonTable) GetValueStrSymbol() byte {
+	return '"'
 }
 
-func (c *CommonTable) GetStrSymbol() byte {
-	return '"'
+func (c *CommonTable) GetValueEscapeMap() map[byte][]byte {
+	return GetValueEscapeMap()
 }
 
 func (c *CommonTable) GetParcelFieldSymbol() byte {
@@ -99,36 +102,12 @@ func (c *CommonTable) noImplement(name string) {
 
 type MysqlTable struct {
 	CommonTable
-	initArgs       []string
-	escapeBytesMap map[byte]bool
+	initArgs []string
 }
 
 // Mysql
 func Mysql() *MysqlTable {
-	return &MysqlTable{escapeBytesMap: map[byte]bool{
-		// json 处理
-		'n': true,
-		'r': true,
-		't': true,
-	}}
-}
-
-func (m *MysqlTable) EscapeBytes(b []byte) []byte {
-	vLen := len(b)
-	buf := make([]byte, 0, vLen)
-	for i := 0; i < vLen; i++ {
-		v := b[i]
-		buf = append(buf, v)
-		switch v {
-		case '\\': // json 符号转义
-			vv := b[i+1]
-			if m.escapeBytesMap[vv] {
-				buf = append(buf, '\\', vv)
-				i++
-			}
-		}
-	}
-	return buf
+	return &MysqlTable{}
 }
 
 func (m *MysqlTable) GetAdapterName() string {
@@ -174,7 +153,7 @@ type PgTable struct {
 	initArgs []string
 }
 
-// Pg
+// Pg, 默认模式: public
 // initArgs 允许自定义两个参数
 // initArgs[0] 为 schema
 // initArgs[1] 为 table name (此参数可以忽略, 因为 orm 内部会处理该值)
@@ -187,6 +166,9 @@ func Pg(initArgs ...string) *PgTable {
 	case 2:
 		obj.initArgs[0] = initArgs[0]
 		obj.initArgs[1] = initArgs[1]
+	}
+	if l == 0 {
+		obj.initArgs[0] = "public"
 	}
 	return obj
 }
@@ -203,7 +185,14 @@ func (p *PgTable) GetParcelFieldSymbol() byte {
 	return '"'
 }
 
-func (p *PgTable) GetStrSymbol() byte {
+func (p *PgTable) GetValueEscapeMap() map[byte][]byte {
+	escapeMap := GetValueEscapeMap()
+	// 将 "'" 进行转义
+	escapeMap['\''] = []byte{'\'', '\''}
+	return escapeMap
+}
+
+func (p *PgTable) GetValueStrSymbol() byte {
 	return '\''
 }
 

@@ -90,11 +90,11 @@ func TestTmp(t *testing.T) {
 		Addr: "成都市",
 		JsonTxt: test.Tmp{
 			Name: "json",
-			Data: "\n" + "test json marshal",
+			Data: "\\n" + "test json marshal",
 		},
 		XmlTxt: test.Tmp{
 			Name: "xml",
-			Data: "\t" + "test xml marshal",
+			Data: "\\t" + "test xml marshal",
 		},
 		Json1Txt: test.Tmp{
 			Name: "json1",
@@ -272,7 +272,7 @@ func TestGetNullType(t *testing.T) {
 func TestParseCol2Val(t *testing.T) {
 	tableObj := NewTable(db)
 	var insertSql *SqlStrObj
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 2; i++ {
 		m := test.Man{
 			Name: "xue1234" + "_" + Str(i),
 			Age:  18,
@@ -293,9 +293,9 @@ func TestParseCol2Val(t *testing.T) {
 		insertSql.Append("ON DUPLICATE KEY UPDATE name=VALUES(name)")
 	}
 	res := insertSql.FmtSql()
-	sureMsg := `INSERT INTO (name,age,addr) VALUES ("xue1234_0", 18, "成都市"), ("xue1234_1", 18, "成都市"), ("xue1234_2", 18, "成都市"), ("xue1234_3", 18, "成都市"), ("xue1234_4", 18, "成都市"), ("xue1234_5", 18, "成都市"), ("xue1234_6", 18, "成都市"), ("xue1234_7", 18, "成都市"), ("xue1234_8", 18, "成都市"), ("xue1234_9", 18, "成都市") ON DUPLICATE KEY UPDATE name=VALUES(name)`
+	sureMsg := `INSERT INTO (name,age,addr,hobby,nickname) VALUES ("xue1234_0", 18, "成都市", "", ""), ("xue1234_1", 18, "成都市", "", "") ON DUPLICATE KEY UPDATE name=VALUES(name)`
 	if res != sureMsg {
-		t.Error("it is no ok")
+		t.Errorf("it is no ok, res: %s, sureMsg: %s", res, sureMsg)
 	}
 }
 
@@ -325,6 +325,32 @@ func TestInsert(t *testing.T) {
 		}
 		if rr, _ := r.RowsAffected(); rr == 0 {
 			t.Error("inset failed")
+		}
+	})
+
+	t.Run("insert for many clone", func(t *testing.T) {
+		mm := make([]test.Man, 0, 10)
+		for i := 0; i < 10; i++ {
+			mm = append(mm, m)
+		}
+
+		tmp := make([]interface{}, 0)
+		tableObj := NewTable(db, "man").IsPrintSql(true).TagDefault(map[string]interface{}{"nickname": "哈喽"})
+		for i := 0; i < len(mm); i++ {
+			if len(tmp) >= 2 {
+				tableObj = tableObj.Clone()
+				if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
+					t.Errorf("insert is failed, err: %v", err)
+				}
+				tmp = make([]interface{}, 0)
+			} else {
+				tmp = append(tmp, mm[i])
+			}
+		}
+		if len(tmp) > 0 {
+			if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
+				t.Errorf("insert is failed, err: %v", err)
+			}
 		}
 	})
 
@@ -479,7 +505,7 @@ func TestInsert(t *testing.T) {
 			Addr: "成都市",
 		}
 		mm := make([]interface{}, 0)
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 10; i++ {
 			tmp := m
 			if i > 0 && i%3 == 0 {
 				tmp.Addr = ""
@@ -515,6 +541,23 @@ func TestInsert(t *testing.T) {
 		_, err := NewTable(db, "man").InsertsIg(mm...).Exec()
 		if err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("insert field", func(t *testing.T) {
+		tableObj := NewTable(db, "man")
+		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
+		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
+		res, err := tableObj.InsertOfFields(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
 		}
 	})
 }

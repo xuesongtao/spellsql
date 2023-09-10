@@ -2,7 +2,6 @@ package spellsql
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -11,34 +10,54 @@ import (
 // Insert 提交, 支持批量提交
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
+	// 默认插入全量字段
+	if _, err := t.insert(nil, insertObjs...); err != nil {
+		sLog.Error(err)
+		return nil
+	}
+	return t
+}
+
+// InsertOfField 批量新增, 指定新增列
+func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
+	if _, err := t.insert(cols, insertObjs...); err != nil {
+		sLog.Error(err)
+		return nil
+	}
+	return t
+}
+
+func (t *Table) insert(cols []string, insertObjs ...interface{}) ([]string, error) {
 	if len(insertObjs) == 0 {
-		sLog.Error("insertObjs is empty")
-		return t
+		return nil, errors.New("insertObjs is empty")
 	}
 
 	var (
-		insertSql *SqlStrObj
-		needCols  map[string]bool
+		insertSql  *SqlStrObj
+		needCols   = t.getNeedCols(cols)
+		handleCols []string
 	)
 	for i, insertObj := range insertObjs {
 		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, needCols, t.name)
 		if err != nil {
-			sLog.Error("getHandleTableCol2Val is failed, err:", err)
-			return t
+			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
 		}
 		if i == 0 {
-			insertSql = NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
-			insertSql.SetStrSymbol(t.getStrSymbol())
-			needCols = t.getNeedCols(columns)
+			insertSql = t.getSqlObj("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
+			handleCols = columns
 		}
 		insertSql.SetInsertValues(values...)
 	}
 	t.tmpSqlObj = insertSql
-	return t
+	return handleCols, nil
 }
 
 // getNeedCols 获取需要 cols
 func (t *Table) getNeedCols(cols []string) map[string]bool {
+	if len(cols) == 0 {
+		cols = t.GetCols() // 获取全量字段
+	}
+
 	res := make(map[string]bool, len(cols))
 	for _, col := range cols {
 		res[col] = true
@@ -49,73 +68,51 @@ func (t *Table) getNeedCols(cols []string) map[string]bool {
 // InsertODKU insert 主键冲突更新
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
-	if insertObj == nil {
-		sLog.Error("insertObj is nil")
-		return t
-	}
-
-	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, nil, t.name)
-	if err != nil {
-		sLog.Error("getHandleTableCol2Val is failed, err:", err)
-		return t
-	}
-	insertSql := NewCacheSql("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
-	insertSql.SetStrSymbol(t.getStrSymbol())
-	insertSql.SetInsertValues(values...)
-	kv := make([]string, 0, len(columns))
-	if len(keys) == 0 {
-		keys = columns
-	}
-	for _, key := range keys {
-		kv = append(kv, key+"=VALUES("+key+")")
-	}
-	insertSql.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
-	t.tmpSqlObj = insertSql
-	return t
+	return t.InsertsODKU([]interface{}{insertObj}, keys...)
 }
 
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
-	t.Insert(insertObjs...)
-	tmp := t.tmpSqlObj
+	if _, err := t.insert(nil, insertObjs...); err != nil {
+		sLog.Error(err)
+		return nil
+	}
 	kv := make([]string, 0)
-	keys = t.getParcelFieldArr(keys...)
+	keys = t.GetParcelFieldArr(keys...)
 	for _, key := range keys {
 		kv = append(kv, key+"=VALUES("+key+")")
 	}
 
-	tmp.Append("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
-	t.tmpSqlObj = tmp
+	if len(kv) > 0 {
+		t.AppendSql("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
+	}
+	return t
+}
+
+// AppendSql 对 sql 进行自定义追加
+func (t *Table) AppendSql(sqlStr string, args ...interface{}) *Table {
+	if sqlStr != "" {
+		t.tmpSqlObj.Append(sqlStr, args...)
+	}
 	return t
 }
 
 // InsertIg insert ignore into xxx  新增忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertIg(insertObj interface{}) *Table {
-	if insertObj == nil {
-		sLog.Error("insertObj is nil")
-		return t
-	}
-
-	columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, nil, t.name)
-	if err != nil {
-		sLog.Error("getHandleTableCol2Val is failed, err:", err)
-		return t
-	}
-	insertSql := NewCacheSql("INSERT IGNORE INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
-	insertSql.SetStrSymbol(t.getStrSymbol())
-	insertSql.SetInsertValues(values...)
-	t.tmpSqlObj = insertSql
-	return t
+	return t.InsertsIg(insertObj)
 }
 
 // InsertsIg insert ignore into xxx  新增批量忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) InsertsIg(insertObj ...interface{}) *Table {
-	t.Insert(insertObj...)
+func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
+	if _, err := t.insert(nil, insertObjs...); err != nil {
+		sLog.Error(err)
+		return nil
+	}
 	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
-	t.tmpSqlObj = NewCacheSql(insertSqlStr)
+	t.tmpSqlObj = t.getSqlObj(insertSqlStr)
 	return t
 }
 
@@ -130,7 +127,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 
 		l := len(columns)
-		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name).SetStrSymbol(t.getStrSymbol())
+		t.tmpSqlObj = t.getSqlObj("DELETE FROM ?v WHERE", t.name)
 		for i := 0; i < l; i++ {
 			k := columns[i]
 			v := values[i]
@@ -141,7 +138,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 			sLog.Error(tableNameIsUnknownErr)
 			return t
 		}
-		t.tmpSqlObj = NewCacheSql("DELETE FROM ?v WHERE", t.name)
+		t.tmpSqlObj = t.getSqlObj("DELETE FROM ?v WHERE", t.name)
 	}
 	return t
 }
@@ -156,7 +153,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 	}
 
 	l := len(columns)
-	t.tmpSqlObj = NewCacheSql("UPDATE ?v SET", t.name).SetStrSymbol(t.getStrSymbol())
+	t.tmpSqlObj = t.getSqlObj("UPDATE ?v SET", t.name)
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]
@@ -219,14 +216,15 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 					values = append(values, tmp.defaultVal)
 					continue
 				}
-				if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
-					return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
-				}
+				// if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
+				// 	return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
+				// }
 			}
-			// 外部需要的跳过
-			if !needCols[col] {
-				continue
-			}
+		}
+
+		// 需要的跳过
+		if needCols != nil && !needCols[col] {
+			continue
 		}
 
 		columns = append(columns, col)
@@ -235,7 +233,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 			if err != nil {
 				return nil, nil, err
 			}
-			values = append(values, t.tmer.EscapeBytes(dataBytes))
+			values = append(values, dataBytes)
 		} else {
 			values = append(values, val.Interface())
 		}
