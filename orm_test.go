@@ -294,7 +294,7 @@ func TestParseCol2Val(t *testing.T) {
 		insertSql.Append("ON DUPLICATE KEY UPDATE name=VALUES(name)")
 	}
 	res := insertSql.FmtSql()
-	sureMsg := `INSERT INTO (name,age,addr,hobby,nickname) VALUES ("xue1234_0", 18, "成都市", "", ""), ("xue1234_1", 18, "成都市", "", "") ON DUPLICATE KEY UPDATE name=VALUES(name)`
+	sureMsg := `INSERT INTO (name,age,addr) VALUES ("xue1234_0", 18, "成都市"), ("xue1234_1", 18, "成都市") ON DUPLICATE KEY UPDATE name=VALUES(name)`
 	if res != sureMsg {
 		t.Errorf("it is no ok, res: %s, sureMsg: %s", res, sureMsg)
 	}
