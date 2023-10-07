@@ -1,6 +1,7 @@
 package spellsql
 
 import (
+	"context"
 	"reflect"
 	"runtime"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 // SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
+	ctx             context.Context
 	hasWhereStr     bool  // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
 	hasValuesStr    bool  // 标记 INSERT 是否添加已添加 VALUES
 	hasSetStr       bool  // 标记 UPDATE 是否添加 SET
@@ -72,6 +74,15 @@ func NewSql(sqlStr string, args ...interface{}) *SqlStrObj {
 	obj := new(SqlStrObj)
 	obj.initSql(sqlStr, args...)
 	return obj
+}
+
+// SetCtx 设置 context
+func (s *SqlStrObj) SetCtx(ctx context.Context) *SqlStrObj {
+	if ctx == nil {
+		return s
+	}
+	s.ctx = ctx
+	return s
 }
 
 // initSql 初始化需要的 buf
@@ -157,6 +168,7 @@ func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
 func (s *SqlStrObj) init() {
+	s.ctx = context.Background()
 	s.hasWhereStr = false
 	s.hasValuesStr = false
 	s.hasSetStr = false
@@ -441,7 +453,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 		if argsLen > 0 {
 			defTitle = title[0]
 		}
-		sLog.Info(s.getLogTitle(defTitle), sqlStr)
+		sLog.Info(s.ctx, s.getLogTitle(defTitle), sqlStr)
 	}
 	return
 }
@@ -503,7 +515,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 		if argsLen > 0 {
 			defTitle = title[0]
 		}
-		sLog.Info(s.getLogTitle(defTitle), findSqlStr)
+		sLog.Info(s.ctx, s.getLogTitle(defTitle), findSqlStr)
 	}
 	return
 }

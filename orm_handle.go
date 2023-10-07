@@ -1,6 +1,7 @@
 package spellsql
 
 import (
+	"database/sql"
 	"errors"
 	"reflect"
 	"sort"
@@ -12,7 +13,7 @@ import (
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	// 默认插入全量字段
 	if _, err := t.insert(nil, insertObjs...); err != nil {
-		sLog.Error(err)
+		sLog.Error(t.ctx, err)
 		return nil
 	}
 	return t
@@ -21,7 +22,7 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 // InsertOfField 批量新增, 指定新增列
 func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
 	if _, err := t.insert(cols, insertObjs...); err != nil {
-		sLog.Error(err)
+		sLog.Error(t.ctx, err)
 		return nil
 	}
 	return t
@@ -75,7 +76,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
 	if _, err := t.insert(nil, insertObjs...); err != nil {
-		sLog.Error(err)
+		sLog.Error(t.ctx, err)
 		return nil
 	}
 	kv := make([]string, 0)
@@ -108,7 +109,7 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 	if _, err := t.insert(nil, insertObjs...); err != nil {
-		sLog.Error(err)
+		sLog.Error(t.ctx, err)
 		return nil
 	}
 	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
@@ -122,7 +123,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
 		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], DELETE, nil, t.name)
 		if err != nil {
-			sLog.Error("getHandleTableCol2Val is failed, err:", err)
+			sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
 			return t
 		}
 
@@ -135,7 +136,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 	} else {
 		if null(t.name) {
-			sLog.Error(tableNameIsUnknownErr)
+			sLog.Error(t.ctx, tableNameIsUnknownErr)
 			return t
 		}
 		t.tmpSqlObj = t.getSqlObj("DELETE FROM ?v WHERE", t.name)
@@ -148,7 +149,7 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
 	columns, values, err := t.getHandleTableCol2Val(updateObj, UPDATE, nil, t.name)
 	if err != nil {
-		sLog.Error("getHandleTableCol2Val is failed, err:", err)
+		sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
 
@@ -221,7 +222,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 				// }
 
 			}
-			
+
 			if needCols == nil {
 				continue
 			}
@@ -274,7 +275,7 @@ func (t *Table) GetCols(skipCols ...string) []string {
 		}
 	}
 	if err := t.initCacheCol2InfoMap(); err != nil {
-		sLog.Error("t.initCacheCol2InfoMap is failed, err:", err)
+		sLog.Error(t.ctx, "t.initCacheCol2InfoMap is failed, err:", err)
 		return nil
 	}
 	infos := make([]*TableColInfo, 0, len(t.cacheCol2InfoMap))
@@ -291,4 +292,18 @@ func (t *Table) GetCols(skipCols ...string) []string {
 		cols[i] = infos[i].Field
 	}
 	return cols
+}
+
+// Exec 执行
+func (t *Table) Exec() (sql.Result, error) {
+	defer t.free()
+	if err := t.prevCheck(); err != nil {
+		return nil, err
+	}
+	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()
+	res, err := t.db.ExecContext(t.ctx, sqlStr)
+	if err != nil {
+		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
+	}
+	return res, nil
 }

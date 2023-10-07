@@ -1,7 +1,7 @@
 package spellsql
 
 import (
-	"database/sql"
+	"context"
 	"errors"
 	"reflect"
 	"sort"
@@ -25,6 +25,7 @@ type structField struct {
 
 // Table 表的信息
 type Table struct {
+	ctx                      context.Context
 	db                       DBer
 	tmer                     TableMetaer                   // 获取表元信息对象
 	printSqlCallSkip         uint8                         // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
@@ -66,6 +67,7 @@ func NewTable(db DBer, args ...string) *Table {
 
 // init 初始化
 func (t *Table) init() {
+	t.ctx = context.Background()
 	t.printSqlCallSkip = 2
 	t.isPrintSql = true
 	t.haveFree = false
@@ -81,7 +83,7 @@ func (t *Table) free() {
 	}
 
 	if t.haveFree {
-		sLog.Error("table already free")
+		sLog.Error(t.ctx, "table already free")
 		return
 	}
 
@@ -103,7 +105,17 @@ func (t *Table) free() {
 	cacheTabObj.Put(t)
 }
 
+// Ctx 设置 context
+func (t *Table) Ctx(ctx context.Context) *Table {
+	if ctx == nil {
+		return t
+	}
+	t.ctx = ctx
+	return t
+}
+
 // Clone 克隆对象
+// 说明: 因为都为单线程使用, 不支持并发操作
 func (t *Table) Clone() *Table {
 	if !t.sqlObjIsNil() && null(t.clonedSqlStr) {
 		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
@@ -125,6 +137,7 @@ func (t *Table) getSqlObj(sqlStr string, args ...interface{}) *SqlStrObj {
 		obj = NewCacheSql(sqlStr, args...)
 	}
 	t.initTmer()
+	obj.SetCtx(t.ctx)
 	obj.SetStrSymbol(t.tmer.GetValueStrSymbol())
 	obj.SetEscapeMap(t.tmer.GetValueEscapeMap())
 	return obj
@@ -194,6 +207,7 @@ func (t *Table) initTmer() {
 	if t.tmer == nil {
 		t.tmer = getTmerFn()
 	}
+	t.tmer.SetCtx(t.ctx)
 	if !null(t.name) {
 		t.tmer.SetTableName(t.name)
 	}
@@ -415,24 +429,10 @@ func (t *Table) Raw(sql interface{}) *Table {
 		t.tmpSqlObj = val
 		t.isPrintSql = val.isPrintSqlLog && t.isPrintSql
 	default:
-		sLog.Error("sql only support string/SqlStrObjPtr")
+		sLog.Error(t.ctx, "sql only support string/SqlStrObjPtr")
 		return t
 	}
 	return t
-}
-
-// Exec 执行
-func (t *Table) Exec() (sql.Result, error) {
-	defer t.free()
-	if err := t.prevCheck(); err != nil {
-		return nil, err
-	}
-	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()
-	res, err := t.db.Exec(sqlStr)
-	if err != nil {
-		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
-	}
-	return res, nil
 }
 
 // prevCheck 查询预检查

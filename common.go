@@ -115,8 +115,6 @@ func Int64(num interface{}) int64 {
 		return int64(v)
 	case int8:
 		return int64(v)
-	default:
-		sLog.Error("num to Int64 is nonsupport")
 	}
 	return 0
 }
