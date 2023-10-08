@@ -55,7 +55,7 @@ func (t *Table) RightJoin(joinTable, on string) *Table {
 // fields 多个通过逗号隔开
 func (t *Table) Select(fields string) *Table {
 	if null(fields) {
-		sLog.Error("fields is null")
+		sLog.Error(t.ctx, "fields is null")
 		return t
 	}
 
@@ -95,7 +95,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 			t.name = parseTableName(ty.Name())
 		}
 		if err := t.initCacheCol2InfoMap(); err != nil {
-			sLog.Error("initCacheCol2InfoMap is failed, err:", err)
+			sLog.Error(t.ctx, "initCacheCol2InfoMap is failed, err:", err)
 			return t
 		}
 
@@ -109,14 +109,14 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		}
 
 		if len(selectFields) == 0 {
-			sLog.Error("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
+			sLog.Error(t.ctx, "parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
 		}
 		t.Select(t.GetParcelFields(selectFields...))
 	default:
 		if t.isOneField(kind) { // 因为单字段不能解析查内容, 所以直接返回, 在最终调用处报错
 			return t
 		}
-		sLog.Warning("src kind is not struct or slice struct")
+		sLog.Warning(t.ctx, "src kind is not struct or slice struct")
 		t.SelectAll()
 	}
 	return t
@@ -242,7 +242,7 @@ func (t *Table) Count(total interface{}) error {
 
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
-	return t.db.QueryRow(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetTotalSqlStr()).Scan(total)
+	return t.db.QueryRowContext(t.ctx, t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetTotalSqlStr()).Scan(total)
 }
 
 // FindOne 单行查询
@@ -412,7 +412,7 @@ func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 		return nil, err
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
-	return t.db.Query(t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
+	return t.db.QueryContext(t.ctx, t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
 }
 
 // getDestReflectType 解析 dest kind

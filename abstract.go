@@ -1,22 +1,22 @@
 package spellsql
 
-import "database/sql"
+import (
+	"context"
+	"database/sql"
+)
 
 // DBer
 type DBer interface {
-	Query(query string, args ...interface{}) (*sql.Rows, error)
-	QueryRow(query string, args ...interface{}) *sql.Row
-	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }
 
 // Logger
 type Logger interface {
-	Info(v ...interface{})
-	Infof(format string, v ...interface{})
-	Error(v ...interface{})
-	Errorf(format string, v ...interface{})
-	Warning(v ...interface{})
-	Warningf(format string, v ...interface{})
+	Info(ctx context.Context, v ...interface{})
+	Error(ctx context.Context, v ...interface{})
+	Warning(ctx context.Context, v ...interface{})
 }
 
 // TableMetaer 表元信息, 为了适配不同数据库
@@ -26,6 +26,7 @@ type TableMetaer interface {
 	GetParcelFieldSymbol() byte                                                   // 获取字段包裹符号
 	GetAdapterName() string                                                       // 获取 db name
 	SetTableName(tableName string)                                                // 方便框架调用设置 tableName 参数
+	SetCtx(ctx context.Context)                                                   // 设置 context
 	GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) // key: field
 }
 

@@ -1,6 +1,9 @@
 package spellsql
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestCallFile(t *testing.T) {
 	l := NewLogger()
@@ -9,19 +12,9 @@ func TestCallFile(t *testing.T) {
 }
 
 func TestDemo(t *testing.T) {
-	sLog.Info("hello info")
-	sLog.Infof("hello infof: %v", 1)
+	sLog.Info(context.Background(), "hello info")
 
-	sLog.Warning("hello warning")
-	sLog.Warningf("hello warningf: %v", 2)
+	sLog.Warning(context.Background(), "hello warning")
 
-	sLog.Error("hello error")
-	sLog.Errorf("hello errorf: %v", 3)
-}
-
-func TestFatal(t *testing.T) {
-	t.Skip()
-	l := NewLogger()
-	// sLog.Fatal("hello fatal")
-	l.Fatalf("hello fatalf: %v", 1)
+	sLog.Error(context.Background(), "hello error")
 }
