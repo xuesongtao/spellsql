@@ -1,27 +1,14 @@
-# [spellsql](https://gitee.com/xuesongtao/spellsql)
+#### 🚀🚀🚀 项目介绍
 
-#### 🚀🚀🚀 项目背景
-
-* 公司选择了一波 `orm` 框架, 大多数框架都比较重, 重和性能相互, 最终放弃 `orm`;
-* 决定用原生 `database/sql`, 优势: 性能好, bug容易定位, 使用成本低等; 劣势: 代码拼接, 代码量很多, NULL处理等;
-
-* 为了解决 `sql` 拼接实现了 `spellsql`:
+* `spellsql` 拼接器:
     > 1.使用 `sync.Pool`, `strings.Builder` 等提高 `sql` 拼接工具的性能  
     > 2.💯覆盖使用场景  
     > 3.支持 可控打印 `sql` 最终的 `log`; 非法字符自动转义; 支持格式化 `sql` 等  
 
-* 为了解决满足性能和释放双手添加了 `orm` 功能, 支持: **mysql|pg**
+* 为了解决满足性能和释放双手添加了 `orm` 功能, 支持: `mysql`, `pg`
     > 1.新增/更新: 支持通过 `struct` 解析值进行操作; 支持对字段进行 **序列化** 操作; 支持设置**别名, 设置默认值**等  
     > 2.删除: 支持通过 `struct` 解析值进行  
     > 3.查询: 支持单表/多表查询; 支持对结果进行回调处理; 查询性能接近原生; 支持对结果映射到 `struct/map/slice/单字段`等
-
-#### 1. 使用介绍
-
-* 安装:  
-
-```go
-go get -u gitee.com/xuesongtao/spellsql
-```
 
 #### 2. 占位符
 
@@ -369,7 +356,3 @@ if err != nil {
 
 * 使用可以参考 `orm_test.go` 和 `example_orm_test.go`
 * 在连表查询时, 如果两个表的列名相同查询结果会出现错误, 我们可以通过根据别名来区分, 或者直接调用 `Query` 来自行对结果进行处理(注: 调用 `Query` 时需要处理 `Null` 类型)
-
-#### 其他
-
-* 欢迎大佬们指正, 希望大佬给❤️，to [gitee](https://gitee.com/xuesongtao/spellsql) [github](https://github.com/xuesongtao/spellsql)
