@@ -179,7 +179,11 @@ func (s *SqlStrObj) init() {
 	s.needAddBracket = false
 	s.callerSkip = 1
 	s.actionNum = none
-	s.strSymbol = getTmerFn().GetValueStrSymbol()
+
+	// 数据库不同配置
+	tmerObj := getTmerFn()
+	s.strSymbol = tmerObj.GetValueStrSymbol()
+	s.escapeMap = tmerObj.GetValueEscapeMap()
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
@@ -223,6 +227,12 @@ func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
 		return s
 	}
 	s.strSymbol = strSymbol
+	return s
+}
+
+// SetEscapeMap 设置对值的转义处理
+func (s *SqlStrObj) SetEscapeMap(escapeMap map[byte][]byte) *SqlStrObj {
+	s.escapeMap = escapeMap
 	return s
 }
 
@@ -418,12 +428,6 @@ func (s *SqlStrObj) SqlStrLen() int {
 // SetCallerSkip 设置打印调用跳过的层数
 func (s *SqlStrObj) SetCallerSkip(skip uint8) *SqlStrObj {
 	s.callerSkip = skip
-	return s
-}
-
-// SetEscapeMap 设置对值的转义处理
-func (s *SqlStrObj) SetEscapeMap(escapeMap map[byte][]byte) *SqlStrObj {
-	s.escapeMap = escapeMap
 	return s
 }
 
