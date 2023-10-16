@@ -179,7 +179,7 @@ func (s *SqlStrObj) init() {
 	s.needAddBracket = false
 	s.callerSkip = 1
 	s.actionNum = none
-	s.strSymbol = '"'
+	s.strSymbol = getTmerFn().GetValueStrSymbol()
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
