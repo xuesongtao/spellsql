@@ -31,8 +31,15 @@ function main() {
         # gitee.com
         # gitlab.cd.anpro
         targetFile="${targetDir}/${goFile}"
+
+        # 替换
         sed -e "s/\/\/ \"gitlab.cd.anpro/\"gitlab.cd.anpro/g" \
             -e "s/\"gitee.com\\/xuesongtao\\/spellsql/\/\/ \"gitee.com\\/xuesongtao\\/spellsql/g" \
+            -e "s/logOs \"os\"/\/\/ logOs \"os\"/g" \
+            -e "s/log: log.New/\/\/ log: log.New/g" \
+            -e "s/d.log/\/\/ d.log/g" \
+            -e "s/\/\/ slog/slog/g" \
+            -e "s/\/\/ \"errors\"/\"errors\"/g" \
             $goFile >$targetFile
         checkIsOk "repalce: ${goFile} ${targetFile}"
     done

@@ -2,12 +2,13 @@ package spellsql
 
 import (
 	"context"
-	"os"
+	logOs "os"
 	"runtime"
 	"strconv"
 	
 	"log"
-	// slg "gitlab.cd.anpro/go/common/log"
+	// slog "gitlab.cd.anpro/go/common/log"
+	// "errors"
 )
 
 type defaultLogger struct {
@@ -16,23 +17,23 @@ type defaultLogger struct {
 
 func NewLogger() *defaultLogger {
 	return &defaultLogger{
-		log: log.New(os.Stdout, "", log.LstdFlags),
+		log: log.New(logOs.Stdout, "", log.LstdFlags),
 	}
 }
 
 func (d *defaultLogger) Info(ctx context.Context, v ...interface{}) {
 	d.log.Println(append([]interface{}{"[INFO] " + d.getPrefix(3)}, v...)...)
-	// slg.InfofWithTrace(ctx, d.getFormat(v...), v...)
+	// slog.InfofWithTrace(ctx, d.getFormat(v...), v...)
 }
 
 func (d *defaultLogger) Error(ctx context.Context, v ...interface{}) {
 	d.log.Println(append([]interface{}{"[ERRO] " + d.getPrefix(3)}, v...)...)
-	// slg.ErrorfWithTrace(ctx, errors.New("sql handle err"), d.getFormat(v...), v...)
+	// slog.ErrorfWithTrace(ctx, errors.New("sql handle err"), d.getFormat(v...), v...)
 }
 
 func (d *defaultLogger) Warning(ctx context.Context, v ...interface{}) {
 	d.log.Println(append([]interface{}{"[WARN] " + d.getPrefix(3)}, v...)...)
-	// slg.WarnfWithTrace(ctx, d.getFormat(v...), v...)
+	// slog.WarnfWithTrace(ctx, d.getFormat(v...), v...)
 }
 
 func (d *defaultLogger) getFormat(v ...interface{}) (formatStr string) {
