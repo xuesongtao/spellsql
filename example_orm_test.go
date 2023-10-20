@@ -126,7 +126,7 @@ func ExampleInsertHasDefaultForObj() {
 	myPrint(rr, false)
 
 	// Output:
-	// 1
+	// field "age" should't null, you can first call TagDefault
 }
 
 func ExampleUpdateForObj() {
