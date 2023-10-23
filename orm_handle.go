@@ -38,7 +38,11 @@ func (t *Table) insert(cols []string, insertObjs ...interface{}) ([]string, erro
 		needCols   = t.getNeedCols(cols)
 		handleCols []string
 	)
+	isOnlyInsert := len(insertObjs) == 1 // 仅仅只有一个
 	for i, insertObj := range insertObjs {
+		if isOnlyInsert { // insert 一个值的时候, 在解析列的时候跳过零值
+			needCols = nil
+		}
 		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, needCols, t.name)
 		if err != nil {
 			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
