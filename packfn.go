@@ -96,6 +96,11 @@ func InsertHasDefaultForObj(db DBer, tableName string, tag2DefaultMap map[string
 }
 
 // InsertHasDefaultForObjCtx 根据对象新增, 同时支持默认值
+func InsertsHasDefaultForObjCtx(ctx context.Context, db DBer, tableName string, tag2DefaultMap map[string]interface{}, src ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).TagDefault(tag2DefaultMap).Insert(src).Exec()
+}
+
+// InsertHasDefaultForObjCtx 根据对象新增, 同时支持默认值
 func InsertHasDefaultForObjCtx(ctx context.Context, db DBer, tableName string, tag2DefaultMap map[string]interface{}, src interface{}) (sql.Result, error) {
 	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).TagDefault(tag2DefaultMap).Insert(src).Exec()
 }
