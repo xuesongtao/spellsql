@@ -113,7 +113,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		}
 		t.Select(t.GetParcelFields(selectFields...))
 	default:
-		if t.isOneField(kind) { // 因为单字段不能解析查内容, 所以直接返回, 在最终调用处报错
+		if isOneField(kind) { // 因为单字段不能解析查内容, 所以直接返回, 在最终调用处报错
 			return t
 		}
 		sLog.Warning(t.ctx, "src kind is not struct or slice struct")
@@ -260,7 +260,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 
 	if len(dest) == 1 {
 		ty, err := t.getDestReflectType(dest[0], []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
-		if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
+		if err != nil && !isOneField(ty.Kind()) { // 需要排除单字段查询
 			return err
 		}
 		return t.find(dest[0], ty, false)
@@ -283,7 +283,7 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	}
 
 	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
-	if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
+	if err != nil && !isOneField(ty.Kind()) { // 需要排除单字段查询
 		return err
 	}
 	return t.find(dest, ty, false, fn...)
@@ -299,7 +299,7 @@ func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) er
 	}
 
 	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, findOneDestTypeErr)
-	if err != nil && !t.isOneField(ty.Kind()) { // 需要排除单字段查询
+	if err != nil && !isOneField(ty.Kind()) { // 需要排除单字段查询
 		return err
 	}
 	return t.find(dest, ty, true, fn...)
@@ -451,24 +451,10 @@ func (t *Table) loadDestType(dest reflect.Type) {
 	case reflect.Map:
 		t.destTypeFlag = mapFlag
 	default:
-		if t.isOneField(kind) {
+		if isOneField(kind) {
 			t.destTypeFlag = oneFieldFlag
 		}
 	}
-}
-
-// isOneField 是否为单字段
-func (t *Table) isOneField(kind reflect.Kind) bool {
-	// 将常用的类型放在前面
-	switch kind {
-	case reflect.String,
-		reflect.Int64, reflect.Int32, reflect.Int, reflect.Int16, reflect.Int8,
-		reflect.Uint64, reflect.Uint32, reflect.Uint, reflect.Uint16, reflect.Uint8,
-		reflect.Float32, reflect.Float64,
-		reflect.Bool:
-		return true
-	}
-	return false
 }
 
 // find 查询处理入口, 根据 dest 类型进行分配处理
