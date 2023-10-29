@@ -132,13 +132,16 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 // Convert 转换
 func (c *ConvStructObj) Convert() error {
 	for tagVal, destFieldInfo := range c.descFieldMap {
-		destVal := c.destRv.Field(destFieldInfo.offset)
-		srcFieldInfo := c.srcFieldMap[tagVal]
+		srcFieldInfo, ok := c.srcFieldMap[tagVal]
+		if !ok {
+			continue
+		}
 		srcVal := c.srcRv.Field(srcFieldInfo.offset)
 		if srcVal.IsZero() {
 			continue
 		}
 
+		destVal := c.destRv.Field(destFieldInfo.offset)
 		if srcFieldInfo.marshal != nil { // 需要将 src marshal 转, src: obj => dest: string
 			if destFieldInfo.ty.Kind() != reflect.String {
 				return errors.New("dest must string")
