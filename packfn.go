@@ -96,6 +96,11 @@ func InsertHasDefaultForObj(db DBer, tableName string, tag2DefaultMap map[string
 }
 
 // InsertHasDefaultForObjCtx 根据对象新增, 同时支持默认值
+func InsertsHasDefaultForObjCtx(ctx context.Context, db DBer, tableName string, tag2DefaultMap map[string]interface{}, src ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).TagDefault(tag2DefaultMap).Insert(src...).Exec()
+}
+
+// InsertHasDefaultForObjCtx 根据对象新增, 同时支持默认值
 func InsertHasDefaultForObjCtx(ctx context.Context, db DBer, tableName string, tag2DefaultMap map[string]interface{}, src interface{}) (sql.Result, error) {
 	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).TagDefault(tag2DefaultMap).Insert(src).Exec()
 }
@@ -244,4 +249,13 @@ func FindAll(db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn)
 // sql sqlStr 或 *SqlStrObj
 func FindAllCtx(ctx context.Context, db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
 	return NewTable(db).Ctx(ctx).PrintSqlCallSkip(3).Raw(sql).FindAll(dest, fn...)
+}
+
+// ConvStruct 转换 struct 的值
+func ConvStruct(src interface{}, dest interface{}) error {
+	obj := NewConvStruct()
+	if err := obj.Init(src, dest); err != nil {
+		return err
+	}
+	return obj.Convert()
 }

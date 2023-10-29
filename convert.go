@@ -12,6 +12,161 @@ import (
 
 var errNilPtr = errors.New("destination pointer is nil") // embedded in descriptive error
 
+type convFieldInfo struct {
+	offset    int // 偏移量
+	tagVal    string
+	ty        reflect.Type
+	marshal   marshalFn   // 序列化方法
+	unmarshal unmarshalFn // 反序列化方法
+}
+
+type ConvStructObj struct {
+	tag           string
+	srcRv, destRv reflect.Value
+	descFieldMap  map[string]*convFieldInfo // key: tagVal
+	srcFieldMap   map[string]*convFieldInfo // key: tagVal
+}
+
+// NewConvStruct 转换 struct, 将两个对象相同 tag 进行转换
+// 字段取值默认按 defaultTableTag 来取值
+func NewConvStruct(tagName ...string) *ConvStructObj {
+	obj := &ConvStructObj{
+		tag: defaultTableTag,
+	}
+	if len(tagName) > 0 && tagName[0] != "" {
+		obj.tag = tagName[0]
+	}
+	return obj
+}
+
+func (c *ConvStructObj) initSrc(ry reflect.Type) error {
+	c.srcFieldMap = make(map[string]*convFieldInfo)
+	err := c.initCacheFieldMap(ry, func(tagVal string, field *convFieldInfo) {
+		c.srcFieldMap[tagVal] = field
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *ConvStructObj) initDest(ry reflect.Type) error {
+	c.descFieldMap = make(map[string]*convFieldInfo)
+	err := c.initCacheFieldMap(ry, func(tagVal string, field *convFieldInfo) {
+		c.descFieldMap[tagVal] = field
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string, field *convFieldInfo)) error {
+	if ry.Kind() != reflect.Struct {
+		return errors.New("val must is struct")
+	}
+
+	fieldNum := ry.NumField()
+	for i := 0; i < fieldNum; i++ {
+		ty := ry.Field(i)
+		tagVal := parseTag2Col(ty.Tag.Get(c.tag))
+		if tagVal == "" {
+			continue
+		}
+
+		f(
+			tagVal,
+			&convFieldInfo{
+				offset: i,
+				tagVal: tagVal,
+				ty:     ty.Type,
+			},
+		)
+	}
+	return nil
+}
+
+// Init 初始化
+func (c *ConvStructObj) Init(src, dest interface{}) error {
+	c.srcRv = removeValuePtr(reflect.ValueOf(src))
+	c.destRv = removeValuePtr(reflect.ValueOf(dest))
+	if err := c.initSrc(c.srcRv.Type()); err != nil {
+		return err
+	}
+	if err := c.initDest(c.destRv.Type()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SrcMarshal 设置需要将 src marshal 转 dest
+// 如: src: obj => dest: string
+func (c *ConvStructObj) SrcMarshal(fn marshalFn, tagVal ...string) *ConvStructObj {
+	if c.srcFieldMap == nil {
+		return c
+	}
+
+	for _, v := range tagVal {
+		if c.srcFieldMap[v] != nil {
+			c.srcFieldMap[v].marshal = fn
+		}
+	}
+	return c
+}
+
+// SrcUnmarshal 设置需要 src unmarshal 转 dest
+// 如: src: string => dest: obj
+func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStructObj {
+	if c.srcFieldMap == nil {
+		return c
+	}
+
+	for _, v := range tagVal {
+		if c.srcFieldMap[v] != nil {
+			c.srcFieldMap[v].unmarshal = fn
+		}
+	}
+	return c
+}
+
+// Convert 转换
+func (c *ConvStructObj) Convert() error {
+	for tagVal, destFieldInfo := range c.descFieldMap {
+		destVal := c.destRv.Field(destFieldInfo.offset)
+		srcFieldInfo := c.srcFieldMap[tagVal]
+		srcVal := c.srcRv.Field(srcFieldInfo.offset)
+		if srcVal.IsZero() {
+			continue
+		}
+
+		if srcFieldInfo.marshal != nil { // 需要将 src marshal 转, src: obj => dest: string
+			if destFieldInfo.ty.Kind() != reflect.String {
+				return errors.New("dest must string")
+			}
+			b, err := srcFieldInfo.marshal(srcVal.Interface())
+			if err != nil {
+				return err
+			}
+			destVal.SetString(string(b))
+		} else if srcFieldInfo.unmarshal != nil { // 需要 src unmarshal 转, src: string => dest: obj
+			if srcFieldInfo.ty.Kind() != reflect.String {
+				return errors.New("src must string")
+			}
+
+			if err := srcFieldInfo.unmarshal([]byte(srcVal.String()), destVal.Addr().Interface()); err != nil {
+				return err
+			}
+			return nil
+		} else {
+			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // convertAssign copies to dest the value in src, converting it if possible.
 // An error is returned if the copy would result in loss of information.
 // dest should be a pointer type. If rows is passed in, the rows will

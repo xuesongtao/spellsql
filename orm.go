@@ -346,7 +346,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 	}
 
 	// 去除 tag 中的干扰, 如: json:"xxx,omitempty"
-	tag = t.parseTag2Col(tag)
+	tag = parseTag2Col(tag)
 
 	// 处理下 tag
 	var alias string
@@ -393,18 +393,6 @@ func (t *Table) needSkipObj(kind reflect.Kind) bool {
 		return true
 	}
 	return false
-}
-
-// parseTag2Col 解析 tag 中表的列名
-func (t *Table) parseTag2Col(tag string) (column string) {
-	// 因为 tag 中有可能出现多个值, 需要处理下
-	tmpIndex := IndexForBF(true, tag, ",")
-	if tmpIndex > -1 {
-		column = tag[:tmpIndex]
-	} else {
-		column = tag
-	}
-	return
 }
 
 // GetSqlObj 获取 SqlStrObj, 方便外部使用该对象的方法
