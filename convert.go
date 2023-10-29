@@ -140,30 +140,30 @@ func (c *ConvStructObj) Convert() error {
 		if srcVal.IsZero() {
 			continue
 		}
-
 		destVal := c.destRv.Field(destFieldInfo.offset)
-		if srcFieldInfo.marshal != nil { // 需要将 src marshal 转, src: obj => dest: string
+
+		if srcFieldInfo.marshal != nil { // src: obj => dest: string
 			if destFieldInfo.ty.Kind() != reflect.String {
-				return errors.New("dest must string")
+				return fmt.Errorf("dest %q must string", tagVal)
 			}
+			
 			b, err := srcFieldInfo.marshal(srcVal.Interface())
 			if err != nil {
-				return err
+				return fmt.Errorf("src %q, dest %q marshal is failed, err: %v", tagVal, tagVal, err)
 			}
 			destVal.SetString(string(b))
-		} else if srcFieldInfo.unmarshal != nil { // 需要 src unmarshal 转, src: string => dest: obj
+		} else if srcFieldInfo.unmarshal != nil { // src: string => dest: obj
 			if srcFieldInfo.ty.Kind() != reflect.String {
-				return errors.New("src must string")
+				return fmt.Errorf("src %q must string", tagVal)
 			}
 
 			if err := srcFieldInfo.unmarshal([]byte(srcVal.String()), destVal.Addr().Interface()); err != nil {
-				return err
+				return fmt.Errorf("src %q, dest %q unmarshal is failed, err: %v", tagVal, tagVal, err)
 			}
-			return nil
 		} else {
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
 			if err != nil {
-				return err
+				return fmt.Errorf("src %q, dest %q convertAssign is failed, err: %v", tagVal, tagVal, err)
 			}
 		}
 	}
