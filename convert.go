@@ -99,9 +99,9 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 	return nil
 }
 
-// SrcNeedMarshal 设置需要将 src marshal 转
+// SrcMarshal 设置需要将 src marshal 转 dest
 // 如: src: obj => dest: string
-func (c *ConvStructObj) SrcNeedMarshal(fn marshalFn, tagVal ...string) *ConvStructObj {
+func (c *ConvStructObj) SrcMarshal(fn marshalFn, tagVal ...string) *ConvStructObj {
 	if c.srcFieldMap == nil {
 		return c
 	}
@@ -114,9 +114,9 @@ func (c *ConvStructObj) SrcNeedMarshal(fn marshalFn, tagVal ...string) *ConvStru
 	return c
 }
 
-// SrcNeedUnmarshal 设置需要 src unmarshal 转
+// SrcUnmarshal 设置需要 src unmarshal 转 dest
 // 如: src: string => dest: obj
-func (c *ConvStructObj) SrcNeedUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStructObj {
+func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStructObj {
 	if c.srcFieldMap == nil {
 		return c
 	}

@@ -102,10 +102,10 @@ func TestConvert(t *testing.T) {
 			obj.Init(tC.src, &tC.dest)
 
 			if tC.desc == "需要marshal" {
-				obj.SrcNeedMarshal(json.Marshal, "need_marshal")
+				obj.SrcMarshal(json.Marshal, "need_marshal")
 			}
 			if tC.desc == "需要unmarshal" {
-				obj.SrcNeedUnmarshal(json.Unmarshal, "need_unmarshal")
+				obj.SrcUnmarshal(json.Unmarshal, "need_unmarshal")
 			}
 
 			err := obj.Convert()
