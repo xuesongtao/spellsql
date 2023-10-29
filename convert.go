@@ -15,7 +15,7 @@ var errNilPtr = errors.New("destination pointer is nil") // embedded in descript
 type convFieldInfo struct {
 	offset    int // 偏移量
 	tagVal    string
-	ty        reflect.Type
+	kind      reflect.Kind
 	marshal   marshalFn   // 序列化方法
 	unmarshal unmarshalFn // 反序列化方法
 }
@@ -79,7 +79,7 @@ func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string,
 			&convFieldInfo{
 				offset: i,
 				tagVal: tagVal,
-				ty:     ty.Type,
+				kind:     ty.Type.Kind(),
 			},
 		)
 	}
@@ -132,35 +132,38 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 // Convert 转换
 func (c *ConvStructObj) Convert() error {
 	for tagVal, destFieldInfo := range c.descFieldMap {
-		destVal := c.destRv.Field(destFieldInfo.offset)
-		srcFieldInfo := c.srcFieldMap[tagVal]
+		srcFieldInfo, ok := c.srcFieldMap[tagVal]
+		if !ok {
+			continue
+		}
 		srcVal := c.srcRv.Field(srcFieldInfo.offset)
 		if srcVal.IsZero() {
 			continue
 		}
+		destVal := c.destRv.Field(destFieldInfo.offset)
 
-		if srcFieldInfo.marshal != nil { // 需要将 src marshal 转, src: obj => dest: string
-			if destFieldInfo.ty.Kind() != reflect.String {
-				return errors.New("dest must string")
+		if srcFieldInfo.marshal != nil { // src: obj => dest: string
+			if destFieldInfo.kind != reflect.String {
+				return fmt.Errorf("dest %q must string", tagVal)
 			}
+
 			b, err := srcFieldInfo.marshal(srcVal.Interface())
 			if err != nil {
-				return err
+				return fmt.Errorf("src %q, dest %q marshal is failed, err: %v", tagVal, tagVal, err)
 			}
 			destVal.SetString(string(b))
-		} else if srcFieldInfo.unmarshal != nil { // 需要 src unmarshal 转, src: string => dest: obj
-			if srcFieldInfo.ty.Kind() != reflect.String {
-				return errors.New("src must string")
+		} else if srcFieldInfo.unmarshal != nil { // src: string => dest: obj
+			if srcFieldInfo.kind != reflect.String {
+				return fmt.Errorf("src %q must string", tagVal)
 			}
 
 			if err := srcFieldInfo.unmarshal([]byte(srcVal.String()), destVal.Addr().Interface()); err != nil {
-				return err
+				return fmt.Errorf("src %q, dest %q unmarshal is failed, err: %v", tagVal, tagVal, err)
 			}
-			return nil
 		} else {
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
 			if err != nil {
-				return err
+				return fmt.Errorf("src %q, dest %q convertAssign is failed, err: %v", tagVal, tagVal, err)
 			}
 		}
 	}
