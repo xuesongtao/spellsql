@@ -114,6 +114,7 @@ func (c *ConvStructObj) Exclude(tagVals ...string) *ConvStructObj {
 
 // SrcMarshal 设置需要将 src marshal 转 dest
 // 如: src: obj => dest: string
+// 注: 需要晚于 Init 调用
 func (c *ConvStructObj) SrcMarshal(fn marshalFn, tagVal ...string) *ConvStructObj {
 	if c.srcFieldMap == nil {
 		return c
@@ -129,6 +130,7 @@ func (c *ConvStructObj) SrcMarshal(fn marshalFn, tagVal ...string) *ConvStructOb
 
 // SrcUnmarshal 设置需要 src unmarshal 转 dest
 // 如: src: string => dest: obj
+// 注: 需要晚于 Init 调用
 func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStructObj {
 	if c.srcFieldMap == nil {
 		return c
