@@ -11,7 +11,7 @@ type TmpDest struct {
 	Age           int       `json:"age,omitempty"`
 	Hobby         []string  `json:"hobby,omitempty"`
 	NeedMarshal   string    `json:"need_marshal,omitempty"`
-	NeedUnmarshal []TmpNest `json:"need_unmarshal,omitempty"`
+	NeedUnmarshal []*TmpNest `json:"need_unmarshal,omitempty"`
 }
 
 type TmpSrc struct {
@@ -19,7 +19,7 @@ type TmpSrc struct {
 	Age           int64     `json:"age,omitempty"`
 	Hobby         []string  `json:"hobby,omitempty"`
 	Test          string    `json:"test,omitempty"`
-	NeedMarshal   []TmpNest `json:"need_marshal,omitempty"`
+	NeedMarshal   []*TmpNest `json:"need_marshal,omitempty"`
 	NeedUnmarshal string    `json:"need_unmarshal,omitempty"`
 }
 
@@ -68,7 +68,7 @@ func TestConvert(t *testing.T) {
 				Name:        "name",
 				Age:         10,
 				Hobby:       []string{"打篮球", "跑步"},
-				NeedMarshal: []TmpNest{{Name: "需要 marshal 测试"}},
+				NeedMarshal: []*TmpNest{{Name: "需要 marshal 测试"}},
 			},
 			dest: TmpDest{},
 			ok: TmpDest{
@@ -91,7 +91,7 @@ func TestConvert(t *testing.T) {
 				Name:          "name",
 				Age:           10,
 				Hobby:         []string{"打篮球", "跑步"},
-				NeedUnmarshal: []TmpNest{{Name: "需要 unmarshal 测试"}},
+				NeedUnmarshal: []*TmpNest{{Name: "需要 unmarshal 测试"}},
 			},
 		},
 	}
@@ -99,7 +99,7 @@ func TestConvert(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			obj := NewConvStruct()
 
-			obj.Init(tC.src, &tC.dest)
+			obj.Init(&tC.src, &tC.dest)
 
 			if tC.desc == "需要marshal" {
 				obj.SrcMarshal(json.Marshal, "need_marshal")
@@ -112,7 +112,7 @@ func TestConvert(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
+			// tC.src.Name = "testname"
 			if !reflect.DeepEqual(tC.dest, tC.ok) {
 				t.Errorf("convert is failed, dest: %+v, ok: %+v", tC.dest, tC.ok)
 			}

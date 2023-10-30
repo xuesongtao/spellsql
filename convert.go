@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -79,7 +80,7 @@ func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string,
 			&convFieldInfo{
 				offset: i,
 				tagVal: tagVal,
-				kind:     ty.Type.Kind(),
+				kind:   ty.Type.Kind(),
 			},
 		)
 	}
@@ -131,6 +132,7 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 
 // Convert 转换
 func (c *ConvStructObj) Convert() error {
+	errBuf := new(strings.Builder)
 	for tagVal, destFieldInfo := range c.descFieldMap {
 		srcFieldInfo, ok := c.srcFieldMap[tagVal]
 		if !ok {
@@ -163,7 +165,10 @@ func (c *ConvStructObj) Convert() error {
 		} else {
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
 			if err != nil {
-				return fmt.Errorf("src %q, dest %q convertAssign is failed, err: %v", tagVal, tagVal, err)
+				if errBuf.Len() > 0 {
+					errBuf.WriteString("; ")
+				}
+				errBuf.WriteString(fmt.Sprintf("src %q, dest %q convert is failed, err: %v", tagVal, tagVal, err))
 			}
 		}
 	}
@@ -346,7 +351,7 @@ func convertAssign(dest, src interface{}) error {
 		i64, err := strconv.ParseInt(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetInt(i64)
 		return nil
@@ -355,7 +360,7 @@ func convertAssign(dest, src interface{}) error {
 		u64, err := strconv.ParseUint(s, 10, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetUint(u64)
 		return nil
@@ -364,7 +369,7 @@ func convertAssign(dest, src interface{}) error {
 		f64, err := strconv.ParseFloat(s, dv.Type().Bits())
 		if err != nil {
 			err = strconvErr(err)
-			return fmt.Errorf("converting driver.Value type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
+			return fmt.Errorf("converting type %T (%q) to a %s: %v", src, s, dv.Kind(), err)
 		}
 		dv.SetFloat(f64)
 		return nil
@@ -379,7 +384,7 @@ func convertAssign(dest, src interface{}) error {
 		}
 	}
 
-	return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type %T", src, dest)
+	return fmt.Errorf("unsupported convert, type %T into type %T", src, dest)
 }
 
 func strconvErr(err error) error {
