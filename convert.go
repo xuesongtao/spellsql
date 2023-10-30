@@ -14,7 +14,8 @@ import (
 var errNilPtr = errors.New("destination pointer is nil") // embedded in descriptive error
 
 type convFieldInfo struct {
-	offset    int // 偏移量
+	exclude   bool // 标记是否排除
+	offset    int  // 偏移量
 	tagVal    string
 	kind      reflect.Kind
 	marshal   marshalFn   // 序列化方法
@@ -100,6 +101,17 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 	return nil
 }
 
+// Exclude 需要排除的转换的值
+// 注: 需要晚于 Init 调用
+func (c *ConvStructObj) Exclude(tagVals ...string) *ConvStructObj {
+	for _, tagVal := range tagVals {
+		if obj, ok := c.descFieldMap[tagVal]; ok {
+			obj.exclude = true
+		}
+	}
+	return c
+}
+
 // SrcMarshal 设置需要将 src marshal 转 dest
 // 如: src: obj => dest: string
 func (c *ConvStructObj) SrcMarshal(fn marshalFn, tagVal ...string) *ConvStructObj {
@@ -134,6 +146,10 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 func (c *ConvStructObj) Convert() error {
 	errBuf := new(strings.Builder)
 	for tagVal, destFieldInfo := range c.descFieldMap {
+		if destFieldInfo.exclude {
+			continue
+		}
+
 		srcFieldInfo, ok := c.srcFieldMap[tagVal]
 		if !ok {
 			continue
