@@ -172,6 +172,9 @@ func (c *ConvStructObj) Convert() error {
 			}
 		}
 	}
+	if errBuf.Len() > 0 {
+		return errors.New(errBuf.String())
+	}
 	return nil
 }
 
