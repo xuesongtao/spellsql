@@ -7,20 +7,20 @@ import (
 )
 
 type TmpDest struct {
-	Name          string    `json:"name,omitempty"`
-	Age           int       `json:"age,omitempty"`
-	Hobby         []string  `json:"hobby,omitempty"`
-	NeedMarshal   string    `json:"need_marshal,omitempty"`
+	Name          string     `json:"name,omitempty"`
+	Age           int        `json:"age,omitempty"`
+	Hobby         []string   `json:"hobby,omitempty"`
+	NeedMarshal   string     `json:"need_marshal,omitempty"`
 	NeedUnmarshal []*TmpNest `json:"need_unmarshal,omitempty"`
 }
 
 type TmpSrc struct {
-	Name          string    `json:"name,omitempty"`
-	Age           int64     `json:"age,omitempty"`
-	Hobby         []string  `json:"hobby,omitempty"`
-	Test          string    `json:"test,omitempty"`
+	Name          string     `json:"name,omitempty"`
+	Age           int64      `json:"age,omitempty"`
+	Hobby         []string   `json:"hobby,omitempty"`
+	Test          string     `json:"test,omitempty"`
 	NeedMarshal   []*TmpNest `json:"need_marshal,omitempty"`
-	NeedUnmarshal string    `json:"need_unmarshal,omitempty"`
+	NeedUnmarshal string     `json:"need_unmarshal,omitempty"`
 }
 
 type TmpNest struct {

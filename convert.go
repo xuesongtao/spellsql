@@ -145,6 +145,9 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 }
 
 // Convert 转换
+// 注: 如果是相同对象的话, 此转换为浅拷贝, 使用的时候需要注意
+// 注: 如果是相同对象的话, 此转换为浅拷贝, 使用的时候需要注意
+// 注: 如果是相同对象的话, 此转换为浅拷贝, 使用的时候需要注意
 func (c *ConvStructObj) Convert() error {
 	errBuf := new(strings.Builder)
 	for tagVal, destFieldInfo := range c.descFieldMap {
