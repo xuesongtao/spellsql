@@ -1,8 +1,10 @@
 package spellsql
 
 import (
+	"context"
 	. "database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -25,8 +27,9 @@ type convFieldInfo struct {
 type ConvStructObj struct {
 	tag           string
 	srcRv, destRv reflect.Value
-	descFieldMap  map[string]*convFieldInfo // key: tagVal
-	srcFieldMap   map[string]*convFieldInfo // key: tagVal
+	deepSrcCopyFn func(src interface{}) interface{} // 深拷贝方法
+	descFieldMap  map[string]*convFieldInfo         // key: tagVal
+	srcFieldMap   map[string]*convFieldInfo         // key: tagVal
 }
 
 // NewConvStruct 转换 struct, 将两个对象相同 tag 进行转换
@@ -37,6 +40,18 @@ func NewConvStruct(tagName ...string) *ConvStructObj {
 	}
 	if len(tagName) > 0 && tagName[0] != "" {
 		obj.tag = tagName[0]
+	}
+
+	// src 深拷贝方法
+	obj.deepSrcCopyFn = func(src interface{}) interface{} {
+		b, _ := json.Marshal(src)
+		rv := removeValuePtr(reflect.ValueOf(src))
+		tmp := reflect.New(rv.Type()).Interface()
+		err := json.Unmarshal(b, &tmp)
+		if err != nil {
+			sLog.Error(context.TODO(), "deepSrcCopy is failed, err:"+err.Error())
+		}
+		return tmp
 	}
 	return obj
 }
@@ -88,13 +103,19 @@ func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string,
 	return nil
 }
 
+// SrcDeepCopyFn 设置 deep copy 的方法
+func (c *ConvStructObj) SrcDeepCopyFn(fn func(src interface{}) interface{}) {
+	c.deepSrcCopyFn = fn
+}
+
 // Init 初始化
 func (c *ConvStructObj) Init(src, dest interface{}) error {
-	c.srcRv = removeValuePtr(reflect.ValueOf(src))
-	c.destRv = removeValuePtr(reflect.ValueOf(dest))
+	c.srcRv = reflect.ValueOf(c.deepSrcCopyFn(src)).Elem()
 	if err := c.initSrc(c.srcRv.Type()); err != nil {
 		return err
 	}
+
+	c.destRv = removeValuePtr(reflect.ValueOf(dest))
 	if err := c.initDest(c.destRv.Type()); err != nil {
 		return err
 	}
@@ -114,6 +135,7 @@ func (c *ConvStructObj) Exclude(tagVals ...string) *ConvStructObj {
 
 // SrcMarshal 设置需要将 src marshal 转 dest
 // 如: src: obj => dest: string
+// 注: 需要晚于 Init 调用
 func (c *ConvStructObj) SrcMarshal(fn marshalFn, tagVal ...string) *ConvStructObj {
 	if c.srcFieldMap == nil {
 		return c
@@ -129,6 +151,7 @@ func (c *ConvStructObj) SrcMarshal(fn marshalFn, tagVal ...string) *ConvStructOb
 
 // SrcUnmarshal 设置需要 src unmarshal 转 dest
 // 如: src: string => dest: obj
+// 注: 需要晚于 Init 调用
 func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStructObj {
 	if c.srcFieldMap == nil {
 		return c
