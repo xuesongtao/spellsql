@@ -252,13 +252,9 @@ func FindAllCtx(ctx context.Context, db DBer, sql interface{}, dest interface{},
 }
 
 // ConvStruct 转换 struct 的值
-func ConvStruct(src interface{}, dest interface{}, needDeepCopySrc ...bool) error {
-	defaultDeepCopySrc := true
-	if len(needDeepCopySrc) > 0 {
-		defaultDeepCopySrc = needDeepCopySrc[0]
-	}
+func ConvStruct(src interface{}, dest interface{}) error {
 	obj := NewConvStruct()
-	if err := obj.Init(src, dest, defaultDeepCopySrc); err != nil {
+	if err := obj.Init(src, dest); err != nil {
 		return err
 	}
 	return obj.Convert()
