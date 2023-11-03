@@ -1,10 +1,8 @@
 package spellsql
 
 import (
-	"context"
 	. "database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -27,9 +25,8 @@ type convFieldInfo struct {
 type ConvStructObj struct {
 	tag           string
 	srcRv, destRv reflect.Value
-	deepSrcCopyFn func(src interface{}) interface{} // 深拷贝方法
-	descFieldMap  map[string]*convFieldInfo         // key: tagVal
-	srcFieldMap   map[string]*convFieldInfo         // key: tagVal
+	descFieldMap  map[string]*convFieldInfo // key: tagVal
+	srcFieldMap   map[string]*convFieldInfo // key: tagVal
 }
 
 // NewConvStruct 转换 struct, 将两个对象相同 tag 进行转换
@@ -40,18 +37,6 @@ func NewConvStruct(tagName ...string) *ConvStructObj {
 	}
 	if len(tagName) > 0 && tagName[0] != "" {
 		obj.tag = tagName[0]
-	}
-
-	// src 深拷贝方法
-	obj.deepSrcCopyFn = func(src interface{}) interface{} {
-		b, _ := json.Marshal(src)
-		rv := removeValuePtr(reflect.ValueOf(src))
-		tmp := reflect.New(rv.Type()).Interface()
-		err := json.Unmarshal(b, &tmp)
-		if err != nil {
-			sLog.Error(context.TODO(), "deepSrcCopy is failed, err:"+err.Error())
-		}
-		return tmp
 	}
 	return obj
 }
@@ -103,17 +88,9 @@ func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string,
 	return nil
 }
 
-// SrcDeepCopyFn 设置 deep copy 的方法
-func (c *ConvStructObj) SrcDeepCopyFn(fn func(src interface{}) interface{}) {
-	c.deepSrcCopyFn = fn
-}
-
 // Init 初始化
-func (c *ConvStructObj) Init(src, dest interface{}, needDeepCopySrc ...bool) error {
-	if len(needDeepCopySrc) > 0 && needDeepCopySrc[0] {
-		src = c.deepSrcCopyFn(src)
-	}
-	c.srcRv = reflect.ValueOf(src).Elem()
+func (c *ConvStructObj) Init(src, dest interface{}) error {
+	c.srcRv = removeValuePtr(reflect.ValueOf(src))
 	if err := c.initSrc(c.srcRv.Type()); err != nil {
 		return err
 	}
@@ -184,8 +161,8 @@ func (c *ConvStructObj) Convert() error {
 		if srcVal.IsZero() {
 			continue
 		}
-		destVal := c.destRv.Field(destFieldInfo.offset)
 
+		destVal := c.destRv.Field(destFieldInfo.offset)
 		if srcFieldInfo.marshal != nil { // src: obj => dest: string
 			if destFieldInfo.kind != reflect.String {
 				return fmt.Errorf("dest %q must string", tagVal)
@@ -196,7 +173,9 @@ func (c *ConvStructObj) Convert() error {
 				return fmt.Errorf("src %q, dest %q marshal is failed, err: %v", tagVal, tagVal, err)
 			}
 			destVal.SetString(string(b))
-		} else if srcFieldInfo.unmarshal != nil { // src: string => dest: obj
+			continue
+		}
+		if srcFieldInfo.unmarshal != nil { // src: string => dest: obj
 			if srcFieldInfo.kind != reflect.String {
 				return fmt.Errorf("src %q must string", tagVal)
 			}
@@ -204,20 +183,90 @@ func (c *ConvStructObj) Convert() error {
 			if err := srcFieldInfo.unmarshal([]byte(srcVal.String()), destVal.Addr().Interface()); err != nil {
 				return fmt.Errorf("src %q, dest %q unmarshal is failed, err: %v", tagVal, tagVal, err)
 			}
-		} else {
+			continue
+		}
+
+		// normal
+		kind := srcVal.Kind()
+		if isOneField(kind) { // 单字段
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
 			if err != nil {
 				if errBuf.Len() > 0 {
 					errBuf.WriteString("; ")
 				}
-				errBuf.WriteString(fmt.Sprintf("src %q, dest %q convert is failed, err: %v", tagVal, tagVal, err))
+				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
+			}
+			continue
+		}
+
+		if kind == reflect.Ptr || kind == reflect.Struct { // struct
+			isPtr := kind == reflect.Ptr
+			destValType := destVal.Type()
+			if isPtr {
+				destValType = destValType.Elem()
+			}
+
+			tmp := reflect.New(destValType)
+			convObj := NewConvStruct(c.tag)
+			_ = convObj.Init(srcVal.Interface(), tmp.Interface())
+			err := convObj.Convert()
+			if err != nil {
+				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
+				continue
+			}
+
+			if isPtr {
+				destVal.Set(tmp)
+			} else {
+				destVal.Set(tmp.Elem())
+			}
+			continue
+		}
+
+		if kind == reflect.Slice || kind == reflect.Array { // slice
+			l := srcVal.Len()
+			sliceSrcValType := srcVal.Type().Elem()        // 取 slice 值的类型
+			isPtr := sliceSrcValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr
+			if isPtr {
+				sliceSrcValType = removeTypePtr(sliceSrcValType) // 去 ptr
+			}
+			sliceSrcValKind := sliceSrcValType.Kind()
+			if isOneField(sliceSrcValKind) { // 单字段
+				tmp := reflect.MakeSlice(srcVal.Type(), 0, l)
+				for i := 0; i < l; i++ {
+					tmp = reflect.Append(tmp, srcVal.Index(i))
+				}
+				destVal.Set(tmp)
+			} else if sliceSrcValKind == reflect.Struct {
+				tmp := reflect.MakeSlice(srcVal.Type(), 0, l)
+				for i := 0; i < l; i++ {
+					tmpObj := reflect.New(sliceSrcValType)
+					obj := NewConvStruct(c.tag)
+					err := obj.Init(srcVal.Index(i).Interface(), tmpObj.Interface())
+					if err != nil {
+						errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
+						continue
+					}
+					_ = obj.Convert()
+					if !isPtr {
+						tmp = reflect.Append(tmp, tmpObj.Elem())
+						continue
+					}
+					tmp = reflect.Append(tmp, tmpObj)
+				}
+				destVal.Set(tmp)
 			}
 		}
 	}
+
 	if errBuf.Len() > 0 {
 		return errors.New(errBuf.String())
 	}
 	return nil
+}
+
+func (c *ConvStructObj) joinConvertErr(destFieldName, srcFieldName string, err error) string {
+	return fmt.Sprintf("src %q, dest %q convert is failed, err: %v", destFieldName, srcFieldName, err)
 }
 
 // convertAssign copies to dest the value in src, converting it if possible.
