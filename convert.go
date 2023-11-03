@@ -33,7 +33,9 @@ type ConvStructObj struct {
 // 字段取值默认按 defaultTableTag 来取值
 func NewConvStruct(tagName ...string) *ConvStructObj {
 	obj := &ConvStructObj{
-		tag: defaultTableTag,
+		tag:          defaultTableTag,
+		srcFieldMap:  make(map[string]*convFieldInfo),
+		descFieldMap: make(map[string]*convFieldInfo),
 	}
 	if len(tagName) > 0 && tagName[0] != "" {
 		obj.tag = tagName[0]
@@ -41,31 +43,9 @@ func NewConvStruct(tagName ...string) *ConvStructObj {
 	return obj
 }
 
-func (c *ConvStructObj) initSrc(ry reflect.Type) error {
-	c.srcFieldMap = make(map[string]*convFieldInfo)
-	err := c.initCacheFieldMap(ry, func(tagVal string, field *convFieldInfo) {
-		c.srcFieldMap[tagVal] = field
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *ConvStructObj) initDest(ry reflect.Type) error {
-	c.descFieldMap = make(map[string]*convFieldInfo)
-	err := c.initCacheFieldMap(ry, func(tagVal string, field *convFieldInfo) {
-		c.descFieldMap[tagVal] = field
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string, field *convFieldInfo)) error {
 	if ry.Kind() != reflect.Struct {
-		return errors.New("val must is struct")
+		return errors.New("it must is struct, it is " + ry.String())
 	}
 
 	fieldNum := ry.NumField()
@@ -91,12 +71,24 @@ func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string,
 // Init 初始化
 func (c *ConvStructObj) Init(src, dest interface{}) error {
 	c.srcRv = removeValuePtr(reflect.ValueOf(src))
-	if err := c.initSrc(c.srcRv.Type()); err != nil {
+	err := c.initCacheFieldMap(
+		c.srcRv.Type(),
+		func(tagVal string, field *convFieldInfo) {
+			c.srcFieldMap[tagVal] = field
+		},
+	)
+	if err != nil {
 		return err
 	}
 
 	c.destRv = removeValuePtr(reflect.ValueOf(dest))
-	if err := c.initDest(c.destRv.Type()); err != nil {
+	err = c.initCacheFieldMap(
+		c.destRv.Type(),
+		func(tagVal string, field *convFieldInfo) {
+			c.descFieldMap[tagVal] = field
+		},
+	)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -237,17 +229,17 @@ func (c *ConvStructObj) Convert() error {
 					tmp = reflect.Append(tmp, srcVal.Index(i))
 				}
 				destVal.Set(tmp)
-			} else if sliceSrcValKind == reflect.Struct {
+			} else if sliceSrcValKind == reflect.Struct { // struct
 				tmp := reflect.MakeSlice(srcVal.Type(), 0, l)
 				for i := 0; i < l; i++ {
 					tmpObj := reflect.New(sliceSrcValType)
-					obj := NewConvStruct(c.tag)
-					err := obj.Init(srcVal.Index(i).Interface(), tmpObj.Interface())
+					convObj := NewConvStruct(c.tag)
+					_ = convObj.Init(srcVal.Index(i).Interface(), tmpObj.Interface())
+					err := convObj.Convert()
 					if err != nil {
 						errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
 						continue
 					}
-					_ = obj.Convert()
 					if !isPtr {
 						tmp = reflect.Append(tmp, tmpObj.Elem())
 						continue
