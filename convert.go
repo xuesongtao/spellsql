@@ -109,8 +109,11 @@ func (c *ConvStructObj) SrcDeepCopyFn(fn func(src interface{}) interface{}) {
 }
 
 // Init 初始化
-func (c *ConvStructObj) Init(src, dest interface{}) error {
-	c.srcRv = reflect.ValueOf(c.deepSrcCopyFn(src)).Elem()
+func (c *ConvStructObj) Init(src, dest interface{}, needDeepCopySrc ...bool) error {
+	if len(needDeepCopySrc) > 0 && needDeepCopySrc[0] {
+		src = c.deepSrcCopyFn(src)
+	}
+	c.srcRv = reflect.ValueOf(src).Elem()
 	if err := c.initSrc(c.srcRv.Type()); err != nil {
 		return err
 	}
