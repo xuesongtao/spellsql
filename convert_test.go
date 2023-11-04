@@ -63,6 +63,18 @@ func TestConvert(t *testing.T) {
 			},
 		},
 		{
+			desc: "单字段",
+			src: TmpSrc{
+				Name: "name",
+				Age:  10,
+			},
+			dest: TmpDest{},
+			ok: TmpDest{
+				Name: "name",
+				Age:  10,
+			},
+		},
+		{
 			desc: "有切片字段",
 			src: TmpSrc{
 				Name:  "name",
