@@ -14,12 +14,12 @@ import (
 var errNilPtr = errors.New("destination pointer is nil") // embedded in descriptive error
 
 type convFieldInfo struct {
-	exclude   bool // 标记是否排除
-	offset    int  // 偏移量
-	tagVal    string
-	kind      reflect.Kind
-	marshal   marshalFn   // 序列化方法
-	unmarshal unmarshalFn // 反序列化方法
+	exclude   bool         // 标记是否排除
+	offset    int          // 偏移量
+	tagVal    string       // tag val
+	kind      reflect.Kind // 字段类型
+	marshal   marshalFn    // 序列化方法
+	unmarshal unmarshalFn  // 反序列化方法
 }
 
 type ConvStructObj struct {
@@ -198,9 +198,9 @@ func (c *ConvStructObj) Convert() error {
 				destValType = destValType.Elem()
 			}
 
-			tmp := reflect.New(destValType)
+			tmpObj := reflect.New(destValType)
 			convObj := NewConvStruct(c.tag)
-			_ = convObj.Init(srcVal.Interface(), tmp.Interface())
+			_ = convObj.Init(srcVal.Interface(), tmpObj.Interface())
 			err := convObj.Convert()
 			if err != nil {
 				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
@@ -208,9 +208,9 @@ func (c *ConvStructObj) Convert() error {
 			}
 
 			if isPtr {
-				destVal.Set(tmp)
+				destVal.Set(tmpObj)
 			} else {
-				destVal.Set(tmp.Elem())
+				destVal.Set(tmpObj.Elem())
 			}
 			continue
 		}
@@ -224,13 +224,13 @@ func (c *ConvStructObj) Convert() error {
 			}
 			sliceSrcValKind := sliceSrcValType.Kind()
 			if isOneField(sliceSrcValKind) { // 单字段
-				tmp := reflect.MakeSlice(srcVal.Type(), 0, l)
+				tmpSlice := reflect.MakeSlice(srcVal.Type(), 0, l)
 				for i := 0; i < l; i++ {
-					tmp = reflect.Append(tmp, srcVal.Index(i))
+					tmpSlice = reflect.Append(tmpSlice, srcVal.Index(i))
 				}
-				destVal.Set(tmp)
+				destVal.Set(tmpSlice)
 			} else if sliceSrcValKind == reflect.Struct { // struct
-				tmp := reflect.MakeSlice(srcVal.Type(), 0, l)
+				tmpSlice := reflect.MakeSlice(srcVal.Type(), 0, l)
 				for i := 0; i < l; i++ {
 					tmpObj := reflect.New(sliceSrcValType)
 					convObj := NewConvStruct(c.tag)
@@ -241,12 +241,12 @@ func (c *ConvStructObj) Convert() error {
 						continue
 					}
 					if !isPtr {
-						tmp = reflect.Append(tmp, tmpObj.Elem())
+						tmpSlice = reflect.Append(tmpSlice, tmpObj.Elem())
 						continue
 					}
-					tmp = reflect.Append(tmp, tmpObj)
+					tmpSlice = reflect.Append(tmpSlice, tmpObj)
 				}
-				destVal.Set(tmp)
+				destVal.Set(tmpSlice)
 			}
 		}
 	}
