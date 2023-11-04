@@ -94,7 +94,7 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 	return nil
 }
 
-// Exclude 需要排除的转换的值
+// Exclude 需要排除 dest 的转换的值
 // 注: 需要晚于 Init 调用
 func (c *ConvStructObj) Exclude(tagVals ...string) *ConvStructObj {
 	for _, tagVal := range tagVals {
