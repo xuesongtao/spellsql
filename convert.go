@@ -17,9 +17,13 @@ type convFieldInfo struct {
 	exclude   bool         // 标记是否排除
 	offset    int          // 偏移量
 	tagVal    string       // tag val
-	kind      reflect.Kind // 字段类型
+	ry        reflect.Type // 字段类型
 	marshal   marshalFn    // 序列化方法
 	unmarshal unmarshalFn  // 反序列化方法
+}
+
+func (c *convFieldInfo) getKind() reflect.Kind {
+	return c.ry.Kind()
 }
 
 type ConvStructObj struct {
@@ -61,7 +65,7 @@ func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string,
 			&convFieldInfo{
 				offset: i,
 				tagVal: tagVal,
-				kind:   ty.Type.Kind(),
+				ry:     ty.Type,
 			},
 		)
 	}
@@ -156,7 +160,7 @@ func (c *ConvStructObj) Convert() error {
 
 		destVal := c.destRv.Field(destFieldInfo.offset)
 		if srcFieldInfo.marshal != nil { // src: obj => dest: string
-			if destFieldInfo.kind != reflect.String {
+			if destFieldInfo.getKind() != reflect.String {
 				return fmt.Errorf("dest %q must string", tagVal)
 			}
 
@@ -168,7 +172,7 @@ func (c *ConvStructObj) Convert() error {
 			continue
 		}
 		if srcFieldInfo.unmarshal != nil { // src: string => dest: obj
-			if srcFieldInfo.kind != reflect.String {
+			if srcFieldInfo.getKind() != reflect.String {
 				return fmt.Errorf("src %q must string", tagVal)
 			}
 
