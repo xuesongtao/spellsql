@@ -33,7 +33,7 @@ type ConvStructObj struct {
 	srcFieldMap   map[string]*convFieldInfo // key: tagVal
 }
 
-// NewConvStruct 转换 struct, 将两个对象相同 tag 进行转换
+// NewConvStruct 转换 struct, 将两个对象相同 tag 进行转换, 所有内容进行深拷贝
 // 字段取值默认按 defaultTableTag 来取值
 func NewConvStruct(tagName ...string) *ConvStructObj {
 	obj := &ConvStructObj{
@@ -141,7 +141,7 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 	return c
 }
 
-// Convert 转换
+// Convert 转换, 所有内容进行深拷贝
 func (c *ConvStructObj) Convert() error {
 	errBuf := new(strings.Builder)
 	for tagVal, destFieldInfo := range c.descFieldMap {
@@ -161,7 +161,7 @@ func (c *ConvStructObj) Convert() error {
 		destVal := c.destRv.Field(destFieldInfo.offset)
 		if srcFieldInfo.marshal != nil { // src: obj => dest: string
 			if destFieldInfo.getKind() != reflect.String {
-				return fmt.Errorf("dest %q must string", tagVal)
+				return fmt.Errorf("src %q is set marshal, but dest %q is not string", tagVal, tagVal)
 			}
 
 			b, err := srcFieldInfo.marshal(srcVal.Interface())
@@ -173,7 +173,7 @@ func (c *ConvStructObj) Convert() error {
 		}
 		if srcFieldInfo.unmarshal != nil { // src: string => dest: obj
 			if srcFieldInfo.getKind() != reflect.String {
-				return fmt.Errorf("src %q must string", tagVal)
+				return fmt.Errorf("dest %q is set unmarshal, but src %q is not string", tagVal, tagVal)
 			}
 
 			if err := srcFieldInfo.unmarshal([]byte(srcVal.String()), destVal.Addr().Interface()); err != nil {
@@ -187,9 +187,6 @@ func (c *ConvStructObj) Convert() error {
 		if isOneField(kind) { // 单字段
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
 			if err != nil {
-				if errBuf.Len() > 0 {
-					errBuf.WriteString("; ")
-				}
 				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
 			}
 			continue
@@ -256,13 +253,13 @@ func (c *ConvStructObj) Convert() error {
 	}
 
 	if errBuf.Len() > 0 {
-		return errors.New(errBuf.String())
+		return errors.New(strings.TrimSuffix(errBuf.String(), ";"))
 	}
 	return nil
 }
 
 func (c *ConvStructObj) joinConvertErr(destFieldName, srcFieldName string, err error) string {
-	return fmt.Sprintf("src %q, dest %q convert is failed, err: %v", destFieldName, srcFieldName, err)
+	return fmt.Sprintf("src %q, dest %q convert is failed, err: %v;", destFieldName, srcFieldName, err)
 }
 
 // convertAssign copies to dest the value in src, converting it if possible.
