@@ -160,7 +160,8 @@ func (c *ConvStructObj) Convert() error {
 			continue
 		}
 
-		srcKind := srcFieldInfo.getKind()
+		srcVal = removeValuePtr(srcVal)
+		srcKind := srcVal.Kind()
 		destVal := c.destRv.Field(destFieldInfo.offset)
 		if srcFieldInfo.marshal != nil { // src: obj => dest: string
 			if destFieldInfo.getKind() != reflect.String {
