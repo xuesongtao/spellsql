@@ -190,9 +190,9 @@ func (c *ConvStructObj) Convert() error {
 			if err != nil {
 				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
 			}
-		} else if srcKind == reflect.Ptr || srcKind == reflect.Struct { // struct
-			isPtr := srcKind == reflect.Ptr
+		} else if srcKind == reflect.Struct { // struct
 			destValType := destVal.Type()
+			isPtr := destValType.Kind() == reflect.Ptr
 			if isPtr {
 				if isOneField(destValType.Kind()) { // 单字段, 就直接处理
 					err := convertAssign(destVal.Interface(), srcVal.Interface())
