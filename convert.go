@@ -165,21 +165,25 @@ func (c *ConvStructObj) Convert() error {
 		destVal := c.destRv.Field(destFieldInfo.offset)
 		if srcFieldInfo.marshal != nil { // src: obj => dest: string
 			if destFieldInfo.getKind() != reflect.String {
-				return fmt.Errorf("src %q is set marshal, but dest %q is not string", tagVal, tagVal)
+				errBuf.WriteString(fmt.Sprintf("src %q is set marshal, but dest %q is not string", tagVal, tagVal))
+				continue
 			}
 
 			b, err := srcFieldInfo.marshal(srcVal.Interface())
 			if err != nil {
-				return fmt.Errorf("src %q, dest %q marshal is failed, err: %v", tagVal, tagVal, err)
+				errBuf.WriteString(fmt.Sprintf("src %q, dest %q marshal is failed, err: %v", tagVal, tagVal, err))
+				continue
 			}
 			destVal.SetString(string(b))
 		} else if srcFieldInfo.unmarshal != nil { // src: string => dest: obj
 			if srcFieldInfo.getKind() != reflect.String {
-				return fmt.Errorf("dest %q is set unmarshal, but src %q is not string", tagVal, tagVal)
+				errBuf.WriteString(fmt.Sprintf("dest %q is set unmarshal, but src %q is not string", tagVal, tagVal))
+				continue
 			}
 
 			if err := srcFieldInfo.unmarshal([]byte(srcVal.String()), destVal.Addr().Interface()); err != nil {
-				return fmt.Errorf("src %q, dest %q unmarshal is failed, err: %v", tagVal, tagVal, err)
+				errBuf.WriteString(fmt.Sprintf("src %q, dest %q unmarshal is failed, err: %v", tagVal, tagVal, err))
+				continue
 			}
 		} else if isOneField(srcKind) { // 单字段
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
