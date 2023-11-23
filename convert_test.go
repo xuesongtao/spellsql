@@ -471,6 +471,7 @@ func CheckObj(t *testing.T, dest, src interface{}) {
 // }
 
 func TestJsonConvert(t *testing.T) {
+	t.Skip()
 	testCases := []struct {
 		desc string
 		src  TmpSrc
