@@ -47,7 +47,7 @@ func NewConvStruct(tagName ...string) *ConvStructObj {
 	return obj
 }
 
-func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string, field *convFieldInfo)) error {
+func (c *ConvStructObj) initFieldMap(ry reflect.Type, f func(tagVal string, field *convFieldInfo)) error {
 	if ry.Kind() != reflect.Struct {
 		return errors.New("it must is struct, it is " + ry.String())
 	}
@@ -75,7 +75,7 @@ func (c *ConvStructObj) initCacheFieldMap(ry reflect.Type, f func(tagVal string,
 // Init 初始化
 func (c *ConvStructObj) Init(src, dest interface{}) error {
 	c.srcRv = removeValuePtr(reflect.ValueOf(src))
-	err := c.initCacheFieldMap(
+	err := c.initFieldMap(
 		c.srcRv.Type(),
 		func(tagVal string, field *convFieldInfo) {
 			c.srcFieldMap[tagVal] = field
@@ -86,7 +86,7 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 	}
 
 	c.destRv = removeValuePtr(reflect.ValueOf(dest))
-	err = c.initCacheFieldMap(
+	err = c.initFieldMap(
 		c.destRv.Type(),
 		func(tagVal string, field *convFieldInfo) {
 			c.descFieldMap[tagVal] = field
@@ -185,22 +185,15 @@ func (c *ConvStructObj) Convert() error {
 				errBuf.WriteString(fmt.Sprintf("src %q, dest %q unmarshal is failed, err: %v", tagVal, tagVal, err))
 				continue
 			}
-		} else if isOneField(srcKind) { // 单字段
+		} else if isOneField(srcKind) { // src: 单字段 => dest: 单字段
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
 			if err != nil {
 				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
 			}
-		} else if srcKind == reflect.Struct { // struct
+		} else if srcKind == reflect.Struct { // src: struct => dest: struct
 			destValType := destVal.Type()
 			isPtr := destValType.Kind() == reflect.Ptr
 			if isPtr {
-				if isOneField(destValType.Kind()) { // 单字段, 就直接处理
-					err := convertAssign(destVal.Interface(), srcVal.Interface())
-					if err != nil {
-						errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
-					}
-					continue
-				}
 				destValType = destValType.Elem()
 			}
 
@@ -218,7 +211,7 @@ func (c *ConvStructObj) Convert() error {
 			} else {
 				destVal.Set(tmpObj.Elem())
 			}
-		} else if srcKind == reflect.Slice || srcKind == reflect.Array { // slice
+		} else if srcKind == reflect.Slice || srcKind == reflect.Array { // src: slice => dest: slice
 			l := srcVal.Len()
 			sliceSrcValType := srcVal.Type().Elem()        // 取 slice 值的类型
 			isPtr := sliceSrcValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr

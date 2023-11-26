@@ -341,9 +341,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 			}
 		case []byte:
-			buf.WriteByte('\'')
-			buf.Write(val)
-			buf.WriteByte('\'')
+			buf.WriteByte(s.strSymbol)
+			buf.WriteString(toEscape(string(val), false, s.escapeMap))
+			buf.WriteByte(s.strSymbol)
 		case int:
 			buf.WriteString(s.Int2Str(int64(val)))
 		case int32:
