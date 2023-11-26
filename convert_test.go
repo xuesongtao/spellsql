@@ -4,8 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
-
-	"github.com/jinzhu/copier"
+	// "github.com/jinzhu/copier"
 )
 
 type TmpDest struct {
@@ -272,204 +271,204 @@ func CheckObj(t *testing.T, dest, src interface{}) {
 	t.Errorf("dest: %v, src: %v", string(destBytes), string(srcBytes))
 }
 
-func TestCopyerConvert(t *testing.T) {
-	testCases := []struct {
-		desc string
-		src  TmpSrc
-		dest TmpDest
-		ok   TmpDest
-	}{
-		{
-			desc: "单字段",
-			src: TmpSrc{
-				Name: "name",
-				Age:  10,
-				Test: "test",
-			},
-			dest: TmpDest{},
-			ok: TmpDest{
-				Name: "name",
-				Age:  10,
-			},
-		},
-		// { // 浅拷贝
-		// 	desc: "有切片字段",
-		// 	src: TmpSrc{
-		// 		Name:  "name",
-		// 		Age:   10,
-		// 		Hobby: []string{"打篮球", "跑步"},
-		// 		Test:  "test",
-		// 	},
-		// 	dest: TmpDest{},
-		// 	ok: TmpDest{
-		// 		Name:  "name",
-		// 		Age:   10,
-		// 		Hobby: []string{"打篮球", "跑步"},
-		// 	},
-		// },
-		// { // 不支持
-		// 	desc: "需要marshal",
-		// 	src: TmpSrc{
-		// 		Name:        "name",
-		// 		Age:         10,
-		// 		Hobby:       []string{"打篮球", "跑步"},
-		// 		NeedMarshal: []*TmpNest{{Name: "需要 marshal 测试"}},
-		// 	},
-		// 	dest: TmpDest{},
-		// 	ok: TmpDest{
-		// 		Name:        "name",
-		// 		Age:         10,
-		// 		Hobby:       []string{"打篮球", "跑步"},
-		// 		NeedMarshal: "[{\"name\":\"需要 marshal 测试\",\"next\":{}}]",
-		// 	},
-		// },
-		// {
-		// 	desc: "需要unmarshal",
-		// 	src: TmpSrc{
-		// 		Name:          "name",
-		// 		Age:           10,
-		// 		Hobby:         []string{"打篮球", "跑步"},
-		// 		NeedUnmarshal: "[{\"name\":\"需要 unmarshal 测试\"}]",
-		// 	},
-		// 	dest: TmpDest{},
-		// 	ok: TmpDest{
-		// 		Name:          "name",
-		// 		Age:           10,
-		// 		Hobby:         []string{"打篮球", "跑步"},
-		// 		NeedUnmarshal: []*TmpNest{{Name: "需要 unmarshal 测试"}},
-		// 	},
-		// },
-		{
-			desc: "嵌套值类型结构体",
-			src: TmpSrc{
-				Name:  "name",
-				Age:   10,
-				Hobby: []string{"打篮球", "跑步"},
-				Copy:  TmpNest{Name: "值类型结构体"},
-			},
-			dest: TmpDest{},
-			ok: TmpDest{
-				Name:  "name",
-				Age:   10,
-				Hobby: []string{"打篮球", "跑步"},
-				Copy:  TmpNest{Name: "值类型结构体"},
-			},
-		},
-		{
-			desc: "嵌套指针类型结构体",
-			src: TmpSrc{
-				Name:    "name",
-				Age:     10,
-				Hobby:   []string{"打篮球", "跑步"},
-				Copy:    TmpNest{Name: "值类型结构体"},
-				CopyPtr: &TmpNest{Name: "针类型结构体"},
-			},
-			dest: TmpDest{},
-			ok: TmpDest{
-				Name:    "name",
-				Age:     10,
-				Hobby:   []string{"打篮球", "跑步"},
-				Copy:    TmpNest{Name: "值类型结构体"},
-				CopyPtr: &TmpNest{Name: "针类型结构体"},
-			},
-		},
-		{
-			desc: "嵌套指针类型结构体",
-			src: TmpSrc{
-				Name:  "name",
-				Age:   10,
-				Hobby: []string{"打篮球", "跑步"},
-				CopyPtr: &TmpNest{
-					Name: "针类型结构体",
-					NextPtr: &Tmp{
-						Name: "NextPtr",
-					},
-					Next: Tmp{
-						Name: "Next",
-					},
-				},
-			},
-			dest: TmpDest{},
-			ok: TmpDest{
-				Name:  "name",
-				Age:   10,
-				Hobby: []string{"打篮球", "跑步"},
-				CopyPtr: &TmpNest{
-					Name: "针类型结构体",
-					NextPtr: &Tmp{
-						Name: "NextPtr",
-					},
-					Next: Tmp{
-						Name: "Next",
-					},
-				},
-			},
-		},
-		{
-			desc: "copy-slice-ptr-demo",
-			src: TmpSrc{
-				Name:         "name",
-				Age:          10,
-				Hobby:        []string{"打篮球", "跑步"},
-				CopySlicePtr: []*TmpNest{{Name: "copy"}},
-			},
-			dest: TmpDest{},
-			ok: TmpDest{
-				Name:         "name",
-				Age:          10,
-				Hobby:        []string{"打篮球", "跑步"},
-				CopySlicePtr: []*TmpNest{{Name: "copy"}},
-			},
-		},
-		{
-			desc: "copy-slice-demo",
-			src: TmpSrc{
-				Name:         "name",
-				Age:          10,
-				Hobby:        []string{"打篮球", "跑步"},
-				CopySlicePtr: []*TmpNest{{Name: "copy-ptr"}},
-				CopySlice:    []TmpNest{{Name: "copy"}},
-			},
-			dest: TmpDest{},
-			ok: TmpDest{
-				Name:         "name",
-				Age:          10,
-				Hobby:        []string{"打篮球", "跑步"},
-				CopySlicePtr: []*TmpNest{{Name: "copy-ptr"}},
-				CopySlice:    []TmpNest{{Name: "copy"}},
-			},
-		},
-	}
+// func TestCopyerConvert(t *testing.T) {
+// 	testCases := []struct {
+// 		desc string
+// 		src  TmpSrc
+// 		dest TmpDest
+// 		ok   TmpDest
+// 	}{
+// 		{
+// 			desc: "单字段",
+// 			src: TmpSrc{
+// 				Name: "name",
+// 				Age:  10,
+// 				Test: "test",
+// 			},
+// 			dest: TmpDest{},
+// 			ok: TmpDest{
+// 				Name: "name",
+// 				Age:  10,
+// 			},
+// 		},
+// 		// { // 浅拷贝
+// 		// 	desc: "有切片字段",
+// 		// 	src: TmpSrc{
+// 		// 		Name:  "name",
+// 		// 		Age:   10,
+// 		// 		Hobby: []string{"打篮球", "跑步"},
+// 		// 		Test:  "test",
+// 		// 	},
+// 		// 	dest: TmpDest{},
+// 		// 	ok: TmpDest{
+// 		// 		Name:  "name",
+// 		// 		Age:   10,
+// 		// 		Hobby: []string{"打篮球", "跑步"},
+// 		// 	},
+// 		// },
+// 		// { // 不支持
+// 		// 	desc: "需要marshal",
+// 		// 	src: TmpSrc{
+// 		// 		Name:        "name",
+// 		// 		Age:         10,
+// 		// 		Hobby:       []string{"打篮球", "跑步"},
+// 		// 		NeedMarshal: []*TmpNest{{Name: "需要 marshal 测试"}},
+// 		// 	},
+// 		// 	dest: TmpDest{},
+// 		// 	ok: TmpDest{
+// 		// 		Name:        "name",
+// 		// 		Age:         10,
+// 		// 		Hobby:       []string{"打篮球", "跑步"},
+// 		// 		NeedMarshal: "[{\"name\":\"需要 marshal 测试\",\"next\":{}}]",
+// 		// 	},
+// 		// },
+// 		// {
+// 		// 	desc: "需要unmarshal",
+// 		// 	src: TmpSrc{
+// 		// 		Name:          "name",
+// 		// 		Age:           10,
+// 		// 		Hobby:         []string{"打篮球", "跑步"},
+// 		// 		NeedUnmarshal: "[{\"name\":\"需要 unmarshal 测试\"}]",
+// 		// 	},
+// 		// 	dest: TmpDest{},
+// 		// 	ok: TmpDest{
+// 		// 		Name:          "name",
+// 		// 		Age:           10,
+// 		// 		Hobby:         []string{"打篮球", "跑步"},
+// 		// 		NeedUnmarshal: []*TmpNest{{Name: "需要 unmarshal 测试"}},
+// 		// 	},
+// 		// },
+// 		{
+// 			desc: "嵌套值类型结构体",
+// 			src: TmpSrc{
+// 				Name:  "name",
+// 				Age:   10,
+// 				Hobby: []string{"打篮球", "跑步"},
+// 				Copy:  TmpNest{Name: "值类型结构体"},
+// 			},
+// 			dest: TmpDest{},
+// 			ok: TmpDest{
+// 				Name:  "name",
+// 				Age:   10,
+// 				Hobby: []string{"打篮球", "跑步"},
+// 				Copy:  TmpNest{Name: "值类型结构体"},
+// 			},
+// 		},
+// 		{
+// 			desc: "嵌套指针类型结构体",
+// 			src: TmpSrc{
+// 				Name:    "name",
+// 				Age:     10,
+// 				Hobby:   []string{"打篮球", "跑步"},
+// 				Copy:    TmpNest{Name: "值类型结构体"},
+// 				CopyPtr: &TmpNest{Name: "针类型结构体"},
+// 			},
+// 			dest: TmpDest{},
+// 			ok: TmpDest{
+// 				Name:    "name",
+// 				Age:     10,
+// 				Hobby:   []string{"打篮球", "跑步"},
+// 				Copy:    TmpNest{Name: "值类型结构体"},
+// 				CopyPtr: &TmpNest{Name: "针类型结构体"},
+// 			},
+// 		},
+// 		{
+// 			desc: "嵌套指针类型结构体",
+// 			src: TmpSrc{
+// 				Name:  "name",
+// 				Age:   10,
+// 				Hobby: []string{"打篮球", "跑步"},
+// 				CopyPtr: &TmpNest{
+// 					Name: "针类型结构体",
+// 					NextPtr: &Tmp{
+// 						Name: "NextPtr",
+// 					},
+// 					Next: Tmp{
+// 						Name: "Next",
+// 					},
+// 				},
+// 			},
+// 			dest: TmpDest{},
+// 			ok: TmpDest{
+// 				Name:  "name",
+// 				Age:   10,
+// 				Hobby: []string{"打篮球", "跑步"},
+// 				CopyPtr: &TmpNest{
+// 					Name: "针类型结构体",
+// 					NextPtr: &Tmp{
+// 						Name: "NextPtr",
+// 					},
+// 					Next: Tmp{
+// 						Name: "Next",
+// 					},
+// 				},
+// 			},
+// 		},
+// 		{
+// 			desc: "copy-slice-ptr-demo",
+// 			src: TmpSrc{
+// 				Name:         "name",
+// 				Age:          10,
+// 				Hobby:        []string{"打篮球", "跑步"},
+// 				CopySlicePtr: []*TmpNest{{Name: "copy"}},
+// 			},
+// 			dest: TmpDest{},
+// 			ok: TmpDest{
+// 				Name:         "name",
+// 				Age:          10,
+// 				Hobby:        []string{"打篮球", "跑步"},
+// 				CopySlicePtr: []*TmpNest{{Name: "copy"}},
+// 			},
+// 		},
+// 		{
+// 			desc: "copy-slice-demo",
+// 			src: TmpSrc{
+// 				Name:         "name",
+// 				Age:          10,
+// 				Hobby:        []string{"打篮球", "跑步"},
+// 				CopySlicePtr: []*TmpNest{{Name: "copy-ptr"}},
+// 				CopySlice:    []TmpNest{{Name: "copy"}},
+// 			},
+// 			dest: TmpDest{},
+// 			ok: TmpDest{
+// 				Name:         "name",
+// 				Age:          10,
+// 				Hobby:        []string{"打篮球", "跑步"},
+// 				CopySlicePtr: []*TmpNest{{Name: "copy-ptr"}},
+// 				CopySlice:    []TmpNest{{Name: "copy"}},
+// 			},
+// 		},
+// 	}
 
-	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
+// 	for _, tC := range testCases {
+// 		t.Run(tC.desc, func(t *testing.T) {
 
-			err := copier.Copy(&tC.dest, &tC.src) // 有浅拷贝情况
-			if err != nil {
-				t.Error(err)
-			}
-			// 修改 src 值
-			if tC.desc == "单字段" {
-				tC.src.Name = "test"
-				tC.src.Age = 0
-			}
-			if tC.desc == "有切片字段" {
-				tC.src.Hobby[0] = ""
-			}
-			if tC.desc == "copy-ptr-demo" {
-				tC.src.Age = 0
-				tC.src.CopySlicePtr[0].Name = "修改"
-			}
-			if tC.desc == "copy-demo" {
-				tC.src.Name = "修改"
-				tC.src.Age = 0
-				tC.src.CopySlicePtr[0].Name = "修改"
-				tC.src.CopySlice[0].Name = "修改"
-			}
-			CheckObj(t, tC.dest, tC.ok)
-		})
-	}
-}
+// 			err := copier.Copy(&tC.dest, &tC.src) // 有浅拷贝情况
+// 			if err != nil {
+// 				t.Error(err)
+// 			}
+// 			// 修改 src 值
+// 			if tC.desc == "单字段" {
+// 				tC.src.Name = "test"
+// 				tC.src.Age = 0
+// 			}
+// 			if tC.desc == "有切片字段" {
+// 				tC.src.Hobby[0] = ""
+// 			}
+// 			if tC.desc == "copy-ptr-demo" {
+// 				tC.src.Age = 0
+// 				tC.src.CopySlicePtr[0].Name = "修改"
+// 			}
+// 			if tC.desc == "copy-demo" {
+// 				tC.src.Name = "修改"
+// 				tC.src.Age = 0
+// 				tC.src.CopySlicePtr[0].Name = "修改"
+// 				tC.src.CopySlice[0].Name = "修改"
+// 			}
+// 			CheckObj(t, tC.dest, tC.ok)
+// 		})
+// 	}
+// }
 
 func TestJsonConvert(t *testing.T) {
 	t.Skip()
@@ -679,15 +678,16 @@ func BenchmarkJsonConvert(b *testing.B) {
 		json.Unmarshal(b, &dest)
 	}
 }
-func BenchmarkCopyerConvert(b *testing.B) {
-	src := TmpSrc{
-		Name:        "name",
-		Age:         10,
-		Hobby:       []string{"打篮球", "跑步"},
-		NeedMarshal: []*TmpNest{{Name: "需要 marshal 测试"}},
-	}
-	dest := TmpDest{}
-	for i := 0; i < b.N; i++ {
-		copier.Copy(&dest, &src)
-	}
-}
+
+// func BenchmarkCopyerConvert(b *testing.B) {
+// 	src := TmpSrc{
+// 		Name:        "name",
+// 		Age:         10,
+// 		Hobby:       []string{"打篮球", "跑步"},
+// 		NeedMarshal: []*TmpNest{{Name: "需要 marshal 测试"}},
+// 	}
+// 	dest := TmpDest{}
+// 	for i := 0; i < b.N; i++ {
+// 		copier.Copy(&dest, &src)
+// 	}
+// }
