@@ -38,6 +38,7 @@ var (
 const (
 	defaultTableTag        = "json"
 	defaultBatchSelectSize = 10 // 批量查询默认条数
+	NULL                   = "NULL"
 )
 
 const (

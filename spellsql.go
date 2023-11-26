@@ -299,9 +299,13 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				buf.WriteString(val)
 				i++
 			} else {
-				buf.WriteByte(s.strSymbol)
-				buf.WriteString(toEscape(val, false, s.escapeMap))
-				buf.WriteByte(s.strSymbol)
+				if val == NULL {
+					buf.WriteString(NULL)
+				} else {
+					buf.WriteByte(s.strSymbol)
+					buf.WriteString(toEscape(val, false, s.escapeMap))
+					buf.WriteByte(s.strSymbol)
+				}
 			}
 		case []string:
 			lastIndex := len(val) - 1
@@ -337,9 +341,9 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 			}
 		case []byte:
-			buf.WriteByte('\'')
-			buf.Write(val)
-			buf.WriteByte('\'')
+			buf.WriteByte(s.strSymbol)
+			buf.WriteString(toEscape(string(val), false, s.escapeMap))
+			buf.WriteByte(s.strSymbol)
 		case int:
 			buf.WriteString(s.Int2Str(int64(val)))
 		case int32:

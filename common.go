@@ -287,3 +287,29 @@ func toEscapeBytes(val []byte, is2Num bool, escapeMap map[byte][]byte) []byte {
 	}
 	return buf[:pos]
 }
+
+// isOneField 是否为单字段
+func isOneField(kind reflect.Kind) bool {
+	// 将常用的类型放在前面
+	switch kind {
+	case reflect.String,
+		reflect.Int64, reflect.Int32, reflect.Int, reflect.Int16, reflect.Int8,
+		reflect.Uint64, reflect.Uint32, reflect.Uint, reflect.Uint16, reflect.Uint8,
+		reflect.Float32, reflect.Float64,
+		reflect.Bool:
+		return true
+	}
+	return false
+}
+
+// parseTag2Col 解析 tag 中表的列名
+func parseTag2Col(tag string) (column string) {
+	// 因为 tag 中有可能出现多个值, 需要处理下
+	tmpIndex := IndexForBF(true, tag, ",")
+	if tmpIndex > -1 {
+		column = tag[:tmpIndex]
+	} else {
+		column = tag
+	}
+	return
+}
