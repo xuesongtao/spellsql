@@ -148,26 +148,26 @@ func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
 // SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
 func (s *SqlStrObj) SetRightLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", s.escapeLike(val)+"%")
+	s.setWhere(fieldName, "LIKE", s.EscapeLike(val)+"%")
 	return s
 }
 
 // SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
 func (s *SqlStrObj) SetLeftLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", "%"+s.escapeLike(val))
+	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val))
 	return s
 }
 
 // SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
 func (s *SqlStrObj) SetAllLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", "%"+s.escapeLike(val)+"%")
+	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val)+"%")
 	return s
 }
 
 // escapeLike 转义 like
-func (s *SqlStrObj) escapeLike(val string) string {
+func (s *SqlStrObj) EscapeLike(val string) string {
 	res := Escape(
 		[]byte(val),
 		map[byte][]byte{
