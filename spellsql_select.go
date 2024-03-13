@@ -166,7 +166,7 @@ func (s *SqlStrObj) SetAllLike(fieldName string, val string) *SqlStrObj {
 	return s
 }
 
-// escapeLike 转义 like
+// EscapeLike 转义 like
 func (s *SqlStrObj) EscapeLike(val string) string {
 	res := Escape(
 		[]byte(val),
