@@ -9,6 +9,26 @@ import (
 	"gitee.com/xuesongtao/spellsql/test"
 )
 
+func TestHandleCusType(t *testing.T) {
+	type MyStr string
+	type MyStrAlias = string
+
+	type Tmp struct {
+		Name MyStr
+		Addr MyStrAlias
+	}
+
+	tmp := &Tmp{
+		Name: MyStr("myStr"),
+		Addr: MyStrAlias("alias"),
+	}
+	sqlStr := FmtSqlStr("myStr=? and alias=?", tmp.Name, tmp.Addr)
+	sureStr := `myStr="myStr" and alias="alias"`
+	if sqlStr != sureStr {
+		t.Error("is no ok")
+	}
+}
+
 // 新增
 func TestNewCacheSql_INSERT(t *testing.T) {
 	t.Run("no have values", func(t *testing.T) {

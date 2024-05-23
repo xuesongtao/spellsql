@@ -386,6 +386,10 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				buf.WriteString(Str(reflectValue.Int()))
 			case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
 				buf.WriteString(Str(reflectValue.Uint()))
+			case reflect.String:
+				buf.WriteByte(s.strSymbol)
+				buf.WriteString(toEscape(reflectValue.String(), false, s.escapeMap))
+				buf.WriteByte(s.strSymbol)
 			default:
 				buf.WriteString("undefined")
 			}
