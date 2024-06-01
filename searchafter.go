@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// SearchAfterParam
+// SearchAfter
 type SearchAfter struct {
 	SqlStr   string                       // sql, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
 	Table    string                       // 表面
