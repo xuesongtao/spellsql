@@ -116,13 +116,13 @@ func InsertODKUForObjCtx(ctx context.Context, db DBer, tableName string, src int
 }
 
 // InsertIgForObj 根据对象新增, 冲突忽略
-func InsertIgForObj(db DBer, tableName string, src interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).PrintSqlCallSkip(3).InsertIg(src).Exec()
+func InsertIgForObj(db DBer, tableName string, src ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).PrintSqlCallSkip(3).InsertsIg(src...).Exec()
 }
 
 // InsertIgForObjCtx 根据对象新增, 冲突忽略
-func InsertIgForObjCtx(ctx context.Context, db DBer, tableName string, src interface{}) (sql.Result, error) {
-	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).InsertIg(src).Exec()
+func InsertIgForObjCtx(ctx context.Context, db DBer, tableName string, src ...interface{}) (sql.Result, error) {
+	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).InsertsIg(src...).Exec()
 }
 
 // UpdateForObj 根据对象更新
