@@ -16,7 +16,7 @@ type SearchAfter struct {
 	OrderBys []string                     // 按什么进行排序
 	Size     int                          // 每次处理多少
 	Dest     interface{}                  // scan 对象, 即回调里的对象
-	RowFn    func(_row interface{}) error // 本批次的回调函数, values 为分页值
+	RowFn    func(_row interface{}) error // 每行的回调函数, values 为分页值
 }
 
 func (s *SearchAfter) init() error {
@@ -89,7 +89,7 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 				},
 			)
 		if err != nil {
-			return fmt.Errorf("select is failed, err: %v", err)
+			return err
 		}
 
 		if rowCount < s.Size {
