@@ -43,6 +43,78 @@ type Tmp struct {
 	Name string `json:"name,omitempty"`
 }
 
+func TestConvertUnsafe(t *testing.T) {
+	testCases := []struct {
+		desc string
+		src  TmpSrc
+		dest TmpDest
+		ok   TmpDest
+	}{{
+		desc: "有切片字段",
+		src: TmpSrc{
+			Name:  "name",
+			Age:   10,
+			Hobby: []string{"打篮球", "跑步"},
+			Test:  "test",
+		},
+		dest: TmpDest{},
+		ok: TmpDest{
+			Name:  "name",
+			Age:   10,
+			Hobby: []string{"", "跑步"},
+		},
+	}, {
+		desc: "嵌套",
+		src: TmpSrc{
+			Name:  "name",
+			Age:   10,
+			Hobby: []string{"打篮球", "跑步"},
+			Test:  "test",
+			CopyPtr: &TmpNest{
+				Name: "test",
+				NextPtr: &Tmp{
+					Name: "test1",
+				},
+				Next: Tmp{
+					Name: "test",
+				},
+			},
+		},
+		dest: TmpDest{},
+		ok: TmpDest{
+			Name:  "name",
+			Age:   10,
+			Hobby: []string{"打篮球", "跑步"},
+			CopyPtr: &TmpNest{
+				Name: "test",
+				NextPtr: &Tmp{
+					Name: "test1",
+				},
+				Next: Tmp{
+					Name: "test",
+				},
+			},
+		}},
+	}
+
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			obj := NewConvStruct()
+			obj.Init(&tC.src, &tC.dest)
+
+			err := obj.ConvertUnsafe()
+			if err != nil {
+				t.Error(err)
+			}
+
+			if tC.desc == "有切片字段" {
+				tC.src.Hobby[0] = ""
+			}
+			CheckObj(t, tC.dest, tC.ok)
+		})
+	}
+}
+
 func TestConvert(t *testing.T) {
 	testCases := []struct {
 		desc string
@@ -662,7 +734,8 @@ func BenchmarkConvert(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		obj := NewConvStruct()
 		obj.Init(&src, &dest)
-		_ = obj.Convert()
+		// _ = obj.Convert()
+		_ = obj.ConvertUnsafe()
 	}
 }
 
