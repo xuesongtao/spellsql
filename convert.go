@@ -28,11 +28,11 @@ func (c *convFieldInfo) getKind() reflect.Kind {
 }
 
 type ConvStructObj struct {
-	deep          bool // 是否深拷贝
-	tag           string
-	srcRv, destRv reflect.Value
-	descFieldMap  map[string]*convFieldInfo // key: tagVal
-	srcFieldMap   map[string]*convFieldInfo // key: tagVal
+	deep bool // 是否深拷贝
+	tag  string
+	// srcRv, destRv reflect.Value
+	descFieldMap map[string]*convFieldInfo // key: tagVal
+	srcFieldMap  map[string]*convFieldInfo // key: tagVal
 }
 
 // NewConvStruct 转换 struct, 将两个对象相同 tag 进行转换, 所有内容进行深拷贝
@@ -80,9 +80,8 @@ func (c *ConvStructObj) initFieldMap(tv reflect.Value, f func(tagVal string, fie
 
 // Init 初始化
 func (c *ConvStructObj) Init(src, dest interface{}) error {
-	c.srcRv = removeValuePtr(reflect.ValueOf(src))
 	err := c.initFieldMap(
-		c.srcRv,
+		reflect.ValueOf(src),
 		func(tagVal string, field *convFieldInfo) {
 			c.srcFieldMap[tagVal] = field
 		},
@@ -91,9 +90,8 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 		return err
 	}
 
-	c.destRv = removeValuePtr(reflect.ValueOf(dest))
 	err = c.initFieldMap(
-		c.destRv,
+		reflect.ValueOf(dest),
 		func(tagVal string, field *convFieldInfo) {
 			c.descFieldMap[tagVal] = field
 		},
