@@ -14,12 +14,13 @@ import (
 var errNilPtr = errors.New("destination pointer is nil") // embedded in descriptive error
 
 type convFieldInfo struct {
-	exclude   bool         // 标记是否排除
-	offset    int          // 偏移量
-	tagVal    string       // tag val
-	ry        reflect.Type // 字段类型
-	marshal   marshalFn    // 序列化方法
-	unmarshal unmarshalFn  // 反序列化方法
+	exclude   bool          // 标记是否排除
+	offset    int           // 偏移量
+	tagVal    string        // tag val
+	ry        reflect.Type  // 字段类型
+	tv        reflect.Value // 值
+	marshal   marshalFn     // 序列化方法
+	unmarshal unmarshalFn   // 反序列化方法
 }
 
 func (c *convFieldInfo) getKind() reflect.Kind {
@@ -27,16 +28,18 @@ func (c *convFieldInfo) getKind() reflect.Kind {
 }
 
 type ConvStructObj struct {
-	tag           string
-	srcRv, destRv reflect.Value
-	descFieldMap  map[string]*convFieldInfo // key: tagVal
-	srcFieldMap   map[string]*convFieldInfo // key: tagVal
+	deep bool // 是否深拷贝
+	tag  string
+	// srcRv, destRv reflect.Value
+	descFieldMap map[string]*convFieldInfo // key: tagVal
+	srcFieldMap  map[string]*convFieldInfo // key: tagVal
 }
 
 // NewConvStruct 转换 struct, 将两个对象相同 tag 进行转换, 所有内容进行深拷贝
 // 字段取值默认按 defaultTableTag 来取值
 func NewConvStruct(tagName ...string) *ConvStructObj {
 	obj := &ConvStructObj{
+		deep:         true,
 		tag:          defaultTableTag,
 		srcFieldMap:  make(map[string]*convFieldInfo),
 		descFieldMap: make(map[string]*convFieldInfo),
@@ -47,14 +50,16 @@ func NewConvStruct(tagName ...string) *ConvStructObj {
 	return obj
 }
 
-func (c *ConvStructObj) initFieldMap(ry reflect.Type, f func(tagVal string, field *convFieldInfo)) error {
-	if ry.Kind() != reflect.Struct {
-		return errors.New("it must is struct, it is " + ry.String())
+func (c *ConvStructObj) initFieldMap(tv reflect.Value, f func(tagVal string, field *convFieldInfo)) error {
+	tv = removeValuePtr(tv)
+	ty := tv.Type()
+	if tv.Kind() != reflect.Struct {
+		return errors.New("it must is struct, it is " + ty.String())
 	}
 
-	fieldNum := ry.NumField()
+	fieldNum := ty.NumField()
 	for i := 0; i < fieldNum; i++ {
-		ty := ry.Field(i)
+		ty := ty.Field(i)
 		tagVal := parseTag2Col(ty.Tag.Get(c.tag))
 		if tagVal == "" {
 			continue
@@ -66,6 +71,7 @@ func (c *ConvStructObj) initFieldMap(ry reflect.Type, f func(tagVal string, fiel
 				offset: i,
 				tagVal: tagVal,
 				ry:     ty.Type,
+				tv:     tv.Field(i),
 			},
 		)
 	}
@@ -74,9 +80,8 @@ func (c *ConvStructObj) initFieldMap(ry reflect.Type, f func(tagVal string, fiel
 
 // Init 初始化
 func (c *ConvStructObj) Init(src, dest interface{}) error {
-	c.srcRv = removeValuePtr(reflect.ValueOf(src))
 	err := c.initFieldMap(
-		c.srcRv.Type(),
+		reflect.ValueOf(src),
 		func(tagVal string, field *convFieldInfo) {
 			c.srcFieldMap[tagVal] = field
 		},
@@ -85,9 +90,8 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 		return err
 	}
 
-	c.destRv = removeValuePtr(reflect.ValueOf(dest))
 	err = c.initFieldMap(
-		c.destRv.Type(),
+		reflect.ValueOf(dest),
 		func(tagVal string, field *convFieldInfo) {
 			c.descFieldMap[tagVal] = field
 		},
@@ -141,6 +145,13 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 	return c
 }
 
+// ConvertUnsafe 转换, 主要使用浅拷贝进行转换
+// 相较于 Convert 减少了多余内存分配, 性能要好些
+func (c *ConvStructObj) ConvertUnsafe() error {
+	c.deep = false
+	return c.Convert()
+}
+
 // Convert 转换, 所有内容进行深拷贝
 func (c *ConvStructObj) Convert() error {
 	errBuf := new(strings.Builder)
@@ -155,14 +166,14 @@ func (c *ConvStructObj) Convert() error {
 		}
 
 		// 取值
-		srcVal := c.srcRv.Field(srcFieldInfo.offset)
+		srcVal := srcFieldInfo.tv
 		if srcVal.IsZero() {
 			continue
 		}
 
 		srcVal = removeValuePtr(srcVal)
 		srcKind := srcVal.Kind()
-		destVal := c.destRv.Field(destFieldInfo.offset)
+		destVal := destFieldInfo.tv
 		if srcFieldInfo.marshal != nil { // src: obj => dest: string
 			if destFieldInfo.getKind() != reflect.String {
 				errBuf.WriteString(fmt.Sprintf("src %q is set marshal, but dest %q is not string;", tagVal, tagVal))
@@ -185,7 +196,7 @@ func (c *ConvStructObj) Convert() error {
 				errBuf.WriteString(fmt.Sprintf("src %q, dest %q unmarshal is failed, err: %v;", tagVal, tagVal, err))
 				continue
 			}
-		} else if isOneField(srcKind) { // src: 单字段 => dest: 单字段
+		} else if isOneField(srcKind) || !c.deep { // src: 单字段 => dest: 单字段
 			err := convertAssign(destVal.Addr().Interface(), srcVal.Interface())
 			if err != nil {
 				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, err))
