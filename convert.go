@@ -148,6 +148,7 @@ func (c *ConvStructObj) SrcUnmarshal(fn unmarshalFn, tagVal ...string) *ConvStru
 }
 
 // ConvertUnsafe 转换, 主要使用浅拷贝进行转换
+// 相较于 Convert 减少了多余内存分配, 性能要好些
 func (c *ConvStructObj) ConvertUnsafe() error {
 	c.deep = false
 	return c.Convert()

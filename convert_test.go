@@ -731,11 +731,11 @@ func BenchmarkConvert(b *testing.B) {
 		Hobby: []string{"打篮球", "跑步"},
 	}
 	dest := TmpDest{}
+	obj := NewConvStruct()
+	obj.Init(&src, &dest)
 	for i := 0; i < b.N; i++ {
-		obj := NewConvStruct()
-		obj.Init(&src, &dest)
-		// _ = obj.Convert()
-		_ = obj.ConvertUnsafe()
+		_ = obj.Convert()
+		// _ = obj.ConvertUnsafe()
 	}
 }
 
