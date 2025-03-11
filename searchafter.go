@@ -118,6 +118,16 @@ func (w *SearchResults) Empty() bool {
 	return w.Len() == 0
 }
 
+// LenEqual 长度等于
+func (w *SearchResults) LenEqual(l int) bool {
+	return w.Len() == l
+}
+
+// LenGte 大于等于
+func (w *SearchResults) LenGte(l int) bool {
+	return w.Len() >= l
+}
+
 func (w *SearchResults) Append(v interface{}) *SearchResults {
 	w.data = append(w.data, v)
 	return w
@@ -127,12 +137,8 @@ func (w *SearchResults) Reset() {
 	w.data = w.data[:0]
 }
 
-// LenEqual 长度等于
-func (w *SearchResults) LenEqual(l int) bool {
-	return w.Len() == l
-}
-
 // LenEqual2Do 达到长度后, 进行处理, 同时会将已处理过的数据, 进行重置
+// Deprecated 推荐使用 LenGte2Do
 func (w *SearchResults) LenEqual2Do(l int, f func(res []interface{}) error, needReset ...bool) error {
 	defaultNeedReset := true
 	if len(needReset) > 0 {
@@ -141,11 +147,26 @@ func (w *SearchResults) LenEqual2Do(l int, f func(res []interface{}) error, need
 	if !w.LenEqual(l) {
 		return nil
 	}
+	return w.do(f, defaultNeedReset)
+}
 
+// LenGte2Do 长度大于等于后, 进行处理, 同时会将已处理过的数据, 进行重置
+func (w *SearchResults) LenGte2Do(l int, f func(res []interface{}) error, needReset ...bool) error {
+	defaultNeedReset := true
+	if len(needReset) > 0 {
+		defaultNeedReset = needReset[0]
+	}
+	if !w.LenGte(l) {
+		return nil
+	}
+	return w.do(f, defaultNeedReset)
+}
+
+func (w *SearchResults) do(f func(res []interface{}) error, needReset bool) error {
 	if err := f(w.data); err != nil {
 		return err
 	}
-	if defaultNeedReset {
+	if needReset {
 		w.Reset()
 	}
 	return nil
