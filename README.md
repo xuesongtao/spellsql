@@ -373,3 +373,4 @@ if err != nil {
 #### 其他
 
 * 欢迎大佬们指正, 希望大佬给❤️，to [gitee](https://gitee.com/xuesongtao/spellsql) [github](https://github.com/xuesongtao/spellsql)
+* 在线 SQL 转 GO [gotool](https://gotool.top): sql to gorm/xorm/ent/struct; json to struct
