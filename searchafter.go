@@ -98,3 +98,63 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 	}
 	return nil
 }
+
+// SearchResults 查询结果集, 常用于将查询结果暂存, 长度达到多少再进行处理
+type SearchResults struct {
+	data []interface{}
+}
+
+func NewSearchResults(size int) *SearchResults {
+	return &SearchResults{
+		data: make([]interface{}, 0, size),
+	}
+}
+
+func (w *SearchResults) Len() int {
+	return len(w.data)
+}
+
+func (w *SearchResults) Empty() bool {
+	return w.Len() == 0
+}
+
+func (w *SearchResults) Append(v interface{}) *SearchResults {
+	w.data = append(w.data, v)
+	return w
+}
+
+func (w *SearchResults) Reset() {
+	w.data = w.data[:0]
+}
+
+// LenEqual 长度等于
+func (w *SearchResults) LenEqual(l int) bool {
+	return w.Len() == l
+}
+
+// LenEqual2Do 达到长度后, 进行处理, 同时会将已处理过的数据, 进行重置
+func (w *SearchResults) LenEqual2Do(l int, f func(res []interface{}) error, needReset ...bool) error {
+	defaultNeedReset := true
+	if len(needReset) > 0 {
+		defaultNeedReset = needReset[0]
+	}
+	if !w.LenEqual(l) {
+		return nil
+	}
+
+	if err := f(w.data); err != nil {
+		return err
+	}
+	if defaultNeedReset {
+		w.Reset()
+	}
+	return nil
+}
+
+// End2Do 结束处理, 使用完后需要调用此方法
+func (w *SearchResults) End2Do(f func(res []interface{}) error) error {
+	if w.Empty() {
+		return nil
+	}
+	return f(w.data)
+}
