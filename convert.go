@@ -31,7 +31,7 @@ type ConvStructObj struct {
 	deep bool // 是否深拷贝
 	tag  string
 	// srcRv, destRv reflect.Value
-	descFieldMap map[string]*convFieldInfo // key: tagVal
+	destFieldMap map[string]*convFieldInfo // key: tagVal
 	srcFieldMap  map[string]*convFieldInfo // key: tagVal
 }
 
@@ -42,7 +42,7 @@ func NewConvStruct(tagName ...string) *ConvStructObj {
 		deep:         true,
 		tag:          defaultTableTag,
 		srcFieldMap:  make(map[string]*convFieldInfo),
-		descFieldMap: make(map[string]*convFieldInfo),
+		destFieldMap: make(map[string]*convFieldInfo),
 	}
 	if len(tagName) > 0 && tagName[0] != "" {
 		obj.tag = tagName[0]
@@ -93,7 +93,7 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 	err = c.initFieldMap(
 		reflect.ValueOf(dest),
 		func(tagVal string, field *convFieldInfo) {
-			c.descFieldMap[tagVal] = field
+			c.destFieldMap[tagVal] = field
 		},
 	)
 	if err != nil {
@@ -106,7 +106,7 @@ func (c *ConvStructObj) Init(src, dest interface{}) error {
 // 注: 需要晚于 Init 调用
 func (c *ConvStructObj) Exclude(tagVals ...string) *ConvStructObj {
 	for _, tagVal := range tagVals {
-		if obj, ok := c.descFieldMap[tagVal]; ok {
+		if obj, ok := c.destFieldMap[tagVal]; ok {
 			obj.exclude = true
 		}
 	}
@@ -155,7 +155,7 @@ func (c *ConvStructObj) ConvertUnsafe() error {
 // Convert 转换, 所有内容进行深拷贝
 func (c *ConvStructObj) Convert() error {
 	errBuf := new(strings.Builder)
-	for tagVal, destFieldInfo := range c.descFieldMap {
+	for tagVal, destFieldInfo := range c.destFieldMap {
 		if destFieldInfo.exclude {
 			continue
 		}
@@ -224,22 +224,22 @@ func (c *ConvStructObj) Convert() error {
 			}
 		} else if srcKind == reflect.Slice || srcKind == reflect.Array { // src: slice => dest: slice
 			l := srcVal.Len()
-			sliceSrcValType := srcVal.Type().Elem()        // 取 slice 值的类型
-			isPtr := sliceSrcValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr
+			sliceDstValType := destVal.Type().Elem()        // 取 slice 值的类型
+			isPtr := sliceDstValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr
 			if isPtr {
-				sliceSrcValType = removeTypePtr(sliceSrcValType) // 去 ptr
+				sliceDstValType = removeTypePtr(sliceDstValType) // 去 ptr
 			}
-			sliceSrcValKind := sliceSrcValType.Kind()
-			if isOneField(sliceSrcValKind) { // 单字段
-				tmpSlice := reflect.MakeSlice(srcVal.Type(), 0, l)
+			sliceDstValKind := sliceDstValType.Kind()
+			if isOneField(sliceDstValKind) { // 单字段
+				tmpSlice := reflect.MakeSlice(destVal.Type(), 0, l)
 				for i := 0; i < l; i++ {
 					tmpSlice = reflect.Append(tmpSlice, srcVal.Index(i))
 				}
 				destVal.Set(tmpSlice)
-			} else if sliceSrcValKind == reflect.Struct { // struct
-				tmpSlice := reflect.MakeSlice(srcVal.Type(), 0, l)
+			} else if sliceDstValKind == reflect.Struct { // struct
+				tmpSlice := reflect.MakeSlice(destVal.Type(), 0, l)
 				for i := 0; i < l; i++ {
-					tmpObj := reflect.New(sliceSrcValType)
+					tmpObj := reflect.New(sliceDstValType)
 					convObj := NewConvStruct(c.tag)
 					_ = convObj.Init(srcVal.Index(i).Interface(), tmpObj.Interface())
 					err := convObj.Convert()
