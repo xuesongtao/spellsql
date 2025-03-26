@@ -115,6 +115,11 @@ func InsertODKUForObjCtx(ctx context.Context, db DBer, tableName string, src int
 	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).InsertODKU(src, keys...).Exec()
 }
 
+// InsertsODKUForObjCtx 根据多个对象新增, 冲突更新
+func InsertsODKUForObjCtx(ctx context.Context, db DBer, tableName string, src []interface{}, keys ...string) (sql.Result, error) {
+	return NewTable(db, tableName).Ctx(ctx).PrintSqlCallSkip(3).InsertsODKU(src, keys...).Exec()
+}
+
 // InsertIgForObj 根据对象新增, 冲突忽略
 func InsertIgForObj(db DBer, tableName string, src ...interface{}) (sql.Result, error) {
 	return NewTable(db, tableName).PrintSqlCallSkip(3).InsertsIg(src...).Exec()
