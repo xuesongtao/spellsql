@@ -458,7 +458,14 @@ func (t *Table) GetParcelFieldArr(fields ...string) []string {
 	res := make([]string, 0, len(fields))
 	parcelStr := string(t.tmer.GetParcelFieldSymbol())
 	for _, field := range fields {
-		res = append(res, parcelStr+field+parcelStr)
+		// 需要去掉表别名, 如 ur.id => ur.`id`
+		prefix := ""
+		tmpField := field
+		if index := strings.Index(field, "."); index != -1 {
+			prefix = field[:index+1]
+			tmpField = field[index+1:]
+		}
+		res = append(res, prefix+parcelStr+tmpField+parcelStr)
 	}
 	return res
 }
