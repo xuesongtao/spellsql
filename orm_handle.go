@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+// Slice2Interfaces 切片转 interfaces
+func Slice2Interfaces(l int, to func(i int) interface{}) []interface{} {
+	res := make([]interface{}, l)
+	for i := 0; i < l; i++ {
+		res[i] = to(i)
+	}
+	return res
+}
+
 // Insert 提交, 支持批量提交
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {

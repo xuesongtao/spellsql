@@ -169,6 +169,9 @@ func DistinctIdsStr(s string, split string) string {
 
 // DistinctIds 去重
 func DistinctIds(ids []string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
 	tmp := make(map[string]struct{}, len(ids))
 	res := make([]string, 0, len(ids))
 
