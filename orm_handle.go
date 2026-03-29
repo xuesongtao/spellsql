@@ -315,11 +315,11 @@ func (t *Table) Exec() (sql.Result, error) {
 		return nil, err
 	}
 	st := time.Now()
-	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).FmtSql()
-	defer printCostTimeLog(t.ctx, st, sqlStr, t.isPrintSql)
+	sqlStr := t.tmpSqlObj.SetCallerSkip(t.printSqlCallSkip).SetPrintLog(false).GetSqlStr("")
 	res, err := t.db.ExecContext(t.ctx, sqlStr)
 	if err != nil {
 		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
 	}
+	defer printCostTimeLog(t.ctx, st, t.tmpSqlObj.getSqlLogStr("sql", sqlStr), t.isPrintSql)
 	return res, nil
 }

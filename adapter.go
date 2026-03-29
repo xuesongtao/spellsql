@@ -134,12 +134,12 @@ func (m *MysqlTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Ta
 		return nil, fmt.Errorf(getField2ColInfoMapErr, m.GetAdapterName())
 	}
 	st := time.Now()
-	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).SetCtx(m.ctx).FmtSql()
-	defer printCostTimeLog(m.ctx, st, sqlStr, printLog)
+	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).SetCtx(m.ctx).SetPrintLog(false).GetSqlStr("")
 	rows, err := db.QueryContext(m.ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
+	defer printCostTimeLog(m.ctx, st, sqlStr, printLog)
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
@@ -224,12 +224,12 @@ func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Table
 			"LEFT JOIN information_schema.constraint_column_usage AS ccu USING (column_name,table_name) "+
 			"LEFT JOIN information_schema.table_constraints tc ON tc.constraint_name=ccu.constraint_name "+
 			"WHERE c.table_schema='?v' AND c.table_name='?v'", p.initArgs[0], p.initArgs[1]).
-		SetCtx(p.ctx).FmtSql()
-	defer printCostTimeLog(p.ctx, st, sqlStr, printLog)
+		SetCtx(p.ctx).SetPrintLog(false).GetSqlStr("")
 	rows, err := db.QueryContext(p.ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
+	defer printCostTimeLog(p.ctx, st, sqlStr, printLog)
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
