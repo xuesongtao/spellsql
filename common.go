@@ -1,11 +1,13 @@
 package spellsql
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
@@ -315,4 +317,15 @@ func parseTag2Col(tag string) (column string) {
 		column = tag
 	}
 	return
+}
+
+func getCostTimeStr(st time.Time) string {
+	cost := time.Since(st)
+	return "cost: " + fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6) + "ms"
+}
+
+func printCostTimeLog(ctx context.Context, st time.Time, sqlStr string, printLog ...bool) {
+	if len(printLog) > 0 && printLog[0] {
+		sLog.Info(ctx, "cost: "+getCostTimeStr(st)+"; "+sqlStr)
+	}
 }

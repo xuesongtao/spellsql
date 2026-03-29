@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Slice2Interfaces 切片转 interfaces
@@ -313,7 +314,9 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr()
+	st := time.Now()
+	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).FmtSql()
+	defer printCostTimeLog(t.ctx, st, sqlStr, t.isPrintSql)
 	res, err := t.db.ExecContext(t.ctx, sqlStr)
 	if err != nil {
 		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)

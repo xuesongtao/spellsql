@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // From 设置表名
@@ -420,7 +421,10 @@ func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
 		return nil, err
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
-	return t.db.QueryContext(t.ctx, t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).GetSqlStr())
+	st := time.Now()
+	sqlStr := t.tmpSqlObj.SetPrintLog(t.isPrintSql).SetCallerSkip(t.printSqlCallSkip).FmtSql()
+	defer printCostTimeLog(t.ctx, st, sqlStr, t.isPrintSql)
+	return t.db.QueryContext(t.ctx, sqlStr)
 }
 
 // getDestReflectType 解析 dest kind
