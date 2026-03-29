@@ -319,13 +319,9 @@ func parseTag2Col(tag string) (column string) {
 	return
 }
 
-func getCostTimeStr(st time.Time) string {
+func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
 	cost := time.Since(st)
-	return "cost: " + fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6) + "ms"
-}
-
-func printCostTimeLog(ctx context.Context, st time.Time, sqlStr string, printLog ...bool) {
 	if len(printLog) > 0 && printLog[0] {
-		sLog.Info(ctx, "cost: "+getCostTimeStr(st)+"; "+sqlStr)
+		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
 	}
 }

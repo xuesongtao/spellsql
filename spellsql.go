@@ -444,6 +444,10 @@ func (s *SqlStrObj) FmtSql() string {
 	return s.SetPrintLog(false).GetSqlStr("", "")
 }
 
+func (s *SqlStrObj) getSqlLogStr(title, sqlStr string) string {
+	return s.getLogTitle(title) + sqlStr
+}
+
 // GetSqlStr 获取最终 sqlStr, 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
@@ -465,7 +469,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 		if argsLen > 0 {
 			defTitle = title[0]
 		}
-		sLog.Info(s.ctx, s.getLogTitle(defTitle), sqlStr)
+		sLog.Info(s.ctx, s.getLogTitle(defTitle)+sqlStr)
 	}
 	return
 }
@@ -527,7 +531,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 		if argsLen > 0 {
 			defTitle = title[0]
 		}
-		sLog.Info(s.ctx, s.getLogTitle(defTitle), findSqlStr)
+		sLog.Info(s.ctx, s.getLogTitle(defTitle)+findSqlStr)
 	}
 	return
 }
@@ -539,7 +543,7 @@ func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
 	if ok {
 		finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
 	}
-	finalTitle += title + ":"
+	finalTitle += title + ": "
 	return
 }
 
