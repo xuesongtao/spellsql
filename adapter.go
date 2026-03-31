@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 const (
@@ -132,11 +133,13 @@ func (m *MysqlTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Ta
 	if len(m.initArgs) != 1 {
 		return nil, fmt.Errorf(getField2ColInfoMapErr, m.GetAdapterName())
 	}
-	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).SetCtx(m.ctx).SetPrintLog(printLog).GetSqlStr()
+	st := time.Now()
+	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).SetCtx(m.ctx).SetPrintLog(false).GetSqlStr("")
 	rows, err := db.QueryContext(m.ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
+	defer printCostTimeLog(m.ctx, st, sqlStr, printLog)
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
@@ -215,16 +218,18 @@ func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Table
 	if len(p.initArgs) != 2 {
 		return nil, fmt.Errorf(getField2ColInfoMapErr, p.GetAdapterName())
 	}
+	st := time.Now()
 	sqlStr := NewCacheSql(
 		"SELECT c.column_name,c.data_type,c.is_nullable,tc.constraint_type,c.column_default FROM information_schema.columns AS c "+
 			"LEFT JOIN information_schema.constraint_column_usage AS ccu USING (column_name,table_name) "+
 			"LEFT JOIN information_schema.table_constraints tc ON tc.constraint_name=ccu.constraint_name "+
 			"WHERE c.table_schema='?v' AND c.table_name='?v'", p.initArgs[0], p.initArgs[1]).
-		SetCtx(p.ctx).SetPrintLog(printLog).GetSqlStr()
+		SetCtx(p.ctx).SetPrintLog(false).GetSqlStr("")
 	rows, err := db.QueryContext(p.ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
+	defer printCostTimeLog(p.ctx, st, sqlStr, printLog)
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
