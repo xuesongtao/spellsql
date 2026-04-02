@@ -252,7 +252,7 @@ func (t *Table) Count(total interface{}) error {
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
 	st := time.Now()
-	sqlStr := t.tmpSqlObj.SetCallerSkip(t.printSqlCallSkip).SetPrintLog(false).GetSqlStr("")
+	sqlStr := t.tmpSqlObj.SetCallerSkip(t.printSqlCallSkip).SetPrintLog(false).GetTotalSqlStr("")
 	err := t.db.QueryRowContext(t.ctx, sqlStr).Scan(total)
 	if err != nil {
 		return err
