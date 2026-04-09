@@ -2,6 +2,7 @@ package spellsql
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"sort"
@@ -259,7 +260,7 @@ func (t *Table) TagDefault(tag2DefaultMap map[string]interface{}) *Table {
 	return t
 }
 
-// SetMarshalFn 设置 struct 字段待序列化方法
+// SetMarshalFn 设置 struct 字段待序列化方法, 如果字段嵌套/对象等, 但是没有设置序列化方法, 那么就默认设置 json.Marshal 来处理该字段
 // 注: 调用必须优先 Insert/Update 操作的方法, 防止通过对象解析字段时被排除
 func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
 	for _, tag := range tags {
@@ -270,7 +271,7 @@ func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
 	return t
 }
 
-// SetUnmarshalFn 设置 struct 字段待反序列化方法
+// SetUnmarshalFn 设置 struct 字段待反序列化方法, 如果字段嵌套/对象等, 但是没有设置反序列化方法, 那么就默认设置 json.Unmarshal 来处理该字段
 // 注: 调用必须优先于 SelectAuto, 防止 SelectAuto 解析时查询字段被排除
 func (t *Table) SetUnmarshalFn(fn unmarshalFn, tags ...string) *Table {
 	for _, tag := range tags {
@@ -364,18 +365,23 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 			return
 		}
 
-		if !needHandleField {
-			return
-		}
+		// if !needHandleField {
+		// 	return
+		// }
 
 		switch args[0] {
 		case sureMarshal:
-			need = handleStructField.marshal != nil
+			need = handleStructField != nil && handleStructField.marshal != nil // 外部设置了序列化方法, 那么就需要处理该字段, 否则就默认跳过
+			if !need {
+				need = true // 没有设置序列化方法, 但是需要跳过嵌套/对象等, 那么就默认跳过
+				t.SetMarshalFn(json.Marshal, tag)
+			}
 		case sureUnmarshal:
-			need = handleStructField.unmarshal != nil
-		}
-		if !need {
-			return
+			need = handleStructField != nil && handleStructField.unmarshal != nil // 外部设置了反序列化方法, 那么就需要处理该字段, 否则就默认跳过
+			if !need {
+				need = true // 没有设置反序列化方法, 但是需要跳过嵌套/对象等, 那么就默认跳过
+				t.SetUnmarshalFn(json.Unmarshal, tag)
+			}
 		}
 	}
 
