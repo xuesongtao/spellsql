@@ -44,11 +44,14 @@ type Table struct {
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
-// 注: 使用 INSERT/UPDATE/DELETE/SELECT(SELECT 排除使用 Count)操作后该对象就会被释放, 如果继续使用会出现 panic
 // args 支持两个参数
 // args[0]: 会解析为 tableName, 这里如果有值, 在进行操作表的时候就会以此表为准,
 // 如果为空时, 在通过对象进行操作时按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
 // args[1]: 会解析为待解析的 tag, 默认 defaultTableTag
+// 注:
+//
+//	1.使用 INSERT/UPDATE/DELETE/SELECT(SELECT 排除使用 Count)操作后该对象就会被释放, 如果继续使用会出现 panic
+//	2.操作的对象字段如果没有设置 SetMarshalFn/SetUnmarshalFn, 那么默认会设置 json.Marshal/json.Unmarshal 来处理该字段
 func NewTable(db DBer, args ...string) *Table {
 	t := cacheTabObj.Get().(*Table)
 	t.init()
