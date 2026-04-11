@@ -36,12 +36,49 @@ const (
 // 	PRIMARY KEY (`id`)
 // )
 
+// CREATE TABLE `student` (
+// 	`id` int NOT NULL AUTO_INCREMENT,
+// 	`u_id` int NOT NULL,
+// 	`class_name` varchar(20) NOT NULL,
+// 	`nickname` varchar(20) NOT NULL,
+// 	`name` varchar(20) NOT NULL,
+// 	PRIMARY KEY (`id`)
+// )
+
+// CREATE TABLE `test_col` (
+// 	`id` int NOT NULL AUTO_INCREMENT,
+// 	`id1` varchar(10) NOT NULL,
+// 	`l_tinyint` tinyint DEFAULT '0',
+// 	`l_int` int DEFAULT NULL,
+// 	`l_long` mediumtext,
+// 	`l_float` float DEFAULT NULL,
+// 	`l_dec` decimal(10,0) DEFAULT NULL,
+// 	`l_char` char(10) DEFAULT NULL,
+// 	`l_varchar` varchar(10) DEFAULT NULL,
+// 	`l_text` longtext,
+// 	`l_tint` tinyint unsigned NOT NULL,
+// 	`l_bint` bigint unsigned NOT NULL,
+// 	`l_tfloat` decimal(65,0) unsigned NOT NULL,
+// 	`l_datetime` datetime DEFAULT CURRENT_TIMESTAMP,
+// 	`l_timestamp` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+// 	`l_bool` tinyint(1) DEFAULT '0',
+// 	`t_varchar_have_default` varchar(10) DEFAULT '',
+// 	PRIMARY KEY (`id`,`id1`),
+// 	KEY `a` (`l_int`)
+// )
+
 type ManCopy struct {
-	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
-	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
-	Age      int32  `json:"age,omitempty" gorm:"age" db:"age"`
-	Addr     string `json:"addr,omitempty" gorm:"addr" db:"addr"`
-	NickName string `json:"nickname,omitempty" gorm:"nickname" db:"nickname"`
+	Id       int32    `json:"id,omitempty" gorm:"id" db:"id"`
+	Name     string   `json:"name,omitempty" gorm:"name" db:"name"`
+	Age      int32    `json:"age,omitempty" gorm:"age" db:"age"`
+	Addr     string   `json:"addr,omitempty" gorm:"addr" db:"addr"`
+	NickName string   `json:"nickname,omitempty" gorm:"nickname" db:"nickname"`
+	ManSons  []ManSon `json:"mansons,omitempty" gorm:"mansons" db:"mansons"`
+}
+
+type ManSon struct {
+	Like string `json:"like,omitempty" gorm:"like" db:"like"`
+	Desc string `json:"desc,omitempty" gorm:"desc" db:"desc"`
 }
 
 type Student struct {
@@ -223,27 +260,6 @@ func TestGetCols(t *testing.T) {
 
 func TestGetNullType(t *testing.T) {
 	// // DROP TABLE IF EXISTS test_col;
-	// CREATE TABLE `test_col` (
-	// 	`id` int NOT NULL AUTO_INCREMENT,
-	// 	`id1` varchar(10) NOT NULL,
-	// 	`l_tinyint` tinyint DEFAULT '0',
-	// 	`l_int` int DEFAULT NULL,
-	// 	`l_long` mediumtext,
-	// 	`l_float` float DEFAULT NULL,
-	// 	`l_dec` decimal(10,0) DEFAULT NULL,
-	// 	`l_char` char(10) DEFAULT NULL,
-	// 	`l_varchar` varchar(10) DEFAULT NULL,
-	// 	`l_text` longtext,
-	// 	`l_tint` tinyint unsigned NOT NULL,
-	// 	`l_bint` bigint unsigned NOT NULL,
-	// 	`l_tfloat` decimal(65,0) unsigned NOT NULL,
-	// 	`l_datetime` datetime DEFAULT CURRENT_TIMESTAMP,
-	// 	`l_timestamp` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-	// 	`l_bool` tinyint(1) DEFAULT '0',
-	// 	`t_varchar_have_default` varchar(10) DEFAULT '',
-	// 	PRIMARY KEY (`id`,`id1`),
-	// 	KEY `a` (`l_int`)
-	// )
 
 	t.Skip()
 	type TestColInfo struct {
