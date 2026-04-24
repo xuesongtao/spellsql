@@ -16,9 +16,6 @@ function checkIsOk() {
     echo -e "\"${1}\" is \033[1;32mSuccess\033[0m"
 }
 
-git pull origin master
-checkIsOk "git pull"
-
 # 获取当前分支最新的 tag
 lastTag=$(git describe --abbrev=0 --tags)
 checkIsOk "get last tag"
@@ -32,7 +29,8 @@ if [[ $newTag == "" ]]; then
 fi
 
 printf "请输入版本描述:"
-read versionMsg
+echo "请输入版本描述（输入完毕后按 Ctrl+D 结束）："
+versionMsg=$(cat)
 if [[ $versionMsg == "" ]]; then
     echo "版本描述不能为空"
     exit 1
