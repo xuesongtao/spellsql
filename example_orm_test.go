@@ -17,7 +17,7 @@ func myPrint(v interface{}, isStruct bool) {
 	fmt.Println(string(b))
 }
 
-func ExampleOrmList() {
+func ExampleFindAll() {
 	sqlObj := NewCacheSql("SELECT id,name,age FROM man")
 	if true {
 		sqlObj.SetWhereArgs("id < ?", 5)
@@ -41,7 +41,7 @@ func ExampleOrmList() {
 
 	// Output:
 	// 4
-	// [{"id":1,"name":"被修改为 test","age":20},{"id":2,"name":"xue1","age":18},{"id":3,"name":"xue12","age":18},{"id":4,"name":"xue123","age":18}]
+	// [{"id":1,"name":"被修改为 test","age":20},{"id":2,"name":"xue1234","age":18},{"id":3,"name":"xue1234","age":18},{"id":4,"name":"xue1234","age":18}]
 }
 
 func ExampleExecForSql() {

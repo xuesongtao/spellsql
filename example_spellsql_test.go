@@ -5,7 +5,7 @@ import (
 	"math"
 )
 
-func ExampleSpellSqlList() {
+func ExampleNewCacheSql_getSqlStr() {
 	s := NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?d", "test", "123").SetPrintLog(false)
 	// s.SetPrintLog(false)
 	if true {
@@ -39,7 +39,7 @@ func ExampleSpellSqlList() {
 	// SELECT username, password FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大") ORDER BY create_time DESC LIMIT 10 OFFSET 0;
 }
 
-func ExampleSpellSqlInsert() {
+func ExampleNewCacheSql_insert() {
 	s := NewCacheSql("INSERT INTO sys_user (username, password, name)")
 	// s.SetPrintLog(false)
 	s.SetInsertValues("xuesongtao", "123456", "阿桃")
@@ -50,7 +50,7 @@ func ExampleSpellSqlInsert() {
 	// INSERT INTO sys_user (username, password, name) VALUES ("xuesongtao", "123456", "阿桃"), ("xuesongtao1", "123456", "阿桃");
 }
 
-func ExampleSpellSqlUpdate() {
+func ExampleNewCacheSql_update() {
 	s := NewCacheSql("UPDATE sys_user SET")
 	// s.SetPrintLog(false)
 	if true {
@@ -68,7 +68,7 @@ func ExampleSpellSqlUpdate() {
 	// UPDATE sys_user SET username = "test", age=10 WHERE id = 1;
 }
 
-func ExampleSpellSqlDelete() {
+func ExampleNewCacheSql_delete() {
 	s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
 	// s.SetPrintLog(false)
 	fmt.Println(s.GetSqlStr())
@@ -78,7 +78,7 @@ func ExampleSpellSqlDelete() {
 }
 
 // NewCacheSql 分页处理场景
-func ExampleNewCacheSqlPageHandle() {
+func ExampleNewCacheSql_pageHandle() {
 	sqlObj := NewCacheSql("SELECT * FROM user_info WHERE status = 1")
 	handleFn := func(obj *SqlStrObj, page, size int32) {
 		// 业务代码
@@ -105,7 +105,7 @@ func ExampleNewCacheSqlPageHandle() {
 }
 
 // NewSql 分页处理场景
-func ExampleNewSqlPageHandle() {
+func ExampleNewSql_pageHandle() {
 	sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
 	handleFn := func(obj *SqlStrObj, page, size int32) {
 		// 业务代码
