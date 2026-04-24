@@ -282,30 +282,27 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 
 		switch val := args[argIndex].(type) {
 		case string:
-			// 如果占位符?在最后一位时, 就不往下执行了防止 panic
-			if i >= sqlLen-1 {
+			if i < sqlLen-1 {
+				// 如果占位符?在最后一位时, 就不往下执行了防止 panic
+				// 判断下如果为 ?d 字符的话, 这里不需要加引号
+				// 如果包含字母的话, 就转为 0, 防止数字型注入
+				if sqlStr[i+1] == 'd' {
+					buf.WriteString(toEscape(val, true, s.escapeMap))
+					i++
+					continue
+				} else if sqlStr[i+1] == 'v' { // 原样输出
+					buf.WriteString(val)
+					i++
+					continue
+				}
+			}
+
+			if val == NULL {
+				buf.WriteString(NULL)
+			} else {
 				buf.WriteByte(s.strSymbol)
 				buf.WriteString(toEscape(val, false, s.escapeMap))
 				buf.WriteByte(s.strSymbol)
-				break
-			}
-
-			// 判断下如果为 ?d 字符的话, 这里不需要加引号
-			// 如果包含字母的话, 就转为 0, 防止数字型注入
-			if sqlStr[i+1] == 'd' {
-				buf.WriteString(toEscape(val, true, s.escapeMap))
-				i++
-			} else if sqlStr[i+1] == 'v' { // 原样输出
-				buf.WriteString(val)
-				i++
-			} else {
-				if val == NULL {
-					buf.WriteString(NULL)
-				} else {
-					buf.WriteByte(s.strSymbol)
-					buf.WriteString(toEscape(val, false, s.escapeMap))
-					buf.WriteByte(s.strSymbol)
-				}
 			}
 		case []string:
 			lastIndex := len(val) - 1
