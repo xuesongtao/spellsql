@@ -43,6 +43,15 @@ type Tmp struct {
 	Name string `json:"name,omitempty"`
 }
 
+func TestConvertNil(t *testing.T) {
+	var src TmpSrc
+	var dest *TmpDest
+	err := ConvStruct(src, &dest)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestConvertUnsafe(t *testing.T) {
 	testCases := []struct {
 		desc string
