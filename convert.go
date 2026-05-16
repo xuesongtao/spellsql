@@ -54,7 +54,7 @@ func (c *ConvStructObj) initFieldMap(tv reflect.Value, f func(tagVal string, fie
 	tv = removeValuePtr(tv)
 	ty := tv.Type()
 	if tv.Kind() != reflect.Struct {
-		return errors.New("it must is struct, it is " + ty.String())
+		return fmt.Errorf("it must is struct, it is: %v, it is nil: %v", ty.String(), tv.IsNil())
 	}
 
 	fieldNum := ty.NumField()
@@ -153,6 +153,7 @@ func (c *ConvStructObj) ConvertUnsafe() error {
 }
 
 // Convert 转换, 所有内容进行深拷贝
+// 说明: src 为零值的字段将不会进行转换
 func (c *ConvStructObj) Convert() error {
 	errBuf := new(strings.Builder)
 	for tagVal, destFieldInfo := range c.destFieldMap {
@@ -224,7 +225,7 @@ func (c *ConvStructObj) Convert() error {
 			}
 		} else if srcKind == reflect.Slice || srcKind == reflect.Array { // src: slice => dest: slice
 			l := srcVal.Len()
-			sliceDstValType := destVal.Type().Elem()        // 取 slice 值的类型
+			sliceDstValType := destVal.Type().Elem()       // 取 slice 值的类型
 			isPtr := sliceDstValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr
 			if isPtr {
 				sliceDstValType = removeTypePtr(sliceDstValType) // 去 ptr
