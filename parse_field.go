@@ -20,7 +20,7 @@ func NewParsePlaceholder(sqlStr string, args ...interface{}) *ParsePlaceholder {
 	return obj
 }
 
-func (p *ParsePlaceholder) Parse(tabMeter TableMetaer) *ParsePlaceholder {
+func (p *ParsePlaceholder) ParseFinalSqlStr(tabMeter TableMetaer) *ParsePlaceholder {
 	argLen := len(p.args)
 	if argLen == 0 {
 		p.buf.WriteString(p.waitParse)
@@ -158,10 +158,14 @@ func (p *ParsePlaceholder) Parse(tabMeter TableMetaer) *ParsePlaceholder {
 	return p
 }
 
+func (p *ParsePlaceholder) ParseExecArgs(tabMeter TableMetaer) (string, []interface{}) {
+	return "", nil
+}
+
 func (p *ParsePlaceholder) Result() string {
 	return p.buf.String()
 }
 
 func Parse(sqlStr string, args ...interface{}) *strings.Builder {
-	return NewParsePlaceholder(sqlStr, args...).Parse(getTmerFn()).buf
+	return NewParsePlaceholder(sqlStr, args...).ParseFinalSqlStr(getTmerFn()).buf
 }

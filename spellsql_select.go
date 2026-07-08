@@ -5,20 +5,25 @@ import (
 )
 
 type SelectBuilder struct {
-	buf        strings.Builder // 记录最终 sqlStr
-	whereBuf   strings.Builder // 记录 WHERE 条件
+	buf        strings.Builder // 记录骨架或者最终 sqlStr
+	whereBuf   strings.Builder // 记录带有占位符 (?) 的 WHERE 条件
+	whereArgs  []interface{}   // 记录 WHERE 条件的所有参数
 	limitStr   string
 	orderByStr string
 	groupByStr string
+	havingStr  string        // 记录 HAVING 条件
+	havingArgs []interface{} // 记录 HAVING 的所有参数
 
 	hasWhereStr    bool // 是否有 where
 	needAddJoinStr bool // 是否需要添加连接词
 }
 
-func NewSelectBuild() *SelectBuilder {
+func NewSelectBuilder() *SelectBuilder {
 	obj := &SelectBuilder{
 		buf:        strings.Builder{},
 		whereBuf:   strings.Builder{},
+		whereArgs:  make([]interface{}, 0, 4),
+		havingArgs: make([]interface{}, 0),
 		limitStr:   "",
 		orderByStr: "",
 		groupByStr: "",
@@ -26,8 +31,18 @@ func NewSelectBuild() *SelectBuilder {
 	return obj
 }
 
-// SetJoin 设置 join
-func (s *SelectBuilder) SetJoin(tableName string, on string, joinType ...uint8) *SelectBuilder {
+func (s *SelectBuilder) Select(col ...string) *SelectBuilder {
+	s.buf.WriteString("SELECT ")
+	if len(col) > 0 {
+		s.buf.WriteString(strings.Join(col, ", "))
+	} else {
+		s.buf.WriteString("*")
+	}
+	return s
+}
+
+// Join 设置 join
+func (s *SelectBuilder) Join(tableName string, on string, joinType ...uint8) *SelectBuilder {
 	deferJoinStr := "JOIN"
 	if len(joinType) > 0 {
 		switch joinType[0] {
@@ -46,28 +61,28 @@ func (s *SelectBuilder) SetJoin(tableName string, on string, joinType ...uint8) 
 	return s
 }
 
-// SetLeftJoin 设置 left join
-func (s *SelectBuilder) SetLeftJoin(tableName string, on string) *SelectBuilder {
-	return s.SetJoin(tableName, on, LJI)
+// LeftJoin 设置 left join
+func (s *SelectBuilder) LeftJoin(tableName string, on string) *SelectBuilder {
+	return s.Join(tableName, on, LJI)
 }
 
-// SetRightJoin 设置 right join
-func (s *SelectBuilder) SetRightJoin(tableName string, on string) *SelectBuilder {
-	return s.SetJoin(tableName, on, RJI)
+// RightJoin 设置 right join
+func (s *SelectBuilder) RightJoin(tableName string, on string) *SelectBuilder {
+	return s.Join(tableName, on, RJI)
 }
 
-// SetWhere 设置过滤条件, 连接符为 AND
+// Where 设置过滤条件, 连接符为 AND
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SelectBuilder) SetWhere(fieldName string, args ...interface{}) *SelectBuilder {
+func (s *SelectBuilder) Where(fieldName string, args ...interface{}) *SelectBuilder {
 	s.initWhere()
 	return s.setWhere(fieldName, args...)
 }
 
-// SetOrWhere 设置过滤条件, 连接符为 OR
+// OrWhere 设置过滤条件, 连接符为 OR
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SelectBuilder) SetOrWhere(fieldName string, args ...interface{}) *SelectBuilder {
+func (s *SelectBuilder) OrWhere(fieldName string, args ...interface{}) *SelectBuilder {
 	s.initWhere("OR")
 	return s.setWhere(fieldName, args...)
 }
@@ -165,62 +180,54 @@ func (s *SelectBuilder) setWhere(fieldName string, args ...interface{}) *SelectB
 	if needAdd {
 		sqlStr += " ?"
 	}
-	s.whereBuf.WriteString(Parse(" "+sqlStr, arg).String())
+	s.whereBuf.WriteString(" " + sqlStr)
+	s.whereArgs = append(s.whereArgs, arg)
 	return s
 }
 
 // SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
-func (s *SelectBuilder) SetRightLike(fieldName string, val string) *SelectBuilder {
+func (s *SelectBuilder) RightLike(fieldName string, val string) *SelectBuilder {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", s.EscapeLike(val)+"%")
+	s.setWhere(fieldName, "LIKE", EscapeLike(val)+"%")
 	return s
 }
 
-// SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
-func (s *SelectBuilder) SetLeftLike(fieldName string, val string) *SelectBuilder {
+// LeftLike 设置左模糊查询, 如: xxx LIKE "%test"
+func (s *SelectBuilder) LeftLike(fieldName string, val string) *SelectBuilder {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val))
+	s.setWhere(fieldName, "LIKE", "%"+EscapeLike(val))
 	return s
 }
 
-// SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
-func (s *SelectBuilder) SetAllLike(fieldName string, val string) *SelectBuilder {
+// AllLike 设置全模糊, 如: xxx LIKE "%test%"
+func (s *SelectBuilder) AllLike(fieldName string, val string) *SelectBuilder {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val)+"%")
+	s.setWhere(fieldName, "LIKE", "%"+EscapeLike(val)+"%")
 	return s
 }
 
-// EscapeLike 转义 like
-func (s *SelectBuilder) EscapeLike(val string) string {
-	res := Escape(
-		[]byte(val),
-		map[byte][]byte{
-			'_': {'\\', '_'},
-			'%': {'\\', '%'},
-		})
-	return string(res)
+// Between 设置 BETWEEN ? AND ?
+func (s *SelectBuilder) Between(fieldName string, leftVal, rightVal interface{}) *SelectBuilder {
+	return s.WhereArgs("(?v BETWEEN ? AND ?)", fieldName, leftVal, rightVal)
 }
 
-// SetBetween 设置 BETWEEN ? AND ?
-func (s *SelectBuilder) SetBetween(fieldName string, leftVal, rightVal interface{}) *SelectBuilder {
-	return s.SetWhereArgs("(?v BETWEEN ? AND ?)", fieldName, leftVal, rightVal)
-}
-
-// SetWhereArgs 支持占位符
-// 如: SetWhereArgs("username = ? AND password = ?d", "test", "123")
+// WhereArgs 支持占位符
+// 如: WhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
-func (s *SelectBuilder) SetWhereArgs(sqlStr string, args ...interface{}) *SelectBuilder {
+func (s *SelectBuilder) WhereArgs(sqlStr string, args ...interface{}) *SelectBuilder {
 	s.initWhere()
-	s.whereBuf.WriteString(Parse(" "+sqlStr, args...).String())
+	s.whereBuf.WriteString(" " + sqlStr)
+	s.whereArgs = append(s.whereArgs, args...)
 	return s
 }
 
-// SetOrWhereArgs 支持占位符
-// 如: SetOrWhereArgs("username = ? AND password = ?d", "test", "123")
+// OrWhereArgs 支持占位符
+// 如: OrWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
-func (s *SelectBuilder) SetOrWhereArgs(sqlStr string, args ...interface{}) *SelectBuilder {
+func (s *SelectBuilder) OrWhereArgs(sqlStr string, args ...interface{}) *SelectBuilder {
 	s.initWhere("OR")
-	s.whereBuf.WriteString(Parse(" "+sqlStr, args...).String())
+	s.whereBuf.WriteString(" " + sqlStr)
+	s.whereArgs = append(s.whereArgs, args...)
 	return s
 }
 
@@ -234,35 +241,22 @@ func (s *SelectBuilder) WhereStrLen() int {
 	return s.whereBuf.Len()
 }
 
-// SetOrderByStr 设置排序
-func (s *SelectBuilder) SetOrderByStr(orderByStr string) *SelectBuilder {
+// OrderBy 设置排序
+func (s *SelectBuilder) OrderBy(orderByStr string) *SelectBuilder {
 	s.orderByStr = " ORDER BY " + orderByStr
 	return s
 }
 
-// GetOffset 根据分页获取 offset
-// 注: page, size 只支持 int 系列类型
-func (s *SelectBuilder) GetOffset(page, size interface{}) (int64, int64) {
-	pageInt64, sizeInt64 := Int64(page), Int64(size)
-	if pageInt64 <= 0 {
-		pageInt64 = 1
-	}
-	if sizeInt64 <= 0 {
-		sizeInt64 = 10
-	}
-	return sizeInt64, (pageInt64 - 1) * sizeInt64
-}
-
-// SetLimit 设置分页
+// Limit 设置分页
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
-func (s *SelectBuilder) SetLimit(page, size interface{}) *SelectBuilder {
-	sizeInt64, offsetInt64 := s.GetOffset(page, size)
-	return s.SetLimitStr(Int2Str(sizeInt64) + " OFFSET " + Int2Str(offsetInt64))
+func (s *SelectBuilder) Limit(page, size interface{}) *SelectBuilder {
+	sizeInt64, offsetInt64 := GetOffset(page, size)
+	return s.LimitStr(Int2Str(sizeInt64) + " OFFSET " + Int2Str(offsetInt64))
 }
 
-// SetLimitStr 字符串来设置
-func (s *SelectBuilder) SetLimitStr(limitStr string) *SelectBuilder {
+// LimitStr 字符串来设置
+func (s *SelectBuilder) LimitStr(limitStr string) *SelectBuilder {
 	s.limitStr = " LIMIT " + limitStr
 	return s
 }
@@ -272,18 +266,94 @@ func (s *SelectBuilder) LimitIsEmpty() bool {
 	return null(s.limitStr)
 }
 
-// SetGroupByStr 设置 groupBy
-func (s *SelectBuilder) SetGroupByStr(groupByStr string) *SelectBuilder {
+// GroupBy 设置 groupBy
+func (s *SelectBuilder) GroupBy(groupByStr string) *SelectBuilder {
 	s.groupByStr = " GROUP BY " + groupByStr
 	return s
 }
 
-// SetHaving 设置 Having
-func (s *SelectBuilder) SetHaving(having string, args ...interface{}) *SelectBuilder {
-	s.groupByStr += " HAVING " + Parse(" "+having, args...).String()
+// Having 设置 Having
+func (s *SelectBuilder) Having(having string, args ...interface{}) *SelectBuilder {
+	s.havingStr = " HAVING " + having
+	s.havingArgs = append(s.havingArgs, args...)
 	return s
 }
 
-func (s *SelectBuilder) Result() string {
-	return s.buf.String()
+// ToExecSQL 返回带有占位符的 SQL 和参数切片，适合传给 db.Query 防止注入并利用 DB 软解析
+func (s *SelectBuilder) ToExecSQL() (string, []interface{}) {
+	var finalSql strings.Builder
+	finalSql.WriteString(s.buf.String())
+	if s.WhereStrLen() > 0 {
+		finalSql.WriteString(s.whereBuf.String())
+	}
+	if s.groupByStr != "" {
+		finalSql.WriteString(s.groupByStr)
+	}
+	if s.havingStr != "" {
+		finalSql.WriteString(s.havingStr)
+	}
+	if s.orderByStr != "" {
+		finalSql.WriteString(s.orderByStr)
+	}
+	if s.limitStr != "" {
+		finalSql.WriteString(s.limitStr)
+	}
+
+	args := make([]interface{}, 0, len(s.whereArgs)+len(s.havingArgs))
+	args = append(args, s.whereArgs...)
+	args = append(args, s.havingArgs...)
+
+	return finalSql.String(), args
+}
+
+// GetSqlStr 获取拼接了实际参数的最终可执行 SQL (主要用于测试或打印日志)
+func (s *SelectBuilder) GetSqlStr() string {
+	var finalSql strings.Builder
+	finalSql.WriteString(s.buf.String())
+
+	if s.WhereStrLen() > 0 {
+		finalSql.WriteString(Parse(s.whereBuf.String(), s.whereArgs...).String())
+	}
+
+	if s.groupByStr != "" {
+		if len(s.havingArgs) > 0 {
+			finalSql.WriteString(Parse(s.groupByStr, s.havingArgs...).String())
+		} else {
+			finalSql.WriteString(s.groupByStr)
+		}
+	}
+
+	if s.orderByStr != "" {
+		finalSql.WriteString(s.orderByStr)
+	}
+
+	if s.limitStr != "" {
+		finalSql.WriteString(s.limitStr)
+	}
+
+	return finalSql.String()
+}
+
+// EscapeLike 转义 like
+func EscapeLike(val string) string {
+	res := Escape(
+		[]byte(val),
+		map[byte][]byte{
+			'_': {'\\', '_'},
+			'%': {'\\', '%'},
+		})
+	return string(res)
+}
+
+// GetOffset 根据分页获取 offset
+// 注: page, size 只支持 int 系列类型
+func GetOffset(page, size interface{}) (int64, int64) {
+	pageInt64, sizeInt64 := Int64(page), Int64(size)
+	if pageInt64 <= 0 {
+		pageInt64 = 1
+	}
+	if sizeInt64 <= 0 {
+		sizeInt64 = 10
+	}
+	return sizeInt64, (pageInt64 - 1) * sizeInt64
 }
