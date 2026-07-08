@@ -195,7 +195,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 	}
 
 	var err error
-	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.db, t.isPrintSql)
+	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.ctx, t.db, t.isPrintSql)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,6 @@ func (t *Table) initTmer() {
 	if t.tmer == nil {
 		t.tmer = getTmerFn()
 	}
-	t.tmer.SetCtx(t.ctx)
 	if !null(t.name) {
 		t.tmer.SetTableName(t.name)
 	}

@@ -279,8 +279,8 @@ func (s *SelectBuilder) Having(having string, args ...interface{}) *SelectBuilde
 	return s
 }
 
-// ToExecSQL 返回带有占位符的 SQL 和参数切片，适合传给 db.Query 防止注入并利用 DB 软解析
-func (s *SelectBuilder) ToExecSQL() (string, []interface{}) {
+// GetExecArgs 返回带有占位符的 SQL 和参数切片，适合传给 db.Query 防止注入并利用 DB 软解析
+func (s *SelectBuilder) GetExecArgs() (string, []interface{}) {
 	var finalSql strings.Builder
 	finalSql.WriteString(s.buf.String())
 	if s.WhereStrLen() > 0 {

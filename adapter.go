@@ -89,11 +89,7 @@ func (c *CommonTable) SetTableName(tableName string) {
 	c.noImplement("SetTableName")
 }
 
-func (c *CommonTable) SetCtx(ctx context.Context) {
-	c.noImplement("SetCtx")
-}
-
-func (c *CommonTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) {
+func (c *CommonTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) {
 	c.noImplement("GetField2ColInfoMap")
 	return nil, nil
 }
@@ -108,7 +104,6 @@ func (c *CommonTable) noImplement(name string) {
 
 type MysqlTable struct {
 	CommonTable
-	ctx      context.Context
 	initArgs []string
 }
 
@@ -125,21 +120,17 @@ func (m *MysqlTable) SetTableName(name string) {
 	m.initArgs = []string{name}
 }
 
-func (m *MysqlTable) SetCtx(ctx context.Context) {
-	m.ctx = ctx
-}
-
-func (m *MysqlTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) {
+func (m *MysqlTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) {
 	if len(m.initArgs) != 1 {
 		return nil, fmt.Errorf(getField2ColInfoMapErr, m.GetAdapterName())
 	}
 	st := time.Now()
-	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).SetCtx(m.ctx).SetPrintLog(false).GetSqlStr("")
-	rows, err := db.QueryContext(m.ctx, sqlStr)
+	sqlStr := NewCacheSql("SHOW COLUMNS FROM ?v", m.initArgs[0]).SetCtx(ctx).SetPrintLog(false).GetSqlStr("")
+	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
-	defer printCostTimeLog(m.ctx, st, sqlStr, printLog)
+	defer printCostTimeLog(ctx, st, sqlStr, printLog)
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
@@ -163,7 +154,6 @@ func (m *MysqlTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Ta
 
 type PgTable struct {
 	CommonTable
-	ctx      context.Context
 	initArgs []string
 }
 
@@ -195,10 +185,6 @@ func (p *PgTable) SetTableName(name string) {
 	p.initArgs[1] = name
 }
 
-func (p *PgTable) SetCtx(ctx context.Context) {
-	p.ctx = ctx
-}
-
 func (p *PgTable) GetParcelFieldSymbol() byte {
 	return '"'
 }
@@ -214,7 +200,7 @@ func (p *PgTable) GetValueStrSymbol() byte {
 	return '\''
 }
 
-func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) {
+func (p *PgTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) {
 	if len(p.initArgs) != 2 {
 		return nil, fmt.Errorf(getField2ColInfoMapErr, p.GetAdapterName())
 	}
@@ -224,12 +210,12 @@ func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Table
 			"LEFT JOIN information_schema.constraint_column_usage AS ccu USING (column_name,table_name) "+
 			"LEFT JOIN information_schema.table_constraints tc ON tc.constraint_name=ccu.constraint_name "+
 			"WHERE c.table_schema='?v' AND c.table_name='?v'", p.initArgs[0], p.initArgs[1]).
-		SetCtx(p.ctx).SetPrintLog(false).GetSqlStr("")
-	rows, err := db.QueryContext(p.ctx, sqlStr)
+		SetCtx(ctx).SetPrintLog(false).GetSqlStr("")
+	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
-		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)
+		return nil, fmt.Errorf("pg query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
-	defer printCostTimeLog(p.ctx, st, sqlStr, printLog)
+	defer printCostTimeLog(ctx, st, sqlStr, printLog)
 	defer rows.Close()
 
 	cacheCol2InfoMap := make(map[string]*TableColInfo)
@@ -241,7 +227,7 @@ func (p *PgTable) GetField2ColInfoMap(db DBer, printLog bool) (map[string]*Table
 		)
 		err = rows.Scan(&info.Field, &info.Type, &info.Null, &key, &info.Default)
 		if err != nil {
-			return nil, fmt.Errorf("mysql scan is failed, err: %v", err)
+			return nil, fmt.Errorf("pg scan is failed, err: %v", err)
 		}
 		if key.String == "PRIMARY KEY" {
 			info.Key = PriFlag

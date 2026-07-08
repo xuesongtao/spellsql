@@ -21,13 +21,20 @@ type Logger interface {
 
 // TableMetaer 表元信息, 为了适配不同数据库
 type TableMetaer interface {
-	GetValueStrSymbol() byte                                                      // 获取值字符串符号
-	GetValueEscapeMap() map[byte][]byte                                           // 获取值转义规则
-	GetParcelFieldSymbol() byte                                                   // 获取字段包裹符号
-	GetAdapterName() string                                                       // 获取 db name
-	SetTableName(tableName string)                                                // 方便框架调用设置 tableName 参数
-	SetCtx(ctx context.Context)                                                   // 设置 context
-	GetField2ColInfoMap(db DBer, printLog bool) (map[string]*TableColInfo, error) // key: field
+	GetValueStrSymbol() byte                                                                           // 获取值字符串符号
+	GetValueEscapeMap() map[byte][]byte                                                                // 获取值转义规则
+	GetParcelFieldSymbol() byte                                                                        // 获取字段包裹符号
+	GetAdapterName() string                                                                            // 获取 db name
+	SetTableName(tableName string)                                                                     // 方便框架调用设置 tableName 参数
+	GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) // key: field
+}
+
+// Builder 构建 SQL 的接口
+type Builder interface {
+	// GetExecArgs 返回带有占位符的 SQL 和参数切片
+	GetExecArgs() (string, []interface{})
+	// GetSqlStr 返回最终的 SQL 字符串，适合打印日志或者直接执行
+	GetSqlStr() string
 }
 
 // SelectCallBackFn 对每行查询结果进行取出处理
