@@ -405,10 +405,9 @@ func BenchmarkFmtInt2Str(b *testing.B) {
 }
 
 func BenchmarkSqlStr_Int2Str(b *testing.B) {
-	s := NewSql("SELECT 12")
 	var i int64
 	for i < int64(b.N) {
-		s.Int2Str(i)
+		Int2Str(i)
 		i++
 	}
 }
@@ -528,10 +527,9 @@ func BenchmarkIntStr(b *testing.B) {
 func BenchmarkIntStr1(b *testing.B) {
 	s := int64(56)
 	a := ""
-	obj := NewCacheSql("")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a = obj.Int2Str(s)
+		a = Int2Str(s)
 	}
 	b.Log(a)
 }

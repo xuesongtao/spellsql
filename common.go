@@ -13,7 +13,13 @@ import (
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
 // isFont2End 是否从主串前向后遍历查找
 // 如果匹配的内容靠前建议 isFont2End=true, 反之 false
+// Deprecated 推荐用 Index
 func IndexForBF(isFont2End bool, s, substr string) int {
+	return Index(s, substr, isFont2End)
+}
+
+// Index
+func Index(s, substr string, isFont2End ...bool) int {
 	substrLen := len(substr)
 	sLen := len(s)
 	switch {
@@ -22,8 +28,11 @@ func IndexForBF(isFont2End bool, s, substr string) int {
 	case substrLen > sLen:
 		return -1
 	}
-
-	if isFont2End {
+	defaultIsFont2End := true
+	if len(isFont2End) > 0 {
+		defaultIsFont2End = isFont2End[0]
+	}
+	if defaultIsFont2End {
 		return strings.Index(s, substr)
 	}
 	return strings.LastIndex(s, substr)

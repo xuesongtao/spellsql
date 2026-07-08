@@ -342,17 +342,17 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			buf.WriteString(toEscape(string(val), false, s.escapeMap))
 			buf.WriteByte(s.strSymbol)
 		case int:
-			buf.WriteString(s.Int2Str(int64(val)))
+			buf.WriteString(Int2Str(int64(val)))
 		case int32:
-			buf.WriteString(s.Int2Str(int64(val)))
+			buf.WriteString(Int2Str(int64(val)))
 		case uint:
-			buf.WriteString(s.UInt2Str(uint64(val)))
+			buf.WriteString(UInt2Str(uint64(val)))
 		case uint32:
-			buf.WriteString(s.UInt2Str(uint64(val)))
+			buf.WriteString(UInt2Str(uint64(val)))
 		case []int:
 			lastIndex := len(val) - 1
 			for i1 := 0; i1 <= lastIndex; i1++ {
-				buf.WriteString(s.Int2Str(int64(val[i1])))
+				buf.WriteString(Int2Str(int64(val[i1])))
 				if i1 < lastIndex {
 					buf.WriteByte(',')
 				}
@@ -360,7 +360,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 		case []int32:
 			lastIndex := len(val) - 1
 			for i1 := 0; i1 <= lastIndex; i1++ {
-				buf.WriteString(s.Int2Str(int64(val[i1])))
+				buf.WriteString(Int2Str(int64(val[i1])))
 				if i1 < lastIndex {
 					buf.WriteByte(',')
 				}
@@ -538,19 +538,19 @@ func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
 	// 跳过当前
 	_, file, line, ok := runtime.Caller(int(s.callerSkip) + 1)
 	if ok {
-		finalTitle += "(" + parseFileName(file) + ":" + s.Int2Str(int64(line)) + ") "
+		finalTitle += "(" + parseFileName(file) + ":" + Int2Str(int64(line)) + ") "
 	}
 	finalTitle += title + ": "
 	return
 }
 
 // Int2Str 数字转字符串
-func (s *SqlStrObj) Int2Str(num int64) string {
+func Int2Str(num int64) string {
 	return strconv.FormatInt(num, 10)
 }
 
 // UInt2Str
-func (s *SqlStrObj) UInt2Str(num uint64) string {
+func UInt2Str(num uint64) string {
 	return strconv.FormatUint(num, 10)
 }
 
@@ -560,9 +560,9 @@ func getTargetIndex(sqlStr, targetStr string, isFont2End ...bool) int {
 	if len(isFont2End) > 0 {
 		is = isFont2End[0]
 	}
-	tmpIndex := IndexForBF(is, sqlStr, targetStr)
+	tmpIndex := Index(sqlStr, targetStr, is)
 	if tmpIndex == -1 {
-		tmpIndex = IndexForBF(is, sqlStr, toLower(targetStr))
+		tmpIndex = Index(sqlStr, toLower(targetStr), is)
 	}
 	return tmpIndex
 }

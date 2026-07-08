@@ -4,30 +4,8 @@ import (
 	"strings"
 )
 
-type SelectBuilder struct {
-	buf        strings.Builder // 记录最终 sqlStr
-	whereBuf   strings.Builder // 记录 WHERE 条件
-	limitStr   string
-	orderByStr string
-	groupByStr string
-
-	hasWhereStr    bool // 是否有 where
-	needAddJoinStr bool // 是否需要添加连接词
-}
-
-func NewSelectBuild() *SelectBuilder {
-	obj := &SelectBuilder{
-		buf:        strings.Builder{},
-		whereBuf:   strings.Builder{},
-		limitStr:   "",
-		orderByStr: "",
-		groupByStr: "",
-	}
-	return obj
-}
-
 // SetJoin 设置 join
-func (s *SelectBuilder) SetJoin(tableName string, on string, joinType ...uint8) *SelectBuilder {
+func (s *SqlStrObj) SetJoin(tableName string, on string, joinType ...uint8) *SqlStrObj {
 	deferJoinStr := "JOIN"
 	if len(joinType) > 0 {
 		switch joinType[0] {
@@ -37,29 +15,24 @@ func (s *SelectBuilder) SetJoin(tableName string, on string, joinType ...uint8) 
 			deferJoinStr = "RIGHT JOIN"
 		}
 	}
-	s.buf.WriteString(" ")
-	s.buf.WriteString(deferJoinStr)
-	s.buf.WriteString(" ")
-	s.buf.WriteString(tableName)
-	s.buf.WriteString(" ON ")
-	s.buf.WriteString(on)
+	s.buf.WriteString(" " + deferJoinStr + " " + tableName + " ON " + on)
 	return s
 }
 
 // SetLeftJoin 设置 left join
-func (s *SelectBuilder) SetLeftJoin(tableName string, on string) *SelectBuilder {
+func (s *SqlStrObj) SetLeftJoin(tableName string, on string) *SqlStrObj {
 	return s.SetJoin(tableName, on, LJI)
 }
 
 // SetRightJoin 设置 right join
-func (s *SelectBuilder) SetRightJoin(tableName string, on string) *SelectBuilder {
+func (s *SqlStrObj) SetRightJoin(tableName string, on string) *SqlStrObj {
 	return s.SetJoin(tableName, on, RJI)
 }
 
 // SetWhere 设置过滤条件, 连接符为 AND
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SelectBuilder) SetWhere(fieldName string, args ...interface{}) *SelectBuilder {
+func (s *SqlStrObj) SetWhere(fieldName string, args ...interface{}) *SqlStrObj {
 	s.initWhere()
 	return s.setWhere(fieldName, args...)
 }
@@ -67,23 +40,26 @@ func (s *SelectBuilder) SetWhere(fieldName string, args ...interface{}) *SelectB
 // SetOrWhere 设置过滤条件, 连接符为 OR
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SelectBuilder) SetOrWhere(fieldName string, args ...interface{}) *SelectBuilder {
+func (s *SqlStrObj) SetOrWhere(fieldName string, args ...interface{}) *SqlStrObj {
 	s.initWhere("OR")
 	return s.setWhere(fieldName, args...)
 }
 
 // initWhere 初始化where, joinStr 为 AND/OR 连接符, 默认时 AND
-func (s *SelectBuilder) initWhere(joinStr ...string) {
+func (s *SqlStrObj) initWhere(joinStr ...string) {
 	defaultJoinStr := " AND"
 	if len(joinStr) > 0 {
 		// 这里为 " OR"
 		defaultJoinStr = " " + joinStr[0]
 	}
 
-	if s.WhereStrLen() > 0 {
-		s.whereBuf.WriteString(defaultJoinStr)
+	// fmtSql action 可能为 0
+	if s.is(none) {
+		if s.SqlStrLen() > 0 || s.WhereStrLen() > 0 {
+			s.whereBuf.WriteString(defaultJoinStr)
+		}
+		return
 	}
-	// return
 
 	isNeedAddJoinStr := true // 本次默认添加
 	if !s.hasWhereStr {
@@ -112,7 +88,7 @@ func (s *SelectBuilder) initWhere(joinStr ...string) {
 		if whereIndex == -1 {
 			return
 		}
-		lastIndex := s.buf.Len() - 1
+		lastIndex := s.SqlStrLen() - 1
 
 		// 需要跳过本身长度
 		if lastIndex-(whereIndex+5) > 5 {
@@ -122,7 +98,7 @@ func (s *SelectBuilder) initWhere(joinStr ...string) {
 }
 
 // setWhere 转换参数
-func (s *SelectBuilder) setWhere(fieldName string, args ...interface{}) *SelectBuilder {
+func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
 	argsLen := len(args)
 	if argsLen == 0 {
 		args = []interface{}{"NULL"}
@@ -165,33 +141,33 @@ func (s *SelectBuilder) setWhere(fieldName string, args ...interface{}) *SelectB
 	if needAdd {
 		sqlStr += " ?"
 	}
-	s.whereBuf.WriteString(Parse(" "+sqlStr, arg).String())
+	s.writeSqlStr2Buf(&s.whereBuf, " "+sqlStr, arg)
 	return s
 }
 
 // SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
-func (s *SelectBuilder) SetRightLike(fieldName string, val string) *SelectBuilder {
+func (s *SqlStrObj) SetRightLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
 	s.setWhere(fieldName, "LIKE", s.EscapeLike(val)+"%")
 	return s
 }
 
 // SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
-func (s *SelectBuilder) SetLeftLike(fieldName string, val string) *SelectBuilder {
+func (s *SqlStrObj) SetLeftLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
 	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val))
 	return s
 }
 
 // SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
-func (s *SelectBuilder) SetAllLike(fieldName string, val string) *SelectBuilder {
+func (s *SqlStrObj) SetAllLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
 	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val)+"%")
 	return s
 }
 
 // EscapeLike 转义 like
-func (s *SelectBuilder) EscapeLike(val string) string {
+func (s *SqlStrObj) EscapeLike(val string) string {
 	res := Escape(
 		[]byte(val),
 		map[byte][]byte{
@@ -202,47 +178,47 @@ func (s *SelectBuilder) EscapeLike(val string) string {
 }
 
 // SetBetween 设置 BETWEEN ? AND ?
-func (s *SelectBuilder) SetBetween(fieldName string, leftVal, rightVal interface{}) *SelectBuilder {
+func (s *SqlStrObj) SetBetween(fieldName string, leftVal, rightVal interface{}) *SqlStrObj {
 	return s.SetWhereArgs("(?v BETWEEN ? AND ?)", fieldName, leftVal, rightVal)
 }
 
 // SetWhereArgs 支持占位符
 // 如: SetWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
-func (s *SelectBuilder) SetWhereArgs(sqlStr string, args ...interface{}) *SelectBuilder {
+func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
 	s.initWhere()
-	s.whereBuf.WriteString(Parse(" "+sqlStr, args...).String())
+	s.writeSqlStr2Buf(&s.whereBuf, " "+sqlStr, args...)
 	return s
 }
 
 // SetOrWhereArgs 支持占位符
 // 如: SetOrWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
-func (s *SelectBuilder) SetOrWhereArgs(sqlStr string, args ...interface{}) *SelectBuilder {
+func (s *SqlStrObj) SetOrWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
 	s.initWhere("OR")
-	s.whereBuf.WriteString(Parse(" "+sqlStr, args...).String())
+	s.writeSqlStr2Buf(&s.whereBuf, " "+sqlStr, args...)
 	return s
 }
 
 // WhereIsEmpty 判断where条件是否为空
-func (s *SelectBuilder) WhereIsEmpty() bool {
+func (s *SqlStrObj) WhereIsEmpty() bool {
 	return s.WhereStrLen() == 0
 }
 
 // WhereStrLen where 条件内容长度
-func (s *SelectBuilder) WhereStrLen() int {
+func (s *SqlStrObj) WhereStrLen() int {
 	return s.whereBuf.Len()
 }
 
 // SetOrderByStr 设置排序
-func (s *SelectBuilder) SetOrderByStr(orderByStr string) *SelectBuilder {
+func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 	s.orderByStr = " ORDER BY " + orderByStr
 	return s
 }
 
 // GetOffset 根据分页获取 offset
 // 注: page, size 只支持 int 系列类型
-func (s *SelectBuilder) GetOffset(page, size interface{}) (int64, int64) {
+func (s *SqlStrObj) GetOffset(page, size interface{}) (int64, int64) {
 	pageInt64, sizeInt64 := Int64(page), Int64(size)
 	if pageInt64 <= 0 {
 		pageInt64 = 1
@@ -256,34 +232,33 @@ func (s *SelectBuilder) GetOffset(page, size interface{}) (int64, int64) {
 // SetLimit 设置分页
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
-func (s *SelectBuilder) SetLimit(page, size interface{}) *SelectBuilder {
+func (s *SqlStrObj) SetLimit(page, size interface{}) *SqlStrObj {
 	sizeInt64, offsetInt64 := s.GetOffset(page, size)
 	return s.SetLimitStr(Int2Str(sizeInt64) + " OFFSET " + Int2Str(offsetInt64))
 }
 
 // SetLimitStr 字符串来设置
-func (s *SelectBuilder) SetLimitStr(limitStr string) *SelectBuilder {
+func (s *SqlStrObj) SetLimitStr(limitStr string) *SqlStrObj {
 	s.limitStr = " LIMIT " + limitStr
 	return s
 }
 
 // LimitIsEmpty 是否添加 limit
-func (s *SelectBuilder) LimitIsEmpty() bool {
+func (s *SqlStrObj) LimitIsEmpty() bool {
 	return null(s.limitStr)
 }
 
 // SetGroupByStr 设置 groupBy
-func (s *SelectBuilder) SetGroupByStr(groupByStr string) *SelectBuilder {
+func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 	s.groupByStr = " GROUP BY " + groupByStr
 	return s
 }
 
 // SetHaving 设置 Having
-func (s *SelectBuilder) SetHaving(having string, args ...interface{}) *SelectBuilder {
-	s.groupByStr += " HAVING " + Parse(" "+having, args...).String()
+func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
+	tmpBuf := getTmpBuf(len(having))
+	defer putTmpBuf(tmpBuf)
+	s.writeSqlStr2Buf(tmpBuf, having, args...)
+	s.groupByStr += " HAVING " + tmpBuf.String()
 	return s
-}
-
-func (s *SelectBuilder) Result() string {
-	return s.buf.String()
 }
