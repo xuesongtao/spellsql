@@ -54,7 +54,7 @@ func (c *ConvStructObj) initFieldMap(tv reflect.Value, f func(tagVal string, fie
 	tv = removeValuePtr(tv)
 	ty := tv.Type()
 	if tv.Kind() != reflect.Struct {
-		return fmt.Errorf("it must is struct, it is: %v, it is nil: %v", ty.String(), tv.IsNil())
+		return errors.New("it must is struct, it is " + ty.String())
 	}
 
 	fieldNum := ty.NumField()
@@ -224,6 +224,11 @@ func (c *ConvStructObj) Convert() error {
 				destVal.Set(tmpObj.Elem())
 			}
 		} else if srcKind == reflect.Slice || srcKind == reflect.Array { // src: slice => dest: slice
+			// 需要判断下 dest slice 的类型
+			if destVal.Kind() != reflect.Slice && destVal.Kind() != reflect.Array {
+				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, errors.New("dest is not a slice")))
+				continue
+			}
 			l := srcVal.Len()
 			sliceDstValType := destVal.Type().Elem()       // 取 slice 值的类型
 			isPtr := sliceDstValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr
