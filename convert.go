@@ -153,6 +153,7 @@ func (c *ConvStructObj) ConvertUnsafe() error {
 }
 
 // Convert 转换, 所有内容进行深拷贝
+// 说明: src 为零值的字段将不会进行转换
 func (c *ConvStructObj) Convert() error {
 	errBuf := new(strings.Builder)
 	for tagVal, destFieldInfo := range c.destFieldMap {
@@ -223,8 +224,13 @@ func (c *ConvStructObj) Convert() error {
 				destVal.Set(tmpObj.Elem())
 			}
 		} else if srcKind == reflect.Slice || srcKind == reflect.Array { // src: slice => dest: slice
+			// 需要判断下 dest slice 的类型
+			if destVal.Kind() != reflect.Slice && destVal.Kind() != reflect.Array {
+				errBuf.WriteString(c.joinConvertErr(tagVal, tagVal, errors.New("dest is not a slice")))
+				continue
+			}
 			l := srcVal.Len()
-			sliceDstValType := destVal.Type().Elem()        // 取 slice 值的类型
+			sliceDstValType := destVal.Type().Elem()       // 取 slice 值的类型
 			isPtr := sliceDstValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr
 			if isPtr {
 				sliceDstValType = removeTypePtr(sliceDstValType) // 去 ptr

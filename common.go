@@ -13,7 +13,6 @@ import (
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
 // isFont2End 是否从主串前向后遍历查找
 // 如果匹配的内容靠前建议 isFont2End=true, 反之 false
-// TODO 暂不支持中文
 func IndexForBF(isFont2End bool, s, substr string) int {
 	substrLen := len(substr)
 	sLen := len(s)
@@ -25,41 +24,9 @@ func IndexForBF(isFont2End bool, s, substr string) int {
 	}
 
 	if isFont2End {
-		for i := 0; i <= sLen-substrLen; i++ {
-			for j := 0; j < substrLen; j++ {
-				mainStr := s[i+j]
-				sonStr := substr[j]
-				if mainStr != sonStr {
-					break
-				}
-				// 如果 j 为最后一个值的话说明全匹配
-				if j == substrLen-1 {
-					return i
-				}
-			}
-		}
-		return -1
+		return strings.Index(s, substr)
 	}
-
-	for i := sLen - 1; i >= 0; i-- {
-		for j := substrLen - 1; j >= 0; j-- {
-			mainStr := s[i]
-			sonStr := substr[j]
-			if mainStr != sonStr {
-				break
-			}
-			// 如果 j 为最后一个值的话说明全匹配
-			if j == 0 {
-				return i
-			}
-
-			// 如果匹配到最开头的字符时 i=0, 如果 i--, i 为负数, s[i] 会 panic
-			if i > 0 {
-				i--
-			}
-		}
-	}
-	return -1
+	return strings.LastIndex(s, substr)
 }
 
 // Str 将内容转为 string
