@@ -51,7 +51,7 @@ func init() {
 	pgDb.SetMaxIdleConns(1)
 
 	// 初始化 pg tmer
-	spellsql.GlobalTmer(func() spellsql.TableMetaer {
+	spellsql.GlobalTmer(func() spellsql.TableMeter {
 		fmt.Println("call pg")
 		return spellsql.Pg("public")
 	})

@@ -70,7 +70,7 @@ var (
 	// 标记每次使用完后, 是否释放, 因为几乎都是共用同一个适配器, 减少初始化, 如果要释放的话将这里
 	isFreeTmerFlag = false
 	getTmerOnce    sync.Once
-	getTmerFn      = func() TableMetaer { return Mysql() } // 获取表初始化表元信息, 默认 mysql
+	getTmerFn      = func() TableMeter { return Mysql() } // 获取表初始化表元信息, 默认 mysql
 
 	// error
 	structTagErr = fmt.Errorf("you should sure struct is ok, eg: %s", "type User struct {\n"+
@@ -91,7 +91,7 @@ func FreeTmerFlag(is bool) {
 }
 
 // GlobalTmer 设置全局 tmer, 如果要局部使用, 请使用 Tmer
-func GlobalTmer(f func() TableMetaer) {
+func GlobalTmer(f func() TableMeter) {
 	getTmerOnce.Do(func() {
 		getTmerFn = f
 	})

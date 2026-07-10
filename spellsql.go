@@ -181,9 +181,9 @@ func (s *SqlStrObj) init() {
 	s.actionNum = none
 
 	// 数据库不同配置
-	tmerObj := getTmerFn()
-	s.strSymbol = tmerObj.GetValueStrSymbol()
-	s.escapeMap = tmerObj.GetValueEscapeMap()
+	// tmerObj := getTmerFn()
+	// s.strSymbol = tmerObj.GetValueStrSymbol()
+	// s.escapeMap = tmerObj.GetValueEscapeMap()
 
 	// 默认打印 log
 	s.isPrintSqlLog = true

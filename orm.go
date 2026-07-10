@@ -28,7 +28,7 @@ type structField struct {
 type Table struct {
 	ctx                      context.Context
 	db                       DBer
-	tmer                     TableMetaer                   // 获取表元信息对象
+	tmer                     TableMeter                    // 获取表元信息对象
 	printSqlCallSkip         uint8                         // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                         // 查询时, 用于标记 dest 类型的
 	isPrintSql               bool                          // 标记是否打印 sql
@@ -142,8 +142,8 @@ func (t *Table) getSqlObj(sqlStr string, args ...interface{}) *SqlStrObj {
 	}
 	t.initTmer()
 	obj.SetCtx(t.ctx)
-	obj.SetStrSymbol(t.tmer.GetValueStrSymbol())
-	obj.SetEscapeMap(t.tmer.GetValueEscapeMap())
+	// obj.SetStrSymbol(t.tmer.GetValueStrSymbol())
+	// obj.SetEscapeMap(t.tmer.GetValueEscapeMap())
 	return obj
 }
 
@@ -184,7 +184,8 @@ func (t *Table) initCacheCol2InfoMap() error {
 	t.initTmer()
 
 	// 防止 name 中包含 别名, 格式为: "db_name"
-	tableName := t.tmer.GetAdapterName() + "_" + parseTableName(t.name)
+	// tableName := t.tmer.GetAdapterName() + "_" + parseTableName(t.name)
+	tableName := parseTableName(t.name)
 
 	// 先判断下缓存中有没有
 	if info, ok := cacheTableName2ColInfoMap.Load(tableName); ok {
@@ -464,7 +465,8 @@ func (t *Table) GetParcelFields(fields ...string) string {
 // GetParcelFieldArr 获取被包裹字段内容
 func (t *Table) GetParcelFieldArr(fields ...string) []string {
 	res := make([]string, 0, len(fields))
-	parcelStr := string(t.tmer.GetParcelFieldSymbol())
+	// parcelStr := string(t.tmer.GetParcelFieldSymbol())
+	parcelStr := ""
 	for _, field := range fields {
 		// 需要去掉表别名, 如 ur.id => ur.`id`
 		prefix := ""

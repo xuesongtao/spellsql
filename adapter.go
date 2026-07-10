@@ -7,16 +7,60 @@ import (
 	"time"
 )
 
+type DbType int // db 类型
+
+func (d DbType) Is(dt DbType) bool {
+	return d == dt
+}
+
+type getTableTerFn func() TableMeter
+
 const (
 	PriFlag     = "PRI" // 主键标识
 	NotNullFlag = "NO"  // 非空标识
 )
 
-var (
-	_ TableMetaer = &CommonTable{}
-	_ TableMetaer = &MysqlTable{}
-	_ TableMetaer = &PgTable{}
+const (
+	MySQL DbType = iota
+	Postgres
 )
+
+const defaultDbType = MySQL
+
+var (
+	_ Dialect = &MysqlTable{}
+	_ Dialect = &PgTable{}
+
+	_ TableMeter = &MysqlTable{}
+	_ TableMeter = &PgTable{}
+)
+
+var (
+	dialectMap = map[DbType]Dialect{
+		MySQL:    Mysql(),
+		Postgres: Pg(),
+	}
+	tableMeterMap = map[DbType]getTableTerFn{
+		MySQL:    func() TableMeter { return Mysql() },
+		Postgres: func() TableMeter { return Pg() },
+	}
+)
+
+func getTableMeter(dbType DbType) TableMeter {
+	fn, ok := tableMeterMap[dbType]
+	if ok {
+		return fn()
+	}
+	return tableMeterMap[defaultDbType]()
+}
+
+func getDialect(dbType DbType) Dialect {
+	dialect, ok := dialectMap[dbType]
+	if ok {
+		return dialect
+	}
+	return dialectMap[defaultDbType]
+}
 
 // TableColInfo 表列详情
 type TableColInfo struct {
@@ -48,54 +92,18 @@ func (a SortByTableColInfo) Less(i, j int) bool { return a[i].Index < a[j].Index
 // Tmer 设置不同数据库表初始化表方式, 调用的时候应该首先调用
 // 说明: 此方法为局部方法, 如果要全局设置可以 GlobalTmer
 // 如: NewTable(db).Tmer(Pg("man")).xxx
-func (t *Table) Tmer(obj TableMetaer) *Table {
+func (t *Table) Tmer(obj TableMeter) *Table {
 	if obj != nil { // 出现了修改, 打印下 log
-		var old TableMetaer
-		if t.tmer != nil {
-			old = t.tmer
-		}
-		if old != nil && old.GetAdapterName() != obj.GetAdapterName() {
-			sLog.Warning(t.ctx, fmt.Sprintf("Tmer old %q to new %q", old.GetAdapterName(), obj.GetAdapterName()))
-		}
+		// var old TableMetaer
+		// if t.tmer != nil {
+		// 	old = t.tmer
+		// }
+		// if old != nil && old.GetAdapterName() != obj.GetAdapterName() {
+		// 	sLog.Warning(t.ctx, fmt.Sprintf("Tmer old %q to new %q", old.GetAdapterName(), obj.GetAdapterName()))
+		// }
 		t.tmer = obj
 	}
 	return t
-}
-
-// 以下为适配多个不同类型的 db
-
-// CommonTable 基类
-type CommonTable struct {
-}
-
-func (c *CommonTable) GetValueStrSymbol() byte {
-	return '"'
-}
-
-func (c *CommonTable) GetValueEscapeMap() map[byte][]byte {
-	return GetValueEscapeMap()
-}
-
-func (c *CommonTable) GetParcelFieldSymbol() byte {
-	return '`'
-}
-
-func (c *CommonTable) GetAdapterName() string {
-	c.noImplement("GetAdapterName")
-	return ""
-}
-
-func (c *CommonTable) SetTableName(tableName string) {
-	c.noImplement("SetTableName")
-}
-
-func (c *CommonTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) {
-	c.noImplement("GetField2ColInfoMap")
-	return nil, nil
-}
-
-func (c *CommonTable) noImplement(name string) {
-	sLog.Error(context.Background(), name, "no implement")
 }
 
 // *******************************************************************************
@@ -103,13 +111,31 @@ func (c *CommonTable) noImplement(name string) {
 // *******************************************************************************
 
 type MysqlTable struct {
-	CommonTable
 	initArgs []string
 }
 
 // Mysql
 func Mysql() *MysqlTable {
-	return &MysqlTable{}
+	return &MysqlTable{
+		initArgs: []string{},
+	}
+}
+
+func (m *MysqlTable) GetWarpFieldSymbol() string {
+	return "`"
+}
+
+func (m *MysqlTable) GetWarpValueStrSymbol() string {
+	return "\""
+}
+
+func (m *MysqlTable) GetValueEscapeMap() map[byte][]byte {
+	return GetValueEscapeMap()
+}
+
+// GetLimitSql implements [Dialect].
+func (m *MysqlTable) GetLimitSql(limit int, offset int) string {
+	return "LIMIT " + Int2Str(int64(limit)) + " OFFSET " + Int2Str(int64(offset))
 }
 
 func (m *MysqlTable) GetAdapterName() string {
@@ -153,7 +179,6 @@ func (m *MysqlTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog 
 // *******************************************************************************
 
 type PgTable struct {
-	CommonTable
 	initArgs []string
 }
 
@@ -177,16 +202,27 @@ func Pg(initArgs ...string) *PgTable {
 	return obj
 }
 
+// GetWarpFieldSymbol implements [Dialect].
+func (p *PgTable) GetWarpFieldSymbol() string {
+	return `"`
+}
+
+// GetWarpValueStrSymbol implements [Dialect].
+func (p *PgTable) GetWarpValueStrSymbol() string {
+	return `'`
+}
+
 func (p *PgTable) GetAdapterName() string {
 	return "pg"
 }
 
-func (p *PgTable) SetTableName(name string) {
-	p.initArgs[1] = name
+// GetLimitSql implements [Dialect].
+func (p *PgTable) GetLimitSql(limit int, offset int) string {
+	return "LIMIT " + Int2Str(int64(limit)) + " OFFSET " + Int2Str(int64(offset))
 }
 
-func (p *PgTable) GetParcelFieldSymbol() byte {
-	return '"'
+func (p *PgTable) SetTableName(name string) {
+	p.initArgs[1] = name
 }
 
 func (p *PgTable) GetValueEscapeMap() map[byte][]byte {
@@ -194,10 +230,6 @@ func (p *PgTable) GetValueEscapeMap() map[byte][]byte {
 	// 将 "'" 进行转义
 	escapeMap['\''] = []byte{'\'', '\''}
 	return escapeMap
-}
-
-func (p *PgTable) GetValueStrSymbol() byte {
-	return '\''
 }
 
 func (p *PgTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) {
