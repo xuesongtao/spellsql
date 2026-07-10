@@ -301,3 +301,16 @@ func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, pri
 		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
 	}
 }
+
+// GetOffset 根据分页获取 offset
+// 注: page, size 只支持 int 系列类型
+func GetOffset(page, size interface{}) (int64, int64) {
+	pageInt64, sizeInt64 := Int64(page), Int64(size)
+	if pageInt64 <= 0 {
+		pageInt64 = 1
+	}
+	if sizeInt64 <= 0 {
+		sizeInt64 = 10
+	}
+	return sizeInt64, (pageInt64 - 1) * sizeInt64
+}

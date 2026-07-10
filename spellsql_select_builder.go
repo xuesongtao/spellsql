@@ -195,15 +195,4 @@ func (s *SelectBuilder) GetSql2Args() (string, []interface{}) {
 	return NewParsePlaceholder(s.dbType, s.finalSql.String(), s.finalArgs...).Replace().Result(), s.finalArgs
 }
 
-// GetOffset 根据分页获取 offset
-// 注: page, size 只支持 int 系列类型
-func GetOffset(page, size interface{}) (int64, int64) {
-	pageInt64, sizeInt64 := Int64(page), Int64(size)
-	if pageInt64 <= 0 {
-		pageInt64 = 1
-	}
-	if sizeInt64 <= 0 {
-		sizeInt64 = 10
-	}
-	return sizeInt64, (pageInt64 - 1) * sizeInt64
-}
+
