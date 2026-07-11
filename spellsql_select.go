@@ -2,6 +2,10 @@ package spellsql
 
 import (
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/builder"
+	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/utils"
 )
 
 // SetJoin 设置 join
@@ -54,7 +58,7 @@ func (s *SqlStrObj) initWhere(joinStr ...string) {
 	}
 
 	// fmtSql action 可能为 0
-	if s.is(none) {
+	if s.is(internal.None) {
 		if s.SqlStrLen() > 0 || s.WhereStrLen() > 0 {
 			s.whereBuf.WriteString(defaultJoinStr)
 		}
@@ -148,33 +152,22 @@ func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
 // SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
 func (s *SqlStrObj) SetRightLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", s.EscapeLike(val)+"%")
+	s.setWhere(fieldName, "LIKE", builder.EscapeLike(val)+"%")
 	return s
 }
 
 // SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
 func (s *SqlStrObj) SetLeftLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val))
+	s.setWhere(fieldName, "LIKE", "%"+builder.EscapeLike(val))
 	return s
 }
 
 // SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
 func (s *SqlStrObj) SetAllLike(fieldName string, val string) *SqlStrObj {
 	s.initWhere()
-	s.setWhere(fieldName, "LIKE", "%"+s.EscapeLike(val)+"%")
+	s.setWhere(fieldName, "LIKE", "%"+builder.EscapeLike(val)+"%")
 	return s
-}
-
-// EscapeLike 转义 like
-func (s *SqlStrObj) EscapeLike(val string) string {
-	res := Escape(
-		[]byte(val),
-		map[byte][]byte{
-			'_': {'\\', '_'},
-			'%': {'\\', '%'},
-		})
-	return string(res)
 }
 
 // SetBetween 设置 BETWEEN ? AND ?
@@ -219,14 +212,7 @@ func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 // GetOffset 根据分页获取 offset
 // 注: page, size 只支持 int 系列类型
 func (s *SqlStrObj) GetOffset(page, size interface{}) (int64, int64) {
-	pageInt64, sizeInt64 := Int64(page), Int64(size)
-	if pageInt64 <= 0 {
-		pageInt64 = 1
-	}
-	if sizeInt64 <= 0 {
-		sizeInt64 = 10
-	}
-	return sizeInt64, (pageInt64 - 1) * sizeInt64
+	return utils.GetOffset(page, size)
 }
 
 // SetLimit 设置分页
@@ -234,7 +220,7 @@ func (s *SqlStrObj) GetOffset(page, size interface{}) (int64, int64) {
 // 注: page, size 只支持 int 系列类型
 func (s *SqlStrObj) SetLimit(page, size interface{}) *SqlStrObj {
 	sizeInt64, offsetInt64 := s.GetOffset(page, size)
-	return s.SetLimitStr(Int2Str(sizeInt64) + " OFFSET " + Int2Str(offsetInt64))
+	return s.SetLimitStr(utils.Int2Str(sizeInt64) + " OFFSET " + utils.Int2Str(offsetInt64))
 }
 
 // SetLimitStr 字符串来设置
@@ -245,7 +231,7 @@ func (s *SqlStrObj) SetLimitStr(limitStr string) *SqlStrObj {
 
 // LimitIsEmpty 是否添加 limit
 func (s *SqlStrObj) LimitIsEmpty() bool {
-	return null(s.limitStr)
+	return utils.Null(s.limitStr)
 }
 
 // SetGroupByStr 设置 groupBy
@@ -256,8 +242,8 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 
 // SetHaving 设置 Having
 func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
-	tmpBuf := getTmpBuf(len(having))
-	defer putTmpBuf(tmpBuf)
+	tmpBuf := internal.GetTmpBuf(len(having))
+	defer internal.PutTmpBuf(tmpBuf)
 	s.writeSqlStr2Buf(tmpBuf, having, args...)
 	s.groupByStr += " HAVING " + tmpBuf.String()
 	return s

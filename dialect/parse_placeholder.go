@@ -1,8 +1,11 @@
-package spellsql
+package dialect
 
 import (
 	"reflect"
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/utils"
 )
 
 type ParsePlaceholder struct {
@@ -49,7 +52,7 @@ func (p *ParsePlaceholder) loop(f func(curIndex, argIndex, lastIndex int) int) {
 
 func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 	p.buf.Reset()
-	gd := getDialect(p.dbType)
+	gd := GetDialect(p.dbType)
 	p.loop(
 		func(i, argIndex, lastIndex int) int {
 			switch val := p.args[argIndex].(type) {
@@ -59,7 +62,7 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 					// 判断下如果为 ?d 字符的话, 这里不需要加引号
 					// 如果包含字母的话, 就转为 0, 防止数字型注入
 					if p.waitParse[i+1] == 'd' {
-						p.buf.WriteString(toEscape(val, true, gd.GetValueEscapeMap()))
+						p.buf.WriteString(internal.EscapeOfHasNum(val, true, gd.GetValueEscapeMap()))
 						i++
 						return i
 					} else if p.waitParse[i+1] == 'v' { // 原样输出
@@ -69,10 +72,10 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 					}
 				}
 
-				if val == NULL {
-					p.buf.WriteString(NULL)
+				if val == internal.NULL {
+					p.buf.WriteString(internal.NULL)
 				} else {
-					p.buf.WriteString(warpValue(gd, toEscape(val, false, gd.GetValueEscapeMap())))
+					p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(val, false, gd.GetValueEscapeMap())))
 				}
 			case []string:
 				lastIndex := len(val) - 1
@@ -88,7 +91,7 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 						if isAdd {
 							p.buf.WriteString(gd.GetWarpValueStrSymbol())
 						}
-						p.buf.WriteString(toEscape(val[i1], !isAdd, gd.GetValueEscapeMap()))
+						p.buf.WriteString(internal.EscapeOfHasNum(val[i1], !isAdd, gd.GetValueEscapeMap()))
 						if isAdd {
 							p.buf.WriteString(gd.GetWarpValueStrSymbol())
 						}
@@ -99,26 +102,26 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 				} else {
 					// 最后一个占位符
 					for i1 := 0; i1 <= lastIndex; i1++ {
-						p.buf.WriteString(warpValue(gd, toEscape(val[i1], false, gd.GetValueEscapeMap())))
+						p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(val[i1], false, gd.GetValueEscapeMap())))
 						if i1 < lastIndex {
 							p.buf.WriteString(", ")
 						}
 					}
 				}
 			case []byte:
-				p.buf.WriteString(warpValue(gd, toEscape(string(val), false, gd.GetValueEscapeMap())))
+				p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(string(val), false, gd.GetValueEscapeMap())))
 			case int:
-				p.buf.WriteString(Int2Str(int64(val)))
+				p.buf.WriteString(utils.Int2Str(int64(val)))
 			case int32:
-				p.buf.WriteString(Int2Str(int64(val)))
+				p.buf.WriteString(utils.Int2Str(int64(val)))
 			case uint:
-				p.buf.WriteString(UInt2Str(uint64(val)))
+				p.buf.WriteString(utils.UInt2Str(uint64(val)))
 			case uint32:
-				p.buf.WriteString(UInt2Str(uint64(val)))
+				p.buf.WriteString(utils.UInt2Str(uint64(val)))
 			case []int:
 				lastIndex := len(val) - 1
 				for i1 := 0; i1 <= lastIndex; i1++ {
-					p.buf.WriteString(Int2Str(int64(val[i1])))
+					p.buf.WriteString(utils.Int2Str(int64(val[i1])))
 					if i1 < lastIndex {
 						p.buf.WriteString(", ")
 					}
@@ -126,7 +129,7 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 			case []int32:
 				lastIndex := len(val) - 1
 				for i1 := 0; i1 <= lastIndex; i1++ {
-					p.buf.WriteString(Int2Str(int64(val[i1])))
+					p.buf.WriteString(utils.Int2Str(int64(val[i1])))
 					if i1 < lastIndex {
 						p.buf.WriteString(", ")
 					}
@@ -138,19 +141,19 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 				case reflect.Slice, reflect.Array: // 这里不会有 []string, 不需要处理符号, 所以直接处理即可
 					lastIndex := reflectValue.Len() - 1
 					for i1 := 0; i1 <= lastIndex; i1++ {
-						p.buf.WriteString(Str(reflectValue.Index(i1).Interface()))
+						p.buf.WriteString(utils.Str(reflectValue.Index(i1).Interface()))
 						if i1 < lastIndex {
 							p.buf.WriteString(", ")
 						}
 					}
 				case reflect.Float32, reflect.Float64:
-					p.buf.WriteString(Str(reflectValue.Float()))
+					p.buf.WriteString(utils.Str(reflectValue.Float()))
 				case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
-					p.buf.WriteString(Str(reflectValue.Int()))
+					p.buf.WriteString(utils.Str(reflectValue.Int()))
 				case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
-					p.buf.WriteString(Str(reflectValue.Uint()))
+					p.buf.WriteString(utils.Str(reflectValue.Uint()))
 				case reflect.String:
-					p.buf.WriteString(warpValue(gd, toEscape(reflectValue.String(), false, gd.GetValueEscapeMap())))
+					p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(reflectValue.String(), false, gd.GetValueEscapeMap())))
 				default:
 					p.buf.WriteString("undefined")
 				}
@@ -173,11 +176,10 @@ func (p *ParsePlaceholder) Replace() *ParsePlaceholder {
 				hasSuffix = true
 			}
 		}
-
 		switch p.dbType {
 		case Postgres:
 			p.buf.WriteString("$")
-			p.buf.WriteString(Int2Str(int64(argIndex + 1)))
+			p.buf.WriteString(utils.Int2Str(int64(argIndex + 1)))
 		default:
 			p.buf.WriteString("?")
 		}

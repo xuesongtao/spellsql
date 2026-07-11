@@ -1,5 +1,10 @@
 package spellsql
 
+import (
+	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/utils"
+)
+
 // SetUpdateValue update 语句中, 设置字段值
 func (s *SqlStrObj) SetUpdateValue(fieldName string, arg interface{}) *SqlStrObj {
 	s.initValues()
@@ -48,7 +53,7 @@ func (s *SqlStrObj) SetInsertValues(args ...interface{}) *SqlStrObj {
 func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *SqlStrObj {
 	s.initValues()
 	if !s.needAddBracket { // 防止重复处理
-		if IndexForBF(true, sqlStr, "(") == -1 && IndexForBF(false, sqlStr, ")") == -1 {
+		if utils.IndexForBF(true, sqlStr, "(") == -1 && utils.IndexForBF(false, sqlStr, ")") == -1 {
 			s.needAddBracket = true
 		}
 	}
@@ -63,13 +68,13 @@ func (s *SqlStrObj) SetInsertValuesArgs(sqlStr string, args ...interface{}) *Sql
 // initValues 初始化 valueBuf
 func (s *SqlStrObj) initValues() {
 	isAddComma := true // 本次默认加逗号
-	if s.is(INSERT) && !s.hasValuesStr {
+	if s.is(internal.INSERT) && !s.hasValuesStr {
 		s.valuesBuf.WriteString(" VALUES")
 		s.hasValuesStr = true
 		isAddComma = false
 	}
 
-	if s.is(UPDATE) {
+	if s.is(internal.UPDATE) {
 		if !s.hasSetStr {
 			s.valuesBuf.WriteString(" SET")
 			s.hasSetStr = true
@@ -91,7 +96,7 @@ func (s *SqlStrObj) initValues() {
 			return
 		}
 
-		if s.is(INSERT) {
+		if s.is(internal.INSERT) {
 			// slow path
 			// 如果初始化时或已经merge后 sqlStr已经这样了: xxx VALUES (xxx), 我们通过判断 VALUE 的下标是否为最后几个字符, 如果是的话就
 			// 不处理, 反之加逗号

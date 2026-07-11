@@ -2,10 +2,13 @@ package spellsql
 
 import (
 	"context"
+	"path/filepath"
 	"reflect"
 	"runtime"
-	"strconv"
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/utils"
 )
 
 // SqlStrObj 拼接 sql 对象
@@ -96,26 +99,26 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		upperStr := toUpper(actionStr)
 		switch upperStr {
 		case "INSERT", "REPLAC":
-			s.actionNum = INSERT
+			s.actionNum = internal.INSERT
 		case "DELETE":
-			s.actionNum = DELETE
+			s.actionNum = internal.DELETE
 		case "SELECT":
-			s.actionNum = SELECT
+			s.actionNum = internal.SELECT
 		case "UPDATE":
-			s.actionNum = UPDATE
+			s.actionNum = internal.UPDATE
 		}
 	}
 
 	if sqlLen < 2<<8 {
 		s.buf.Grow(sqlLen * 2)
 		s.whereBuf.Grow(sqlLen)
-		if s.is(INSERT) || s.is(UPDATE) {
+		if s.is(internal.INSERT) || s.is(internal.UPDATE) {
 			s.valuesBuf.Grow(sqlLen)
 		}
 	} else {
 		s.buf.Grow(sqlLen)
 		s.whereBuf.Grow(sqlLen / 2)
-		if s.is(INSERT) || s.is(UPDATE) {
+		if s.is(internal.INSERT) || s.is(internal.UPDATE) {
 			s.valuesBuf.Grow(sqlLen / 2)
 		}
 	}
@@ -132,11 +135,11 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		}
 	}
 
-	if s.is(SELECT) {
+	if s.is(internal.SELECT) {
 		initWhereFn()
 	}
 
-	if s.is(UPDATE) {
+	if s.is(internal.UPDATE) {
 		setIndex := getTargetIndex(sqlStr, "SET")
 		if setIndex > -1 {
 			s.hasSetStr = true
@@ -147,11 +150,11 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 		}
 	}
 
-	if s.is(DELETE) {
+	if s.is(internal.DELETE) {
 		initWhereFn()
 	}
 
-	if s.is(INSERT) {
+	if s.is(internal.INSERT) {
 		s.hasValuesStr = getTargetIndex(sqlStr, "VALUE") > -1
 	}
 	s.writeSqlStr2Buf(&s.buf, sqlStr, args...)
@@ -163,7 +166,7 @@ func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 	if len(target) > 0 {
 		defaultNum = target[0]
 	}
-	return equal(op, defaultNum)
+	return utils.Equal(op, defaultNum)
 }
 
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
@@ -178,7 +181,7 @@ func (s *SqlStrObj) init() {
 	s.isCallCacheInit = false
 	s.needAddBracket = false
 	s.callerSkip = 1
-	s.actionNum = none
+	s.actionNum = internal.None
 
 	// 数据库不同配置
 	// tmerObj := getTmerFn()
@@ -223,7 +226,7 @@ func (s *SqlStrObj) free(isNeedPutPool bool) {
 // SetStrSymbol 设置在解析值时字符串符号, 不同的数据库符号不同
 // 如: mysql 字符串值可以用 ""或”; pg 字符串值只能用 ”
 func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
-	if !equal(strSymbol, '"') && !equal(strSymbol, '\'') {
+	if !utils.Equal(strSymbol, '"') && !utils.Equal(strSymbol, '\'') {
 		return s
 	}
 	s.strSymbol = strSymbol
@@ -287,7 +290,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				// 判断下如果为 ?d 字符的话, 这里不需要加引号
 				// 如果包含字母的话, 就转为 0, 防止数字型注入
 				if sqlStr[i+1] == 'd' {
-					buf.WriteString(toEscape(val, true, s.escapeMap))
+					buf.WriteString(internal.EscapeOfHasNum(val, true, s.escapeMap))
 					i++
 					continue
 				} else if sqlStr[i+1] == 'v' { // 原样输出
@@ -297,11 +300,11 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				}
 			}
 
-			if val == NULL {
-				buf.WriteString(NULL)
+			if val == internal.NULL {
+				buf.WriteString(internal.NULL)
 			} else {
 				buf.WriteByte(s.strSymbol)
-				buf.WriteString(toEscape(val, false, s.escapeMap))
+				buf.WriteString(internal.EscapeOfHasNum(val, false, s.escapeMap))
 				buf.WriteByte(s.strSymbol)
 			}
 		case []string:
@@ -318,7 +321,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 					if isAdd {
 						buf.WriteByte(s.strSymbol)
 					}
-					buf.WriteString(toEscape(val[i1], !isAdd, s.escapeMap))
+					buf.WriteString(internal.EscapeOfHasNum(val[i1], !isAdd, s.escapeMap))
 					if isAdd {
 						buf.WriteByte(s.strSymbol)
 					}
@@ -330,7 +333,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 				// 最后一个占位符
 				for i1 := 0; i1 <= lastIndex; i1++ {
 					buf.WriteByte(s.strSymbol)
-					buf.WriteString(toEscape(val[i1], false, s.escapeMap))
+					buf.WriteString(internal.EscapeOfHasNum(val[i1], false, s.escapeMap))
 					buf.WriteByte(s.strSymbol)
 					if i1 < lastIndex {
 						buf.WriteByte(',')
@@ -339,20 +342,20 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			}
 		case []byte:
 			buf.WriteByte(s.strSymbol)
-			buf.WriteString(toEscape(string(val), false, s.escapeMap))
+			buf.WriteString(internal.EscapeOfHasNum(string(val), false, s.escapeMap))
 			buf.WriteByte(s.strSymbol)
 		case int:
-			buf.WriteString(Int2Str(int64(val)))
+			buf.WriteString(utils.Int2Str(int64(val)))
 		case int32:
-			buf.WriteString(Int2Str(int64(val)))
+			buf.WriteString(utils.Int2Str(int64(val)))
 		case uint:
-			buf.WriteString(UInt2Str(uint64(val)))
+			buf.WriteString(utils.UInt2Str(uint64(val)))
 		case uint32:
-			buf.WriteString(UInt2Str(uint64(val)))
+			buf.WriteString(utils.UInt2Str(uint64(val)))
 		case []int:
 			lastIndex := len(val) - 1
 			for i1 := 0; i1 <= lastIndex; i1++ {
-				buf.WriteString(Int2Str(int64(val[i1])))
+				buf.WriteString(utils.Int2Str(int64(val[i1])))
 				if i1 < lastIndex {
 					buf.WriteByte(',')
 				}
@@ -360,7 +363,7 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 		case []int32:
 			lastIndex := len(val) - 1
 			for i1 := 0; i1 <= lastIndex; i1++ {
-				buf.WriteString(Int2Str(int64(val[i1])))
+				buf.WriteString(utils.Int2Str(int64(val[i1])))
 				if i1 < lastIndex {
 					buf.WriteByte(',')
 				}
@@ -372,20 +375,20 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 			case reflect.Slice, reflect.Array: // 这里不会有 []string, 不需要处理符号, 所以直接处理即可
 				lastIndex := reflectValue.Len() - 1
 				for i1 := 0; i1 <= lastIndex; i1++ {
-					buf.WriteString(Str(reflectValue.Index(i1).Interface()))
+					buf.WriteString(utils.Str(reflectValue.Index(i1).Interface()))
 					if i1 < lastIndex {
 						buf.WriteByte(',')
 					}
 				}
 			case reflect.Float32, reflect.Float64:
-				buf.WriteString(Str(reflectValue.Float()))
+				buf.WriteString(utils.Str(reflectValue.Float()))
 			case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
-				buf.WriteString(Str(reflectValue.Int()))
+				buf.WriteString(utils.Str(reflectValue.Int()))
 			case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
-				buf.WriteString(Str(reflectValue.Uint()))
+				buf.WriteString(utils.Str(reflectValue.Uint()))
 			case reflect.String:
 				buf.WriteByte(s.strSymbol)
-				buf.WriteString(toEscape(reflectValue.String(), false, s.escapeMap))
+				buf.WriteString(internal.EscapeOfHasNum(reflectValue.String(), false, s.escapeMap))
 				buf.WriteByte(s.strSymbol)
 			default:
 				buf.WriteString("undefined")
@@ -398,23 +401,23 @@ func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ..
 func (s *SqlStrObj) mergeSql() {
 	defer s.buf.WriteString(s.extBuf.String())
 
-	if s.is(INSERT) {
+	if s.is(internal.INSERT) {
 		s.buf.WriteString(s.valuesBuf.String())
 		return
 	}
 
-	if s.is(UPDATE) {
+	if s.is(internal.UPDATE) {
 		s.buf.WriteString(s.valuesBuf.String())
 	}
 
-	// UPDATE, SELECT, DELETE 都会走这里
+	// internal.UPDATE, internal.SELECT, internal.DELETE 都会走这里
 	s.buf.WriteString(s.whereBuf.String())
 
-	if s.is(SELECT) {
+	if s.is(internal.SELECT) {
 		s.buf.WriteString(s.groupByStr)
 	}
 
-	if s.is(DELETE) || s.is(SELECT) || s.is(UPDATE) {
+	if s.is(internal.DELETE) || s.is(internal.SELECT) || s.is(internal.UPDATE) {
 		s.buf.WriteString(s.orderByStr)
 		s.buf.WriteString(s.limitStr)
 	}
@@ -455,7 +458,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
 	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
-		if null(title[1]) {
+		if utils.Null(title[1]) {
 			endMarkStr = ""
 		}
 	}
@@ -473,7 +476,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 
 // GetTotalSqlStr 将查询条件替换为 COUNT(*), 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
-	if !s.is(SELECT) {
+	if !s.is(internal.SELECT) {
 		return
 	}
 	defer s.free(false)
@@ -481,8 +484,8 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	sqlStr := s.buf.String()
 	bufLen := s.buf.Len()
 
-	tmpBuf := getTmpBuf(bufLen)
-	defer putTmpBuf(tmpBuf)
+	tmpBuf := internal.GetTmpBuf(bufLen)
+	defer internal.PutTmpBuf(tmpBuf)
 
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
@@ -518,7 +521,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	endMarkStr := ";"
 	argsLen := len(title)
 	if argsLen > 1 { // 第二个参数为内部使用参数, 主要用于不加结束符
-		if null(title[1]) {
+		if utils.Null(title[1]) {
 			endMarkStr = ""
 		}
 	}
@@ -538,20 +541,10 @@ func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
 	// 跳过当前
 	_, file, line, ok := runtime.Caller(int(s.callerSkip) + 1)
 	if ok {
-		finalTitle += "(" + parseFileName(file) + ":" + Int2Str(int64(line)) + ") "
+		finalTitle += "(" + filepath.Base(file) + ":" + utils.Int2Str(int64(line)) + ") "
 	}
 	finalTitle += title + ": "
 	return
-}
-
-// Int2Str 数字转字符串
-func Int2Str(num int64) string {
-	return strconv.FormatInt(num, 10)
-}
-
-// UInt2Str
-func UInt2Str(num uint64) string {
-	return strconv.FormatUint(num, 10)
 }
 
 // getTargetIndex 忽略大小写
@@ -560,9 +553,9 @@ func getTargetIndex(sqlStr, targetStr string, isFont2End ...bool) int {
 	if len(isFont2End) > 0 {
 		is = isFont2End[0]
 	}
-	tmpIndex := Index(sqlStr, targetStr, is)
+	tmpIndex := utils.Index(sqlStr, targetStr, is)
 	if tmpIndex == -1 {
-		tmpIndex = Index(sqlStr, toLower(targetStr), is)
+		tmpIndex = utils.Index(sqlStr, toLower(targetStr), is)
 	}
 	return tmpIndex
 }

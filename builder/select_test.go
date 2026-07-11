@@ -1,15 +1,16 @@
-package spellsql
+package builder
 
 import (
 	"strings"
 	"testing"
 
+	"gitee.com/xuesongtao/spellsql/dialect"
 	"gitee.com/xuesongtao/spellsql/test"
 )
 
 func TestSelectBuilder(t *testing.T) {
 	t.Run("mysql base select", func(t *testing.T) {
-		s := NewSelectBuilder(MySQL)
+		s := NewSelectBuilder(dialect.MySQL)
 		s.Select("id", "username", "age").
 			From("sys_user").
 			Where(s.WB().Eq("id", 1))
@@ -25,7 +26,7 @@ func TestSelectBuilder(t *testing.T) {
 	})
 
 	t.Run("mysql complex query", func(t *testing.T) {
-		s := NewSelectBuilder(MySQL)
+		s := NewSelectBuilder(dialect.MySQL)
 
 		s.Select("status", "COUNT(*) as total").
 			From("sys_user").
@@ -62,7 +63,7 @@ func TestSelectBuilder(t *testing.T) {
 	})
 
 	t.Run("postgres placeholder and quote", func(t *testing.T) {
-		s := NewSelectBuilder(Postgres)
+		s := NewSelectBuilder(dialect.Postgres)
 		s.Select("id", "name").
 			From("public.users").
 			Where(s.WB().Eq("id", 100).OrEq("name", "tao")).
@@ -92,7 +93,7 @@ func TestSelectBuilder(t *testing.T) {
 	})
 
 	t.Run("GetSqlStr validation", func(t *testing.T) {
-		s := NewSelectBuilder(MySQL)
+		s := NewSelectBuilder(dialect.MySQL)
 		s.Select("name").From("users").WhereCb(func(wb *WhereBuilder) {
 			wb.Eq("id", 1)
 		})
@@ -105,7 +106,7 @@ func TestSelectBuilder(t *testing.T) {
 	})
 
 	t.Run("select all when empty", func(t *testing.T) {
-		s := NewSelectBuilder(MySQL)
+		s := NewSelectBuilder(dialect.MySQL)
 		s.From("users")
 		sql, _ := s.GetSql2Args()
 		if !strings.HasPrefix(sql, "SELECT * FROM") {

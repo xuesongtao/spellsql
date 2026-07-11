@@ -1,13 +1,12 @@
-package spellsql
+package utils
 
 import (
-	"context"
 	"fmt"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
-	"time"
+
+	"gitee.com/xuesongtao/spellsql/internal"
 )
 
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
@@ -19,6 +18,7 @@ func IndexForBF(isFont2End bool, s, substr string) int {
 }
 
 // Index
+// 默认从前向后查找, 如果匹配的内容靠后建议 isFont2End=false
 func Index(s, substr string, isFont2End ...bool) int {
 	substrLen := len(substr)
 	sLen := len(s)
@@ -117,7 +117,7 @@ func DistinctIdsStr(s string, split string) string {
 	}
 
 	for {
-		index := IndexForBF(true, s, split)
+		index := Index(s, split)
 		if index < 0 {
 			// 这里需要处理最后一个字符
 			saveFunc(s)
@@ -127,17 +127,18 @@ func DistinctIdsStr(s string, split string) string {
 		s = s[index+1:]
 
 		// 这样可以防止最后一位为 split 字符, 到时就会出现一个空
-		if null(s) {
+		if Null(s) {
 			break
 		}
 	}
-	buf := getTmpBuf(strLen / 2)
-	defer putTmpBuf(buf)
+	buf := internal.GetTmpBuf(strLen / 2)
+	defer internal.PutTmpBuf(buf)
 	lastIndex := len(sortSlice) - 1
 	for index, val := range sortSlice {
 		v := distinctMap[val]
 		if index < lastIndex {
-			buf.WriteString(v + split)
+			buf.WriteString(v)
+			buf.WriteString(split)
 		} else {
 			buf.WriteString(v)
 		}
@@ -162,21 +163,8 @@ func DistinctIds(ids []string) []string {
 	return res
 }
 
-// parseFileName 解析文件名
-func parseFileName(filePath string) string {
-	sysSplit := "/"
-	if runtime.GOOS == "windows" {
-		sysSplit = "\\"
-	}
-	lastIndex := IndexForBF(false, filePath, sysSplit)
-	if lastIndex == -1 {
-		return ""
-	}
-	return filePath[lastIndex+1:]
-}
-
-// removeValuePtr 移除多指针
-func removeValuePtr(v reflect.Value) reflect.Value {
+// RemoveValuePtr 移除多指针
+func RemoveValuePtr(v reflect.Value) reflect.Value {
 	last := v
 	for v.Kind() == reflect.Ptr {
 		// 如果最外层是未初始化的指针类型, 就不要再处理了, 直接返回未初始的类型就可以了, 防止 panic Zero Value
@@ -191,7 +179,7 @@ func removeValuePtr(v reflect.Value) reflect.Value {
 }
 
 // removeTypePtr 移除多指针
-func removeTypePtr(t reflect.Type) reflect.Type {
+func RemoveTypePtr(t reflect.Type) reflect.Type {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -199,78 +187,24 @@ func removeTypePtr(t reflect.Type) reflect.Type {
 }
 
 // isExported 是可导出
-func isExported(fieldName string) bool {
-	if null(fieldName) {
+func IsExported(fieldName string) bool {
+	if Null(fieldName) {
 		return false
 	}
 	first := fieldName[0]
 	return first >= 'A' && first <= 'Z'
 }
 
-func null(val string) bool {
+func Null(val string) bool {
 	return val == ""
 }
 
-func equal(a, b uint8) bool {
+func Equal(a, b uint8) bool {
 	return a == b
 }
 
-// GetValueEscapeMap 获取值的转义处理
-func GetValueEscapeMap() map[byte][]byte {
-	// key 为待转义的字符, value [0]为如何处理转义 [1]转义为
-	escapeMap := map[byte][]byte{
-		'\'':   {'\\', '\''},
-		'"':    {'\\', '"'},
-		'\x00': {'\\', '0'},
-		'\n':   {'\\', 'n'},
-		'\r':   {'\\', 'r'},
-		'\t':   {'\\', 't'},
-		'\x1a': {'\\', 'Z'},
-		'\\':   {'\\', '\\'},
-	}
-	return escapeMap
-}
-
-// Escape 转义字符
-func Escape(val []byte, escapeMap map[byte][]byte) []byte {
-	if escapeMap == nil {
-		escapeMap = GetValueEscapeMap()
-	}
-	return toEscapeBytes(val, false, escapeMap)
-}
-
-// toEscape 转义
-func toEscape(val string, is2Num bool, escapeMap map[byte][]byte) string {
-	return string(toEscapeBytes([]byte(val), is2Num, escapeMap))
-}
-
-// toEscapeBytes 转义
-func toEscapeBytes(val []byte, is2Num bool, escapeMap map[byte][]byte) []byte {
-	pos := 0
-	vLen := len(val)
-
-	buf := make([]byte, vLen*2)
-	for i := 0; i < len(val); i++ {
-		v := val[i]
-		bytes, ok := escapeMap[v]
-		if ok {
-			buf[pos] = bytes[0]
-			buf[pos+1] = bytes[1]
-			pos += 2
-		} else {
-			// 这里需要判断下在占位符: ?d 时是否包含字母, 如果有的话就转为 0, 防止数字型注入
-			if is2Num && ((v >= 'A' && v <= 'Z') || (v >= 'a' && v <= 'z')) {
-				v = '0'
-			}
-			buf[pos] = v
-			pos++
-		}
-	}
-	return buf[:pos]
-}
-
 // isOneField 是否为单字段
-func isOneField(kind reflect.Kind) bool {
+func IsOneField(kind reflect.Kind) bool {
 	// 将常用的类型放在前面
 	switch kind {
 	case reflect.String,
@@ -284,9 +218,9 @@ func isOneField(kind reflect.Kind) bool {
 }
 
 // parseTag2Col 解析 tag 中表的列名
-func parseTag2Col(tag string) (column string) {
+func ParseTag2Col(tag string) (column string) {
 	// 因为 tag 中有可能出现多个值, 需要处理下
-	tmpIndex := IndexForBF(true, tag, ",")
+	tmpIndex := Index(tag, ",")
 	if tmpIndex > -1 {
 		column = tag[:tmpIndex]
 	} else {
@@ -295,14 +229,15 @@ func parseTag2Col(tag string) (column string) {
 	return
 }
 
-func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
-	cost := time.Since(st)
-	if len(printLog) > 0 && printLog[0] {
-		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
-	}
-}
+// func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
+// 	cost := time.Since(st)
+// 	if len(printLog) > 0 && printLog[0] {
+// 		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
+// 	}
+// }
 
 // GetOffset 根据分页获取 offset
+// page 从 1 开始
 // 注: page, size 只支持 int 系列类型
 func GetOffset(page, size interface{}) (int64, int64) {
 	pageInt64, sizeInt64 := Int64(page), Int64(size)
@@ -313,4 +248,12 @@ func GetOffset(page, size interface{}) (int64, int64) {
 		sizeInt64 = 10
 	}
 	return sizeInt64, (pageInt64 - 1) * sizeInt64
+}
+
+func Int2Str(i int64) string {
+	return strconv.FormatInt(i, 10)
+}
+
+func UInt2Str(i uint64) string {
+	return strconv.FormatUint(i, 10)
 }

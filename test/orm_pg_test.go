@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql"
+	"gitee.com/xuesongtao/spellsql/dialect"
 	_ "github.com/lib/pq"
 )
 
@@ -51,9 +52,9 @@ func init() {
 	pgDb.SetMaxIdleConns(1)
 
 	// 初始化 pg tmer
-	spellsql.GlobalTmer(func() spellsql.TableMeter {
+	spellsql.GlobalTmer(func() dialect.TableMeter {
 		fmt.Println("call pg")
-		return spellsql.Pg("public")
+		return dialect.Pg("public")
 	})
 }
 

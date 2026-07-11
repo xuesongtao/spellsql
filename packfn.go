@@ -3,6 +3,8 @@ package spellsql
 import (
 	"context"
 	"database/sql"
+
+	"gitee.com/xuesongtao/spellsql/internal"
 )
 
 // *******************************************************************************
@@ -31,11 +33,11 @@ func FmtSqlStr(sqlStr string, args ...interface{}) string {
 func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
 	sqlObj := NewCacheSql(sqlStr)
 	switch likeType {
-	case ALK:
+	case internal.ALK:
 		sqlObj.SetAllLike(fieldName, value)
-	case RLK:
+	case internal.RLK:
 		sqlObj.SetRightLike(fieldName, value)
-	case LLK:
+	case internal.LLK:
 		sqlObj.SetLeftLike(fieldName, value)
 	}
 	isPrintLog := false
@@ -55,7 +57,7 @@ func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...
 
 // IsNullRow 根据 err 判断是否结果为空
 func IsNullRow(err error) bool {
-	return err == nullRowErr
+	return err == internal.NullRowErr
 }
 
 // ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作

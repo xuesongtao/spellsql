@@ -3,10 +3,10 @@ package spellsql
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql/test"
+	"gitee.com/xuesongtao/spellsql/utils"
 )
 
 func TestHandleCusType(t *testing.T) {
@@ -335,14 +335,14 @@ func TestFmtLikeSqlStr(t *testing.T) {
 
 func TestIndexForBF(t *testing.T) {
 	str := "SELECT kind_id, kind_name FROM item_kind WHERE"
-	i := IndexForBF(true, str, "WHEREb")
+	i := utils.IndexForBF(true, str, "WHEREb")
 	if i != -1 {
 		t.Error(test.NoEqErr)
 	}
 
 	// str = "SELECT kind_id, kind_name FROM item_kind WHERE"
 	str = "SELECT kind_id, kind_name FROM item_kind WHERE"
-	i = IndexForBF(false, str, "aSELECT")
+	i = utils.IndexForBF(false, str, "aSELECT")
 	if i != -1 {
 		t.Error(test.NoEqErr)
 	}
@@ -355,7 +355,7 @@ func TestDistinctIdsStr(t *testing.T) {
 		ids += fmt.Sprintf("%d,", i%2)
 	}
 	t.Log("ids: ", ids)
-	res := DistinctIdsStr(ids, ",")
+	res := utils.DistinctIdsStr(ids, ",")
 	if res != "0,1" {
 		t.Log("ids: ", res)
 		t.Error(test.NoEqErr)
@@ -364,37 +364,9 @@ func TestDistinctIdsStr(t *testing.T) {
 
 func TestDistinctIds(t *testing.T) {
 	ids := []string{"0", "1", "2", "1", "0", "2"}
-	res := DistinctIds(ids)
+	res := utils.DistinctIds(ids)
 	if !test.Equal([]string{"0", "1", "2"}, res) {
 		t.Error(test.NoEqErr)
-	}
-}
-
-func BenchmarkIndexForBF1(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "SELECT kind_id, kind_name FROM item_kind WHERE"
-		_ = IndexForBF(true, str, "WHERE")
-	}
-}
-
-func BenchmarkIndexForBF12(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "SELECT kind_id, kind_name FROM item_kind WHERE"
-		_ = IndexForBF(false, str, "WHERE")
-	}
-}
-
-func BenchmarkIndexForBF(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "GROUP BY test, test1"
-		_ = IndexForBF(true, str, "GROUP BY")
-	}
-}
-
-func BenchmarkStringIndex(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "GROUP BY test, test1"
-		_ = strings.Index(str, "GROUP BY")
 	}
 }
 
@@ -407,7 +379,7 @@ func BenchmarkFmtInt2Str(b *testing.B) {
 func BenchmarkSqlStr_Int2Str(b *testing.B) {
 	var i int64
 	for i < int64(b.N) {
-		Int2Str(i)
+		utils.Int2Str(i)
 		i++
 	}
 }
@@ -529,7 +501,7 @@ func BenchmarkIntStr1(b *testing.B) {
 	a := ""
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a = Int2Str(s)
+		a = utils.Int2Str(s)
 	}
 	b.Log(a)
 }
@@ -539,7 +511,7 @@ func BenchmarkIntStr3(b *testing.B) {
 	a := ""
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a = Str(s)
+		a = utils.Str(s)
 	}
 	b.Log(a)
 }

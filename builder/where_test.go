@@ -1,15 +1,17 @@
-package spellsql
+package builder
 
 import (
 	"strings"
 	"testing"
 
+	"gitee.com/xuesongtao/spellsql/dialect"
+	"gitee.com/xuesongtao/spellsql/internal"
 	"gitee.com/xuesongtao/spellsql/test"
 )
 
 func TestWhereBuilderGetExecArgs(t *testing.T) {
 	t.Run("mixed types and operations", func(t *testing.T) {
-		w := NewWhereBuilder(MySQL)
+		w := NewWhereBuilder(dialect.MySQL)
 		w.Eq("id", 100).
 			And("status IN (?)", []int{1, 2}).
 			OrNotEq("name", "test").
@@ -40,7 +42,7 @@ func TestWhereBuilderGetExecArgs(t *testing.T) {
 	})
 
 	t.Run("placeholder consistency in postgres", func(t *testing.T) {
-		w := NewWhereBuilder(Postgres)
+		w := NewWhereBuilder(dialect.Postgres)
 		w.Eq("id", 1).OrEq("id", 2)
 
 		sqlStr, _ := w.GetSql2Args()
@@ -55,7 +57,7 @@ func TestWhereBuilderGetExecArgs(t *testing.T) {
 
 func TestWhereBuilderGetSqlStr(t *testing.T) {
 	t.Run("mysql base", func(t *testing.T) {
-		w := NewWhereBuilder(MySQL)
+		w := NewWhereBuilder(dialect.MySQL)
 		w.Eq("id", 1).
 			OrEq("name", "xue").
 			And("age > ?", 18).
@@ -73,7 +75,7 @@ func TestWhereBuilderGetSqlStr(t *testing.T) {
 	})
 
 	t.Run("mysql getSqlStr", func(t *testing.T) {
-		w := NewWhereBuilder(MySQL)
+		w := NewWhereBuilder(dialect.MySQL)
 		w.Eq("id", 1).
 			OrEq("name", "xue").
 			In("age", []int{18, 20})
@@ -86,7 +88,7 @@ func TestWhereBuilderGetSqlStr(t *testing.T) {
 	})
 
 	t.Run("mysql like", func(t *testing.T) {
-		w := NewWhereBuilder(MySQL)
+		w := NewWhereBuilder(dialect.MySQL)
 		w.LikeLeft("name", "xue").
 			OrLikeRight("addr", "beijing").
 			Like("nickname", "tao")
@@ -103,7 +105,7 @@ func TestWhereBuilderGetSqlStr(t *testing.T) {
 	})
 
 	t.Run("postgres", func(t *testing.T) {
-		w := NewWhereBuilder(Postgres)
+		w := NewWhereBuilder(dialect.Postgres)
 		w.Eq("id", 1).
 			Eq("name", "xue")
 
@@ -123,7 +125,7 @@ func TestWhereBuilderGetSqlStr(t *testing.T) {
 	})
 
 	t.Run("edge cases", func(t *testing.T) {
-		w := NewWhereBuilder(MySQL)
+		w := NewWhereBuilder(dialect.MySQL)
 		if w.GetSqlStr() != "" {
 			t.Errorf("empty builder should return empty sql")
 		}
@@ -133,14 +135,14 @@ func TestWhereBuilderGetSqlStr(t *testing.T) {
 			t.Errorf("sql should not be empty after Eq, got: %s", w.GetSqlStr())
 		}
 
-		w = NewWhereBuilder(MySQL)
-		w.Eq("name", NULL)
+		w = NewWhereBuilder(dialect.MySQL)
+		w.Eq("name", internal.NULL)
 		if w.GetSqlStr() != "`name` = NULL" {
 			t.Errorf("NULL constant should be rendered without quotes, got: %s", w.GetSqlStr())
 		}
 
 		// 特殊字符转义 (LIKE)
-		w = NewWhereBuilder(MySQL)
+		w = NewWhereBuilder(dialect.MySQL)
 		w.Like("name", "x%_")
 		// x%_ -> x\%[\_] 经过 EscapeLike 转义
 		// 最终 SQL 里的参数应该是 %x\%[\_]%
@@ -149,13 +151,13 @@ func TestWhereBuilderGetSqlStr(t *testing.T) {
 			t.Errorf("LIKE special chars escape error, got: %v", args[0])
 		}
 
-		w = NewWhereBuilder(MySQL)
+		w = NewWhereBuilder(dialect.MySQL)
 		w.And("(role_id = ? OR role_id IS NULL)", 10)
 		if w.GetSqlStr() != "(role_id = 10 OR role_id IS NULL)" {
 			t.Errorf("complex snippet error, got: %s", w.GetSqlStr())
 		}
 
-		w = NewWhereBuilder(MySQL)
+		w = NewWhereBuilder(dialect.MySQL)
 		w.In("id", []int{})
 		// placeholders(gd, 0) 会返回 ""
 		// 所以生成的会是 `id` IN ()

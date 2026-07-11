@@ -1,11 +1,15 @@
-package spellsql
+package builder
 
 import (
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/dialect"
+	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/utils"
 )
 
 type SelectBuilder struct {
-	dbType     DbType
+	dbType     dialect.DbType
 	columns    []string // 存储 SELECT 的列
 	tableName  string   // 存储表名
 	joins      []string // 存储 JOIN 语句
@@ -22,7 +26,7 @@ type SelectBuilder struct {
 	finalArgs []interface{}
 }
 
-func NewSelectBuilder(dt DbType) *SelectBuilder {
+func NewSelectBuilder(dt dialect.DbType) *SelectBuilder {
 	obj := &SelectBuilder{
 		dbType:    dt,
 		columns:   make([]string, 0, 5),
@@ -50,29 +54,36 @@ func (s *SelectBuilder) From(table string) *SelectBuilder {
 // Join 设置 join
 // tableName: join 的表名
 // on: join 条件, 例如: "table1.id = table2.id"
+func (s *SelectBuilder) Join(tableName string, on string) *SelectBuilder {
+	return s.join(tableName, on)
+}
+
+// LeftJoin 设置 left join
+func (s *SelectBuilder) LeftJoin(tableName string, on string) *SelectBuilder {
+	return s.join(tableName, on, internal.LJI)
+}
+
+// RightJoin 设置 right join
+func (s *SelectBuilder) RightJoin(tableName string, on string) *SelectBuilder {
+	return s.join(tableName, on, internal.RJI)
+}
+
+// join 设置 join
+// tableName: join 的表名
+// on: join 条件, 例如: "table1.id = table2.id"
 // joinType: 可选参数, 默认为 JOIN, 可选值为 LJI (LEFT JOIN), RJI (RIGHT JOIN)
-func (s *SelectBuilder) Join(tableName string, on string, joinType ...uint8) *SelectBuilder {
+func (s *SelectBuilder) join(tableName string, on string, joinType ...uint8) *SelectBuilder {
 	deferJoinStr := "JOIN"
 	if len(joinType) > 0 {
 		switch joinType[0] {
-		case LJI:
+		case internal.LJI:
 			deferJoinStr = "LEFT JOIN"
-		case RJI:
+		case internal.RJI:
 			deferJoinStr = "RIGHT JOIN"
 		}
 	}
 	s.joins = append(s.joins, deferJoinStr+" "+tableName+" ON "+on)
 	return s
-}
-
-// LeftJoin 设置 left join
-func (s *SelectBuilder) LeftJoin(tableName string, on string) *SelectBuilder {
-	return s.Join(tableName, on, LJI)
-}
-
-// RightJoin 设置 right join
-func (s *SelectBuilder) RightJoin(tableName string, on string) *SelectBuilder {
-	return s.Join(tableName, on, RJI)
 }
 
 // Where 设置过滤条件
@@ -98,12 +109,12 @@ func (s *SelectBuilder) WB() *WhereBuilder {
 
 // OrderBy 设置排序
 func (s *SelectBuilder) OrderByAsc(field string) *SelectBuilder {
-	s.orderBys = append(s.orderBys, warpField(getDialect(s.dbType), field)+" ASC")
+	s.orderBys = append(s.orderBys, dialect.WarpField(dialect.GetDialect(s.dbType), field)+" ASC")
 	return s
 }
 
 func (s *SelectBuilder) OrderByDesc(field string) *SelectBuilder {
-	s.orderBys = append(s.orderBys, warpField(getDialect(s.dbType), field)+" DESC")
+	s.orderBys = append(s.orderBys, dialect.WarpField(dialect.GetDialect(s.dbType), field)+" DESC")
 	return s
 }
 
@@ -111,7 +122,7 @@ func (s *SelectBuilder) OrderByDesc(field string) *SelectBuilder {
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
 func (s *SelectBuilder) Limit(page, size interface{}) *SelectBuilder {
-	sizeInt, offsetInt := GetOffset(page, size)
+	sizeInt, offsetInt := utils.GetOffset(page, size)
 	s.limit = int(sizeInt)
 	s.offset = int(offsetInt)
 	return s
@@ -119,7 +130,7 @@ func (s *SelectBuilder) Limit(page, size interface{}) *SelectBuilder {
 
 // GroupBy 设置 groupBy
 func (s *SelectBuilder) GroupBy(field string) *SelectBuilder {
-	s.groupBys = append(s.groupBys, warpField(getDialect(s.dbType), field))
+	s.groupBys = append(s.groupBys, dialect.WarpField(dialect.GetDialect(s.dbType), field))
 	return s
 }
 
@@ -137,7 +148,7 @@ func (s *SelectBuilder) mergeSQL() {
 	}
 	s.finalSql.WriteString("SELECT ")
 	if len(s.columns) > 0 {
-		s.finalSql.WriteString(warpJoinFields(getDialect(s.dbType), s.columns...))
+		s.finalSql.WriteString(dialect.WarpJoinFields(dialect.GetDialect(s.dbType), s.columns...))
 	} else {
 		s.finalSql.WriteString("*")
 	}
@@ -176,7 +187,7 @@ func (s *SelectBuilder) mergeSQL() {
 
 	if s.limit > 0 {
 		s.finalSql.WriteString(" ")
-		s.finalSql.WriteString(getDialect(s.dbType).GetLimitSql(s.limit, s.offset))
+		s.finalSql.WriteString(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
 	}
 }
 
@@ -187,12 +198,10 @@ func (s *SelectBuilder) GetNoParseSql2Args() (string, []interface{}) {
 
 func (s *SelectBuilder) GetSqlStr() string {
 	s.mergeSQL()
-	return NewParsePlaceholder(s.dbType, s.finalSql.String(), s.finalArgs...).Parse().Result()
+	return dialect.NewParsePlaceholder(s.dbType, s.finalSql.String(), s.finalArgs...).Parse().Result()
 }
 
 func (s *SelectBuilder) GetSql2Args() (string, []interface{}) {
 	s.mergeSQL()
-	return NewParsePlaceholder(s.dbType, s.finalSql.String(), s.finalArgs...).Replace().Result(), s.finalArgs
+	return dialect.NewParsePlaceholder(s.dbType, s.finalSql.String(), s.finalArgs...).Replace().Result(), s.finalArgs
 }
-
-
