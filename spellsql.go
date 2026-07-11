@@ -14,18 +14,18 @@ import (
 // SqlStrObj 拼接 sql 对象
 type SqlStrObj struct {
 	ctx             context.Context
-	hasWhereStr     bool  // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
-	hasValuesStr    bool  // 标记 INSERT 是否添加已添加 VALUES
-	hasSetStr       bool  // 标记 UPDATE 是否添加 SET
-	isPutPooled     bool  // 标记是否已被回收了
-	needAddJoinStr  bool  // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
-	needAddComma    bool  // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
-	needAddBracket  bool  // 标记 INSERT 时, 是否添加括号
-	isPrintSqlLog   bool  // 标记是否打印 生成的 sqlStr log
-	isCallCacheInit bool  // 标记是否为 NewCacheSql 初始化生产的对象
-	actionNum       uint8 // INSERT/DELETE/SELECT/UPDATE
-	callerSkip      uint8 // 跳过调用栈的数
-	strSymbol       byte  // 记录解析字符串值的符号, 默认: ""
+	hasWhereStr     bool            // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
+	hasValuesStr    bool            // 标记 INSERT 是否添加已添加 VALUES
+	hasSetStr       bool            // 标记 UPDATE 是否添加 SET
+	isPutPooled     bool            // 标记是否已被回收了
+	needAddJoinStr  bool            // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
+	needAddComma    bool            // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
+	needAddBracket  bool            // 标记 INSERT 时, 是否添加括号
+	isPrintSqlLog   bool            // 标记是否打印 生成的 sqlStr log
+	isCallCacheInit bool            // 标记是否为 NewCacheSql 初始化生产的对象
+	actionNum       internal.OpType // INSERT/DELETE/SELECT/UPDATE
+	callerSkip      uint8           // 跳过调用栈的数
+	strSymbol       byte            // 记录解析字符串值的符号, 默认: ""
 	limitStr        string
 	orderByStr      string
 	groupByStr      string
@@ -166,7 +166,7 @@ func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 	if len(target) > 0 {
 		defaultNum = target[0]
 	}
-	return utils.Equal(op, defaultNum)
+	return internal.Equal(op, defaultNum)
 }
 
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
@@ -226,7 +226,7 @@ func (s *SqlStrObj) free(isNeedPutPool bool) {
 // SetStrSymbol 设置在解析值时字符串符号, 不同的数据库符号不同
 // 如: mysql 字符串值可以用 ""或”; pg 字符串值只能用 ”
 func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
-	if !utils.Equal(strSymbol, '"') && !utils.Equal(strSymbol, '\'') {
+	if !internal.Equal(strSymbol, '"') && !internal.Equal(strSymbol, '\'') {
 		return s
 	}
 	s.strSymbol = strSymbol

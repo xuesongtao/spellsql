@@ -1,9 +1,14 @@
 package internal
 
+type OpType = uint8
+
 const (
 	// sql 操作数字
-	None uint8 = iota
+	None OpType = iota
 	INSERT
+	INSERT_REPLACE
+	INSERT_IGNORE
+	INSERT_ON_DUPLICATE
 	DELETE
 	SELECT
 	UPDATE

@@ -28,3 +28,7 @@ func CallOnce(f func()) func() {
 		once.Do(f)
 	}
 }
+
+func Equal(a, b uint8) bool {
+	return a == b
+}

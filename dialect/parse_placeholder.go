@@ -46,7 +46,7 @@ func (p *ParsePlaceholder) loop(f func(curIndex, argIndex, lastIndex int) int) {
 			p.buf.WriteByte(v)
 			continue
 		}
-		i = f(i, argIndex, argLen-1)
+		i = f(i, argIndex, sqlLen-1)
 	}
 }
 
@@ -168,27 +168,29 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 func (p *ParsePlaceholder) Replace() *ParsePlaceholder {
 	p.buf.Reset()
 	// 需要将 ?, ?d, ?v 进行替换
-	p.loop(func(curIndex, argIndex, lastIndex int) int {
-		hasSuffix := false
-		if curIndex < lastIndex {
-			next := p.waitParse[curIndex+1]
-			if next == 'd' || next == 'v' {
-				hasSuffix = true
+	p.loop(
+		func(curIndex, argIndex, lastIndex int) int {
+			hasSuffix := false
+			if curIndex < lastIndex {
+				next := p.waitParse[curIndex+1]
+				if next == 'd' || next == 'v' {
+					hasSuffix = true
+				}
 			}
-		}
-		switch p.dbType {
-		case Postgres:
-			p.buf.WriteString("$")
-			p.buf.WriteString(utils.Int2Str(int64(argIndex + 1)))
-		default:
-			p.buf.WriteString("?")
-		}
+			switch p.dbType {
+			case Postgres:
+				p.buf.WriteString("$")
+				p.buf.WriteString(utils.Int2Str(int64(argIndex + 1)))
+			default:
+				p.buf.WriteString("?")
+			}
 
-		if hasSuffix {
-			curIndex++
-		}
-		return curIndex
-	})
+			if hasSuffix {
+				curIndex++
+			}
+			return curIndex
+		},
+	)
 	return p
 }
 

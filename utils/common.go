@@ -199,10 +199,6 @@ func Null(val string) bool {
 	return val == ""
 }
 
-func Equal(a, b uint8) bool {
-	return a == b
-}
-
 // isOneField 是否为单字段
 func IsOneField(kind reflect.Kind) bool {
 	// 将常用的类型放在前面

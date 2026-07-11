@@ -8,45 +8,39 @@ import (
 	"gitee.com/xuesongtao/spellsql/utils"
 )
 
-type SelectBuilder struct {
+var _ Builder = (*Select)(nil)
+
+type Select struct {
+	*builder
 	dbType     dialect.DbType
 	columns    []string // 存储 SELECT 的列
 	tableName  string   // 存储表名
 	joins      []string // 存储 JOIN 语句
-	whereStr   string   // WHERE 条件
-	whereArgs  []interface{}
+	where      *Where   // 存储 WHERE 条件
 	groupBys   []string // GROUP BY
 	havingStr  string   // HAVING 条件
 	havingArgs []interface{}
 	orderBys   []string // ORDER BY
 	limit      int
 	offset     int
-
-	finalSql  strings.Builder
-	finalArgs []interface{}
 }
 
-func NewSelectBuilder(dt dialect.DbType) *SelectBuilder {
-	obj := &SelectBuilder{
-		dbType:    dt,
-		columns:   make([]string, 0, 5),
-		whereArgs: make([]interface{}, 0, 5),
-		orderBys:  make([]string, 0, 2),
-		finalArgs: make([]interface{}, 0, 10),
+func NewSelect(dt dialect.DbType) *Select {
+	obj := &Select{
+		dbType:  dt,
+		builder: newBuilder(dt),
+		where:   NewWhere(dt),
 	}
+	obj.setGenFinal(obj.mergeSQL)
 	return obj
 }
 
-func (s *SelectBuilder) Select(col ...string) *SelectBuilder {
-	if len(col) > 0 {
-		s.columns = append(s.columns, col...)
-	} else {
-		s.columns = append(s.columns, "*")
-	}
+func (s *Select) Select(col ...string) *Select {
+	s.columns = append(s.columns, col...)
 	return s
 }
 
-func (s *SelectBuilder) From(table string) *SelectBuilder {
+func (s *Select) From(table string) *Select {
 	s.tableName = table
 	return s
 }
@@ -54,17 +48,16 @@ func (s *SelectBuilder) From(table string) *SelectBuilder {
 // Join 设置 join
 // tableName: join 的表名
 // on: join 条件, 例如: "table1.id = table2.id"
-func (s *SelectBuilder) Join(tableName string, on string) *SelectBuilder {
+func (s *Select) Join(tableName string, on string) *Select {
 	return s.join(tableName, on)
 }
 
 // LeftJoin 设置 left join
-func (s *SelectBuilder) LeftJoin(tableName string, on string) *SelectBuilder {
+func (s *Select) LeftJoin(tableName string, on string) *Select {
 	return s.join(tableName, on, internal.LJI)
 }
 
-// RightJoin 设置 right join
-func (s *SelectBuilder) RightJoin(tableName string, on string) *SelectBuilder {
+func (s *Select) RightJoin(tableName string, on string) *Select {
 	return s.join(tableName, on, internal.RJI)
 }
 
@@ -72,7 +65,7 @@ func (s *SelectBuilder) RightJoin(tableName string, on string) *SelectBuilder {
 // tableName: join 的表名
 // on: join 条件, 例如: "table1.id = table2.id"
 // joinType: 可选参数, 默认为 JOIN, 可选值为 LJI (LEFT JOIN), RJI (RIGHT JOIN)
-func (s *SelectBuilder) join(tableName string, on string, joinType ...uint8) *SelectBuilder {
+func (s *Select) join(tableName string, on string, joinType ...uint8) *Select {
 	deferJoinStr := "JOIN"
 	if len(joinType) > 0 {
 		switch joinType[0] {
@@ -86,34 +79,33 @@ func (s *SelectBuilder) join(tableName string, on string, joinType ...uint8) *Se
 	return s
 }
 
-// Where 设置过滤条件
-func (s *SelectBuilder) Where(whereBuilder *WhereBuilder) *SelectBuilder {
-	sqlStr, sqlArgs := whereBuilder.GetNoParseSql2Args()
-	s.whereStr = sqlStr
-	s.whereArgs = append(s.whereArgs, sqlArgs...)
+func (s *Select) Where() *Where {
+	return s.where
+}
+func (s *Select) SetWhere(where *Where) *Select {
+	s.where = where
 	return s
 }
 
-// WhereCb 设置过滤条件，使用回调构建 WhereBuilder
-func (s *SelectBuilder) WhereCb(f func(wb *WhereBuilder)) *SelectBuilder {
-	wb := s.WB()
+func (s *Select) WhereCb(f func(wb *Where)) *Select {
+	wb := s.Where()
 	f(wb)
-	s.Where(wb)
+	s.SetWhere(wb)
 	return s
 }
 
-// WB 获取一个新的 WhereBuilder，用于构建 WHERE 条件
-func (s *SelectBuilder) WB() *WhereBuilder {
-	return NewWhereBuilder(s.dbType)
-}
-
-// OrderBy 设置排序
-func (s *SelectBuilder) OrderByAsc(field string) *SelectBuilder {
+func (s *Select) OrderByAsc(field string) *Select {
+	if s.orderBys == nil {
+		s.orderBys = make([]string, 0, 2)
+	}
 	s.orderBys = append(s.orderBys, dialect.WarpField(dialect.GetDialect(s.dbType), field)+" ASC")
 	return s
 }
 
-func (s *SelectBuilder) OrderByDesc(field string) *SelectBuilder {
+func (s *Select) OrderByDesc(field string) *Select {
+	if s.orderBys == nil {
+		s.orderBys = make([]string, 0, 2)
+	}
 	s.orderBys = append(s.orderBys, dialect.WarpField(dialect.GetDialect(s.dbType), field)+" DESC")
 	return s
 }
@@ -121,87 +113,71 @@ func (s *SelectBuilder) OrderByDesc(field string) *SelectBuilder {
 // Limit 设置分页
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
-func (s *SelectBuilder) Limit(page, size interface{}) *SelectBuilder {
+func (s *Select) Limit(page, size interface{}) *Select {
 	sizeInt, offsetInt := utils.GetOffset(page, size)
 	s.limit = int(sizeInt)
 	s.offset = int(offsetInt)
 	return s
 }
 
-// GroupBy 设置 groupBy
-func (s *SelectBuilder) GroupBy(field string) *SelectBuilder {
+func (s *Select) GroupBy(field string) *Select {
+	if s.groupBys == nil {
+		s.groupBys = make([]string, 0, 2)
+	}
 	s.groupBys = append(s.groupBys, dialect.WarpField(dialect.GetDialect(s.dbType), field))
 	return s
 }
 
-// Having 设置 Having
-func (s *SelectBuilder) Having(having string, args ...interface{}) *SelectBuilder {
+func (s *Select) Having(having string, args ...interface{}) *Select {
+	if s.havingArgs == nil {
+		s.havingArgs = make([]interface{}, 0, len(args))
+	}
 	s.havingStr = having
 	s.havingArgs = append(s.havingArgs, args...)
 	return s
 }
 
-// mergeSQL 没有参数替换的最终 SQL
-func (s *SelectBuilder) mergeSQL() {
-	if s.finalSql.Len() > 0 {
-		return
-	}
-	s.finalSql.WriteString("SELECT ")
+func (s *Select) mergeSQL() {
+	s.appendSql("SELECT ")
 	if len(s.columns) > 0 {
-		s.finalSql.WriteString(dialect.WarpJoinFields(dialect.GetDialect(s.dbType), s.columns...))
+		s.appendSql(dialect.WarpJoinFields(dialect.GetDialect(s.dbType), s.columns...))
 	} else {
-		s.finalSql.WriteString("*")
+		s.appendSql("*")
 	}
 
 	if s.tableName != "" {
-		s.finalSql.WriteString(" FROM ")
-		s.finalSql.WriteString(s.tableName)
+		s.appendSql(" FROM ")
+		s.appendSql(s.tableName)
 	}
 
 	for _, j := range s.joins {
-		s.finalSql.WriteString(" ")
-		s.finalSql.WriteString(j)
+		s.appendSql(" ")
+		s.appendSql(j)
 	}
 
-	if s.whereStr != "" {
-		s.finalSql.WriteString(" WHERE ")
-		s.finalSql.WriteString(s.whereStr)
-		s.finalArgs = append(s.finalArgs, s.whereArgs...)
+	if s.where != nil && !s.where.empty() {
+		sqlStr, sqlArgs := s.where.GetNoParseSql2Args()
+		s.appendSql(" WHERE ")
+		s.appendSql2Args(sqlStr, sqlArgs...)
 	}
 
 	if len(s.groupBys) > 0 {
-		s.finalSql.WriteString(" GROUP BY ")
-		s.finalSql.WriteString(strings.Join(s.groupBys, ", "))
+		s.appendSql(" GROUP BY ")
+		s.appendSql(strings.Join(s.groupBys, ", "))
 	}
 
 	if s.havingStr != "" {
-		s.finalSql.WriteString(" HAVING ")
-		s.finalSql.WriteString(s.havingStr)
-		s.finalArgs = append(s.finalArgs, s.havingArgs...)
+		s.appendSql(" HAVING ")
+		s.appendSql2Args(s.havingStr, s.havingArgs...)
 	}
 
 	if len(s.orderBys) > 0 {
-		s.finalSql.WriteString(" ORDER BY ")
-		s.finalSql.WriteString(strings.Join(s.orderBys, ", "))
+		s.appendSql(" ORDER BY ")
+		s.appendSql(strings.Join(s.orderBys, ", "))
 	}
 
 	if s.limit > 0 {
-		s.finalSql.WriteString(" ")
-		s.finalSql.WriteString(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
+		s.appendSql(" ")
+		s.appendSql(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
 	}
-}
-
-func (s *SelectBuilder) GetNoParseSql2Args() (string, []interface{}) {
-	s.mergeSQL()
-	return s.finalSql.String(), s.finalArgs
-}
-
-func (s *SelectBuilder) GetSqlStr() string {
-	s.mergeSQL()
-	return dialect.NewParsePlaceholder(s.dbType, s.finalSql.String(), s.finalArgs...).Parse().Result()
-}
-
-func (s *SelectBuilder) GetSql2Args() (string, []interface{}) {
-	s.mergeSQL()
-	return dialect.NewParsePlaceholder(s.dbType, s.finalSql.String(), s.finalArgs...).Replace().Result(), s.finalArgs
 }
