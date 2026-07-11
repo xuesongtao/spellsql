@@ -7,7 +7,7 @@ import (
 )
 
 type Builder interface {
-	AppendSql2Args(s string, args ...interface{}) // AppendSql2Args 追加 SQL 语句和参数
+	AppendSql2Args(s string, args ...interface{}) // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
 	GetNoParseSql2Args() (string, []interface{})  // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
 	GetSqlStr() string                            // GetSqlStr 解析输入占位符后的 SQL 语句, 用于打印日志
 	GetSql2Args() (string, []interface{})         // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
@@ -20,8 +20,8 @@ type builder struct {
 	genFinal  func()
 
 	// 用于 AppendSql2Args
-	extraSql  []string
-	extraArgs []interface{}
+	extSql  []string
+	extArgs []interface{}
 }
 
 func newBuilder(dt dialect.DbType) *builder {
@@ -64,26 +64,26 @@ func (b *builder) getFinalSql2Args() (string, []interface{}) {
 		b.genFinal = nil
 	}
 
-	if len(b.extraSql) > 0 {
-		for _, s := range b.extraSql {
+	if len(b.extSql) > 0 {
+		for _, s := range b.extSql {
 			b.finalSql.WriteString(s)
 		}
-		b.extraSql = nil
+		b.extSql = nil
 	}
 
-	if len(b.extraArgs) > 0 {
-		b.finalArgs = append(b.finalArgs, b.extraArgs...)
-		b.extraArgs = nil
+	if len(b.extArgs) > 0 {
+		b.finalArgs = append(b.finalArgs, b.extArgs...)
+		b.extArgs = nil
 	}
 	return b.finalSql.String(), b.finalArgs
 }
 
 func (b *builder) AppendSql2Args(sqlStr string, args ...interface{}) {
-	if b.extraArgs == nil {
-		b.extraArgs = make([]interface{}, 0, len(args))
+	if b.extArgs == nil {
+		b.extArgs = make([]interface{}, 0, len(args))
 	}
-	b.extraSql = append(b.extraSql, " "+sqlStr)
-	b.extraArgs = append(b.extraArgs, args...)
+	b.extSql = append(b.extSql, " "+sqlStr)
+	b.extArgs = append(b.extArgs, args...)
 }
 
 func (b *builder) GetNoParseSql2Args() (string, []interface{}) {
