@@ -8,8 +8,8 @@ import (
 	"math"
 	"testing"
 
-	"gitee.com/xuesongtao/spellsql"
-	"gitee.com/xuesongtao/spellsql/dialect"
+	"gitee.com/xuesongtao/spellsql/v2"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	_ "github.com/lib/pq"
 )
 

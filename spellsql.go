@@ -3,37 +3,25 @@ package spellsql
 import (
 	"context"
 	"path/filepath"
-	"reflect"
 	"runtime"
-	"strings"
 
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/builder"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 // SqlStrObj 拼接 sql 对象
+// Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
 type SqlStrObj struct {
 	ctx             context.Context
-	hasWhereStr     bool            // 标记 SELECT/UPDATE/DELETE 是否添加已添加 WHERE
-	hasValuesStr    bool            // 标记 INSERT 是否添加已添加 VALUES
-	hasSetStr       bool            // 标记 UPDATE 是否添加 SET
 	isPutPooled     bool            // 标记是否已被回收了
-	needAddJoinStr  bool            // 标记初始化后, WHERE 后再新加的值时是否需要添加 AND/OR
-	needAddComma    bool            // 标记初始化后, UPDATE/INSERT 再添加的值是是否需要添加 ","
-	needAddBracket  bool            // 标记 INSERT 时, 是否添加括号
 	isPrintSqlLog   bool            // 标记是否打印 生成的 sqlStr log
 	isCallCacheInit bool            // 标记是否为 NewCacheSql 初始化生产的对象
 	actionNum       internal.OpType // INSERT/DELETE/SELECT/UPDATE
 	callerSkip      uint8           // 跳过调用栈的数
-	strSymbol       byte            // 记录解析字符串值的符号, 默认: ""
-	limitStr        string
-	orderByStr      string
-	groupByStr      string
-	buf             strings.Builder // 记录最终 sqlStr
-	whereBuf        strings.Builder // 记录 WHERE 条件
-	valuesBuf       strings.Builder // 记录 INSERT/UPDATE 设置的值
-	extBuf          strings.Builder // 追加到最后, 辅助字段
-	escapeMap       map[byte][]byte // 对 UPDATE/INSERT 操作中值进行转义, map: key 为待转义的字符, value [0]为如何处理转义 [1]转义为
+	dbType          dialect.DbType
+	builder         builder.SQLBuilder // builder 对象, 用于拼接 sql
 }
 
 // NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效(有缓存)
@@ -96,68 +84,26 @@ func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 	sqlLen := len(sqlStr)
 	if sqlLen > 6 { // 判断是什么操作
 		actionStr := sqlStr[:6]
-		upperStr := toUpper(actionStr)
+		upperStr := internal.ToUpper(actionStr)
 		switch upperStr {
 		case "INSERT", "REPLAC":
 			s.actionNum = internal.INSERT
+			s.builder = builder.NewInsert(s.dbType)
 		case "DELETE":
 			s.actionNum = internal.DELETE
+			s.builder = builder.NewDelete(s.dbType)
 		case "SELECT":
 			s.actionNum = internal.SELECT
+			s.builder = builder.NewSelect(s.dbType)
 		case "UPDATE":
 			s.actionNum = internal.UPDATE
+			s.builder = builder.NewUpdate(s.dbType)
+		default:
+			s.actionNum = internal.None
+			s.builder = builder.NewBuilder(s.dbType)
 		}
 	}
-
-	if sqlLen < 2<<8 {
-		s.buf.Grow(sqlLen * 2)
-		s.whereBuf.Grow(sqlLen)
-		if s.is(internal.INSERT) || s.is(internal.UPDATE) {
-			s.valuesBuf.Grow(sqlLen)
-		}
-	} else {
-		s.buf.Grow(sqlLen)
-		s.whereBuf.Grow(sqlLen / 2)
-		if s.is(internal.INSERT) || s.is(internal.UPDATE) {
-			s.valuesBuf.Grow(sqlLen / 2)
-		}
-	}
-
-	initWhereFn := func() {
-		whereIndex := getTargetIndex(sqlStr, "WHERE")
-		if whereIndex > -1 {
-			s.hasWhereStr = true
-
-			// 判断下是否需要自动添加 AND, 判断条件:
-			// 1. 获取到 WHERE 位置 index, 通过计算: sqlLen - (index + 5) > 3 来判断是否后面有值, 3个字符假定为: 字段名, 操作符, 值
-			// 2. 如果表达式为 true, 标记 needAddJoinStr = true, 反之 false
-			s.needAddJoinStr = sqlLen-whereIndex > 3+5
-		}
-	}
-
-	if s.is(internal.SELECT) {
-		initWhereFn()
-	}
-
-	if s.is(internal.UPDATE) {
-		setIndex := getTargetIndex(sqlStr, "SET")
-		if setIndex > -1 {
-			s.hasSetStr = true
-			s.needAddComma = sqlLen-setIndex > 3+3
-
-			// 如果有 SET 需要判断下是否包含 WHERE
-			initWhereFn()
-		}
-	}
-
-	if s.is(internal.DELETE) {
-		initWhereFn()
-	}
-
-	if s.is(internal.INSERT) {
-		s.hasValuesStr = getTargetIndex(sqlStr, "VALUE") > -1
-	}
-	s.writeSqlStr2Buf(&s.buf, sqlStr, args...)
+	s.builder.InitSql2Args(sqlStr, args...)
 }
 
 // is
@@ -172,21 +118,10 @@ func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
 func (s *SqlStrObj) init() {
 	s.ctx = context.Background()
-	s.hasWhereStr = false
-	s.hasValuesStr = false
-	s.hasSetStr = false
 	s.isPutPooled = false
-	s.needAddJoinStr = false
-	s.needAddComma = false
 	s.isCallCacheInit = false
-	s.needAddBracket = false
 	s.callerSkip = 1
 	s.actionNum = internal.None
-
-	// 数据库不同配置
-	// tmerObj := getTmerFn()
-	// s.strSymbol = tmerObj.GetValueStrSymbol()
-	// s.escapeMap = tmerObj.GetValueEscapeMap()
 
 	// 默认打印 log
 	s.isPrintSqlLog = true
@@ -194,13 +129,6 @@ func (s *SqlStrObj) init() {
 
 // free 释放
 func (s *SqlStrObj) free(isNeedPutPool bool) {
-	s.valuesBuf.Reset()
-	s.whereBuf.Reset()
-	s.extBuf.Reset()
-	s.groupByStr = ""
-	s.orderByStr = ""
-	s.limitStr = ""
-
 	// 不需要 Put 的条件如下:
 	// 1. 不需要Put的
 	// 2. 只有调用 NewCacheSql 获取的对象才进行 Put
@@ -218,24 +146,23 @@ func (s *SqlStrObj) free(isNeedPutPool bool) {
 	}
 
 	// 重置 buf
-	s.buf.Reset()
 	sqlSyncPool.Put(s)
 	s.isPutPooled = true
+}
+
+func (s *SqlStrObj) SetDbType(dt dialect.DbType) *SqlStrObj {
+	s.dbType = dt
+	return s
 }
 
 // SetStrSymbol 设置在解析值时字符串符号, 不同的数据库符号不同
 // 如: mysql 字符串值可以用 ""或”; pg 字符串值只能用 ”
 func (s *SqlStrObj) SetStrSymbol(strSymbol byte) *SqlStrObj {
-	if !internal.Equal(strSymbol, '"') && !internal.Equal(strSymbol, '\'') {
-		return s
-	}
-	s.strSymbol = strSymbol
 	return s
 }
 
 // SetEscapeMap 设置对值的转义处理
 func (s *SqlStrObj) SetEscapeMap(escapeMap map[byte][]byte) *SqlStrObj {
-	s.escapeMap = escapeMap
 	return s
 }
 
@@ -247,190 +174,8 @@ func (s *SqlStrObj) SetPrintLog(isPrint bool) *SqlStrObj {
 
 // Append 将类型追加在最后
 func (s *SqlStrObj) Append(sqlStr string, args ...interface{}) *SqlStrObj {
-	s.writeSqlStr2Buf(&s.extBuf, " "+sqlStr, args...)
+	s.builder.AppendSql2Args(sqlStr, args...)
 	return s
-}
-
-// Clone 克隆对象. 注意: 如果是 NewCacheSql 初始化将返回 nil, 需要采用 NewSql 进行初始化
-func (s *SqlStrObj) Clone() *SqlStrObj {
-	if s.isCallCacheInit {
-		return nil
-	}
-	return NewSql(s.buf.String())
-}
-
-// writeSqlStr2Buf 处理输入为 sqlStr 的
-func (s *SqlStrObj) writeSqlStr2Buf(buf *strings.Builder, sqlStr string, args ...interface{}) {
-	argLen := len(args)
-	if argLen == 0 {
-		buf.WriteString(sqlStr)
-		return
-	}
-
-	sqlLen := len(sqlStr)
-	argIndex := -1
-	for i := 0; i < sqlLen; i++ {
-		v := sqlStr[i]
-		if v != '?' {
-			buf.WriteByte(v)
-			continue
-		}
-		argIndex++
-
-		// 如果参数不够的话就不进行处理
-		if argIndex > argLen-1 {
-			buf.WriteByte(v)
-			continue
-		}
-
-		switch val := args[argIndex].(type) {
-		case string:
-			if i < sqlLen-1 {
-				// 如果占位符?在最后一位时, 就不往下执行了防止 panic
-				// 判断下如果为 ?d 字符的话, 这里不需要加引号
-				// 如果包含字母的话, 就转为 0, 防止数字型注入
-				if sqlStr[i+1] == 'd' {
-					buf.WriteString(internal.EscapeOfHasNum(val, true, s.escapeMap))
-					i++
-					continue
-				} else if sqlStr[i+1] == 'v' { // 原样输出
-					buf.WriteString(val)
-					i++
-					continue
-				}
-			}
-
-			if val == internal.NULL {
-				buf.WriteString(internal.NULL)
-			} else {
-				buf.WriteByte(s.strSymbol)
-				buf.WriteString(internal.EscapeOfHasNum(val, false, s.escapeMap))
-				buf.WriteByte(s.strSymbol)
-			}
-		case []string:
-			lastIndex := len(val) - 1
-			// 判断下是否加引号
-			isAdd := true
-			// 这里必须小于最后一个最后一值才行
-			if i < sqlLen-1 {
-				if sqlStr[i+1] == 'd' {
-					isAdd = false
-					i++
-				}
-				for i1 := 0; i1 <= lastIndex; i1++ {
-					if isAdd {
-						buf.WriteByte(s.strSymbol)
-					}
-					buf.WriteString(internal.EscapeOfHasNum(val[i1], !isAdd, s.escapeMap))
-					if isAdd {
-						buf.WriteByte(s.strSymbol)
-					}
-					if i1 < lastIndex {
-						buf.WriteByte(',')
-					}
-				}
-			} else {
-				// 最后一个占位符
-				for i1 := 0; i1 <= lastIndex; i1++ {
-					buf.WriteByte(s.strSymbol)
-					buf.WriteString(internal.EscapeOfHasNum(val[i1], false, s.escapeMap))
-					buf.WriteByte(s.strSymbol)
-					if i1 < lastIndex {
-						buf.WriteByte(',')
-					}
-				}
-			}
-		case []byte:
-			buf.WriteByte(s.strSymbol)
-			buf.WriteString(internal.EscapeOfHasNum(string(val), false, s.escapeMap))
-			buf.WriteByte(s.strSymbol)
-		case int:
-			buf.WriteString(utils.Int2Str(int64(val)))
-		case int32:
-			buf.WriteString(utils.Int2Str(int64(val)))
-		case uint:
-			buf.WriteString(utils.UInt2Str(uint64(val)))
-		case uint32:
-			buf.WriteString(utils.UInt2Str(uint64(val)))
-		case []int:
-			lastIndex := len(val) - 1
-			for i1 := 0; i1 <= lastIndex; i1++ {
-				buf.WriteString(utils.Int2Str(int64(val[i1])))
-				if i1 < lastIndex {
-					buf.WriteByte(',')
-				}
-			}
-		case []int32:
-			lastIndex := len(val) - 1
-			for i1 := 0; i1 <= lastIndex; i1++ {
-				buf.WriteString(utils.Int2Str(int64(val[i1])))
-				if i1 < lastIndex {
-					buf.WriteByte(',')
-				}
-			}
-		default:
-			// slow path
-			reflectValue := reflect.ValueOf(val)
-			switch reflectValue.Kind() {
-			case reflect.Slice, reflect.Array: // 这里不会有 []string, 不需要处理符号, 所以直接处理即可
-				lastIndex := reflectValue.Len() - 1
-				for i1 := 0; i1 <= lastIndex; i1++ {
-					buf.WriteString(utils.Str(reflectValue.Index(i1).Interface()))
-					if i1 < lastIndex {
-						buf.WriteByte(',')
-					}
-				}
-			case reflect.Float32, reflect.Float64:
-				buf.WriteString(utils.Str(reflectValue.Float()))
-			case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
-				buf.WriteString(utils.Str(reflectValue.Int()))
-			case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
-				buf.WriteString(utils.Str(reflectValue.Uint()))
-			case reflect.String:
-				buf.WriteByte(s.strSymbol)
-				buf.WriteString(internal.EscapeOfHasNum(reflectValue.String(), false, s.escapeMap))
-				buf.WriteByte(s.strSymbol)
-			default:
-				buf.WriteString("undefined")
-			}
-		}
-	}
-}
-
-// mergeSql 合并 sql
-func (s *SqlStrObj) mergeSql() {
-	defer s.buf.WriteString(s.extBuf.String())
-
-	if s.is(internal.INSERT) {
-		s.buf.WriteString(s.valuesBuf.String())
-		return
-	}
-
-	if s.is(internal.UPDATE) {
-		s.buf.WriteString(s.valuesBuf.String())
-	}
-
-	// internal.UPDATE, internal.SELECT, internal.DELETE 都会走这里
-	s.buf.WriteString(s.whereBuf.String())
-
-	if s.is(internal.SELECT) {
-		s.buf.WriteString(s.groupByStr)
-	}
-
-	if s.is(internal.DELETE) || s.is(internal.SELECT) || s.is(internal.UPDATE) {
-		s.buf.WriteString(s.orderByStr)
-		s.buf.WriteString(s.limitStr)
-	}
-}
-
-// SqlIsEmpty sql 是否为空
-func (s *SqlStrObj) SqlIsEmpty() bool {
-	return s.SqlStrLen() == 0
-}
-
-// SqlStrLen sql 的总长度
-func (s *SqlStrObj) SqlStrLen() int {
-	return s.buf.Len()
 }
 
 // SetCallerSkip 设置打印调用跳过的层数
@@ -452,7 +197,6 @@ func (s *SqlStrObj) getSqlLogStr(title, sqlStr string) string {
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	defer s.free(true)
-	s.mergeSql()
 
 	argsLen := len(title)
 	// sqlStr 的结束符, 默认为 ";"
@@ -463,7 +207,7 @@ func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 		}
 	}
 
-	sqlStr = s.buf.String() + endMarkStr
+	sqlStr = s.builder.GetSqlStr() + endMarkStr
 	if s.isPrintSqlLog {
 		defTitle := "sqlStr"
 		if argsLen > 0 {
@@ -480,43 +224,6 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 		return
 	}
 	defer s.free(false)
-	s.mergeSql()
-	sqlStr := s.buf.String()
-	bufLen := s.buf.Len()
-
-	tmpBuf := internal.GetTmpBuf(bufLen)
-	defer internal.PutTmpBuf(tmpBuf)
-
-	isAddCountStr := false // 标记是否添加 COUNT(*)
-	isAppend := false      // 标记是否直接添加
-	for i := 0; i < bufLen; i++ {
-		v := sqlStr[i]
-
-		// 直接添加, 如果为 true 就不向下执行了
-		if isAppend {
-			tmpBuf.WriteByte(v)
-			continue
-		}
-
-		if i < 6 { // SELECT/select
-			tmpBuf.WriteByte(v)
-			continue
-		}
-
-		if !isAddCountStr {
-			tmpBuf.WriteString(" COUNT(*) ")
-			isAddCountStr = true
-		}
-
-		// 判断遇到第一个 FROM 就直接将后面所有 sql 追加到 tmpBuf
-		if v == 'f' || v == 'F' {
-			formStr := sqlStr[i : i+4]
-			if formStr == "FROM" || formStr == "from" {
-				tmpBuf.WriteByte(v)
-				isAppend = true
-			}
-		}
-	}
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
 	argsLen := len(title)
@@ -525,7 +232,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 			endMarkStr = ""
 		}
 	}
-	findSqlStr = tmpBuf.String() + endMarkStr
+	findSqlStr = s.getSelectBuilder().GetTotalSqlStr() + endMarkStr
 	if s.isPrintSqlLog {
 		defTitle := "sqlTotalStr"
 		if argsLen > 0 {
@@ -555,27 +262,7 @@ func getTargetIndex(sqlStr, targetStr string, isFont2End ...bool) int {
 	}
 	tmpIndex := utils.Index(sqlStr, targetStr, is)
 	if tmpIndex == -1 {
-		tmpIndex = utils.Index(sqlStr, toLower(targetStr), is)
+		tmpIndex = utils.Index(sqlStr, internal.ToLower(targetStr), is)
 	}
 	return tmpIndex
-}
-
-// toUpper
-func toUpper(str string) string {
-	strByte := []byte(str)
-	l := len(strByte)
-	for i := 0; i < l; i++ {
-		strByte[i] &= '_'
-	}
-	return string(strByte)
-}
-
-// toLower
-func toLower(str string) string {
-	strByte := []byte(str)
-	l := len(strByte)
-	for i := 0; i < l; i++ {
-		strByte[i] |= ' '
-	}
-	return string(strByte)
 }

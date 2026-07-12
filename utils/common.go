@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index

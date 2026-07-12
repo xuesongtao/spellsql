@@ -1,6 +1,8 @@
 package builder
 
-import "gitee.com/xuesongtao/spellsql/dialect"
+import "gitee.com/xuesongtao/spellsql/v2/dialect"
+
+var _ SQLBuilder = (*Update)(nil)
 
 type Update struct {
 	*builder
@@ -14,7 +16,7 @@ type Update struct {
 func NewUpdate(dt dialect.DbType) *Update {
 	obj := &Update{
 		dbType:  dt,
-		builder: newBuilder(dt),
+		builder: NewBuilder(dt),
 		where:   NewWhere(dt),
 	}
 	obj.setGenFinal(obj.mergeSQL)
@@ -26,14 +28,14 @@ func (u *Update) Table(tableName string) *Update {
 	return u
 }
 
-func (u *Update) Set(column string, value interface{}) *Update {
+func (u *Update) Set(col string, value interface{}) *Update {
 	if u.columns == nil {
 		u.columns = make([]string, 0, 5)
 	}
 	if u.values == nil {
 		u.values = make([]interface{}, 0, 5)
 	}
-	u.columns = append(u.columns, column)
+	u.columns = append(u.columns, col)
 	u.values = append(u.values, value)
 	return u
 }
@@ -54,20 +56,24 @@ func (u *Update) SetWhere(where *Where) *Update {
 	return u
 }
 
-func (u *Update) mergeSQL() {
-	u.appendSql("UPDATE ")
-	u.appendSql(u.tableName)
-	u.appendSql(" SET ")
+func (u *Update) mergeSQL(b *builder) {
+	if u.tableName != "" {
+		b.appendSql("UPDATE ")
+		b.appendSql(u.tableName)
+		b.appendSql(" SET ")
+	}
+
 	dg := dialect.GetDialect(u.dbType)
 	for i, col := range u.columns {
 		if i > 0 {
-			u.appendSql(", ")
+			b.appendSql(", ")
 		}
-		u.appendSql2Args(dialect.WarpField(dg, col)+" = "+dialect.Placeholders(), u.values[i])
+		b.appendSql2Args(dialect.WarpCol(dg, col)+" = "+dialect.Placeholders(), u.values[i])
 	}
+
 	if u.where != nil && !u.where.empty() {
 		sqlStr, sqlArgs := u.where.GetNoParseSql2Args()
-		u.appendSql(" WHERE ")
-		u.appendSql2Args(sqlStr, sqlArgs...)
+		b.appendSql(" WHERE ")
+		b.appendSql2Args(sqlStr, sqlArgs...)
 	}
 }

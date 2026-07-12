@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync"
 
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 // ====================================== spellsql =============================================
@@ -45,7 +45,6 @@ var (
 )
 
 // ====================================== other =============================================
-
 // log 处理
 var (
 	sLog Logger

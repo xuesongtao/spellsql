@@ -1,8 +1,10 @@
 package builder
 
-import "gitee.com/xuesongtao/spellsql/dialect"
+import (
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+)
 
-var _ Builder = (*Delete)(nil)
+var _ SQLBuilder = (*Delete)(nil)
 
 type Delete struct {
 	*builder
@@ -14,7 +16,7 @@ type Delete struct {
 func NewDelete(dt dialect.DbType) *Delete {
 	obj := &Delete{
 		dbType:  dt,
-		builder: newBuilder(dt),
+		builder: NewBuilder(dt),
 		where:   NewWhere(dt),
 	}
 	obj.setGenFinal(obj.mergeSQL)
@@ -42,12 +44,14 @@ func (d *Delete) WhereCb(f func(wb *Where)) *Delete {
 	return d
 }
 
-func (d *Delete) mergeSQL() {
-	d.appendSql("DELETE FROM ")
-	d.appendSql(d.tableName)
+func (d *Delete) mergeSQL(b *builder) {
+	if d.tableName != "" {
+		b.appendSql("DELETE FROM ")
+		b.appendSql(d.tableName)
+	}
 	if d.where != nil && !d.where.empty() {
-		d.appendSql(" WHERE ")
+		b.appendSql(" WHERE ")
 		whereSql, whereArgs := d.where.GetSql2Args()
-		d.appendSql2Args(whereSql, whereArgs...)
+		b.appendSql2Args(whereSql, whereArgs...)
 	}
 }

@@ -2,9 +2,10 @@ package spellsql
 
 import (
 	"context"
+	"reflect"
 
-	"gitee.com/xuesongtao/spellsql/dialect"
-	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
 const (
@@ -26,6 +27,13 @@ type Logger interface {
 	Error(ctx context.Context, v ...interface{})
 	Warning(ctx context.Context, v ...interface{})
 }
+
+type TableNamer interface {
+	// TableName 返回表名
+	GetTableName() string
+}
+
+var tableNameType = reflect.TypeOf((*TableNamer)(nil)).Elem()
 
 // SelectCallBackFn 对每行查询结果进行取出处理
 type SelectCallBackFn func(_row interface{}) error

@@ -10,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/xuesongtao/spellsql/test"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/test"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 	gmysql "gorm.io/driver/mysql"
@@ -169,13 +171,6 @@ func TestTmp(t *testing.T) {
 	t.Log(mm)
 }
 
-func TestGetParcelFields(t *testing.T) {
-	obj := NewTable(nil)
-	t.Log(obj.GetParcelFields("id", "name", "age"))
-	obj.Tmer(Pg())
-	t.Log(obj.GetParcelFields("id", "name", "age"))
-}
-
 func TestParseTable(t *testing.T) {
 	m := test.Man{
 		Id:       1,
@@ -184,10 +179,10 @@ func TestParseTable(t *testing.T) {
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
-	c, v, e := NewTable(db).getHandleTableCol2Val(m, INSERT, nil, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, internal.INSERT, nil, "man")
 	t.Log(c, v, e)
 
-	c, v, e = NewTable(db).getHandleTableCol2Val(m, UPDATE, nil, "man")
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, internal.UPDATE, nil, "man")
 	t.Log(c, v, e)
 }
 
@@ -300,7 +295,7 @@ func TestParseCol2Val(t *testing.T) {
 	var insertSql *SqlStrObj
 	for i := 0; i < 2; i++ {
 		m := test.Man{
-			Name: "xue1234" + "_" + Str(i),
+			Name: "xue1234" + "_" + utils.Str(i),
 			Age:  18,
 			Addr: "成都市",
 		}
@@ -315,9 +310,7 @@ func TestParseCol2Val(t *testing.T) {
 		}
 		insertSql.SetInsertValues(vals...)
 	}
-	if !insertSql.ValueIsEmpty() {
-		insertSql.Append("ON DUPLICATE KEY UPDATE name=VALUES(name)")
-	}
+	insertSql.Append("ON DUPLICATE KEY UPDATE name=VALUES(name)")
 	res := insertSql.FmtSql()
 	sureMsg := `INSERT INTO (name,age,addr) VALUES ("xue1234_0", 18, "成都市"), ("xue1234_1", 18, "成都市") ON DUPLICATE KEY UPDATE name=VALUES(name)`
 	if res != sureMsg {
@@ -351,32 +344,6 @@ func TestInsert(t *testing.T) {
 		}
 		if rr, _ := r.RowsAffected(); rr == 0 {
 			t.Error("inset failed")
-		}
-	})
-
-	t.Run("insert for many clone", func(t *testing.T) {
-		mm := make([]test.Man, 0, 10)
-		for i := 0; i < 10; i++ {
-			mm = append(mm, m)
-		}
-
-		tmp := make([]interface{}, 0)
-		tableObj := NewTable(db, "man").IsPrintSql(true).TagDefault(map[string]interface{}{"nickname": "哈喽"})
-		for i := 0; i < len(mm); i++ {
-			if len(tmp) >= 2 {
-				tableObj = tableObj.Clone()
-				if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
-					t.Errorf("insert is failed, err: %v", err)
-				}
-				tmp = make([]interface{}, 0)
-			} else {
-				tmp = append(tmp, mm[i])
-			}
-		}
-		if len(tmp) > 0 {
-			if _, err := tableObj.InsertOfFields(tableObj.GetCols(), tmp...).Exec(); err != nil {
-				t.Errorf("insert is failed, err: %v", err)
-			}
 		}
 	})
 
@@ -513,8 +480,8 @@ func TestInsert(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			mm = append(mm, m)
 		}
-		insertSql := NewTable(db, "man").Insert(mm...).GetSqlObj()
-		insertSql.Append("ON DUPLICATE KEY UPDATE addr=VALUES(addr)")
+		insertSql := NewTable(db, "man").Insert(mm...).GetBuilder()
+		insertSql.AppendSql2Args("ON DUPLICATE KEY UPDATE addr=VALUES(addr)")
 		t.Log(insertSql.GetSqlStr())
 	})
 
@@ -1111,7 +1078,7 @@ func TestCount(t *testing.T) {
 }
 
 // FindOne 性能对比, 以下是在 mac11 pro m1 上测试
-// go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql -v -count=5
+// go test -benchmem -run=^$ -bench ^BenchmarkFindOne gitee.com/xuesongtao/spellsql/v2 -v -count=5
 
 func BenchmarkFindOneGorm(b *testing.B) {
 	b.ResetTimer()
@@ -1408,7 +1375,7 @@ func TestSqlxSelect(t *testing.T) {
 }
 
 // 以下是在 mac11 pro m1 上测试
-// go test -benchmem -run=^$ -bench ^BenchmarkFindAll gitee.com/xuesongtao/spellsql -v -count=5
+// go test -benchmem -run=^$ -bench ^BenchmarkFindAll gitee.com/xuesongtao/spellsql/v2 -v -count=5
 
 func BenchmarkFindAllGorm(b *testing.B) {
 	b.ResetTimer()

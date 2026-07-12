@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 
-	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
 // *******************************************************************************

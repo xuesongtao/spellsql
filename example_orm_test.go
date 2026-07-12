@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gitee.com/xuesongtao/spellsql/test"
+	"gitee.com/xuesongtao/spellsql/v2/test"
 )
 
 func myPrint(v interface{}, isStruct bool) {

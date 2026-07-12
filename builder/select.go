@@ -3,12 +3,12 @@ package builder
 import (
 	"strings"
 
-	"gitee.com/xuesongtao/spellsql/dialect"
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
-var _ Builder = (*Select)(nil)
+var _ SQLBuilder = (*Select)(nil)
 
 type Select struct {
 	*builder
@@ -28,7 +28,7 @@ type Select struct {
 func NewSelect(dt dialect.DbType) *Select {
 	obj := &Select{
 		dbType:  dt,
-		builder: newBuilder(dt),
+		builder: NewBuilder(dt),
 		where:   NewWhere(dt),
 	}
 	obj.setGenFinal(obj.mergeSQL)
@@ -36,7 +36,26 @@ func NewSelect(dt dialect.DbType) *Select {
 }
 
 func (s *Select) Select(col ...string) *Select {
-	s.columns = append(s.columns, col...)
+	if s.columns == nil {
+		s.columns = make([]string, 0, len(col))
+	}
+	if len(col) == 0 {
+		s.columns = append(s.columns, "*")
+	} else {
+		s.columns = append(s.columns, col...)
+	}
+	return s
+}
+
+func (s *Select) ColsEmpty() bool {
+	return len(s.columns) == 0
+}
+
+func (s *Select) Count() *Select {
+	if s.columns == nil {
+		s.columns = make([]string, 0, 1)
+	}
+	s.columns = append(s.columns, "COUNT(*)")
 	return s
 }
 
@@ -48,8 +67,8 @@ func (s *Select) From(table string) *Select {
 // Join 设置 join
 // tableName: join 的表名
 // on: join 条件, 例如: "table1.id = table2.id"
-func (s *Select) Join(tableName string, on string) *Select {
-	return s.join(tableName, on)
+func (s *Select) Join(tableName string, on string, joinType ...uint8) *Select {
+	return s.join(tableName, on, joinType...)
 }
 
 // LeftJoin 设置 left join
@@ -94,19 +113,27 @@ func (s *Select) WhereCb(f func(wb *Where)) *Select {
 	return s
 }
 
-func (s *Select) OrderByAsc(field string) *Select {
+func (s *Select) OrderBy(sqlStr string) *Select {
 	if s.orderBys == nil {
 		s.orderBys = make([]string, 0, 2)
 	}
-	s.orderBys = append(s.orderBys, dialect.WarpField(dialect.GetDialect(s.dbType), field)+" ASC")
+	s.orderBys = append(s.orderBys, sqlStr)
 	return s
 }
 
-func (s *Select) OrderByDesc(field string) *Select {
+func (s *Select) OrderByAsc(col string) *Select {
 	if s.orderBys == nil {
 		s.orderBys = make([]string, 0, 2)
 	}
-	s.orderBys = append(s.orderBys, dialect.WarpField(dialect.GetDialect(s.dbType), field)+" DESC")
+	s.orderBys = append(s.orderBys, dialect.WarpCol(dialect.GetDialect(s.dbType), col)+" ASC")
+	return s
+}
+
+func (s *Select) OrderByDesc(col string) *Select {
+	if s.orderBys == nil {
+		s.orderBys = make([]string, 0, 2)
+	}
+	s.orderBys = append(s.orderBys, dialect.WarpCol(dialect.GetDialect(s.dbType), col)+" DESC")
 	return s
 }
 
@@ -120,11 +147,13 @@ func (s *Select) Limit(page, size interface{}) *Select {
 	return s
 }
 
-func (s *Select) GroupBy(field string) *Select {
+func (s *Select) GroupBy(cols ...string) *Select {
 	if s.groupBys == nil {
 		s.groupBys = make([]string, 0, 2)
 	}
-	s.groupBys = append(s.groupBys, dialect.WarpField(dialect.GetDialect(s.dbType), field))
+	for _, col := range cols {
+		s.groupBys = append(s.groupBys, dialect.WarpCol(dialect.GetDialect(s.dbType), col))
+	}
 	return s
 }
 
@@ -137,47 +166,98 @@ func (s *Select) Having(having string, args ...interface{}) *Select {
 	return s
 }
 
-func (s *Select) mergeSQL() {
-	s.appendSql("SELECT ")
+func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
+	tmpBuf := internal.GetTmpBuf(s.len())
+	defer internal.PutTmpBuf(tmpBuf)
+
+	b := s.builder.copy()
+	sqlStr, args := b.GetNoParseSql2Args()
+	isAddCountStr := false // 标记是否添加 COUNT(*)
+	isAppend := false      // 标记是否直接添加
+	for i := 0; i < len(sqlStr); i++ {
+		v := sqlStr[i]
+
+		// 直接添加, 如果为 true 就不向下执行了
+		if isAppend {
+			tmpBuf.WriteByte(v)
+			continue
+		}
+
+		if i < 6 { // SELECT/select
+			tmpBuf.WriteByte(v)
+			continue
+		}
+
+		if !isAddCountStr {
+			tmpBuf.WriteString(" COUNT(*) ")
+			isAddCountStr = true
+		}
+
+		// 判断遇到第一个 FROM 就直接将后面所有 sql 追加到 tmpBuf
+		if v == 'f' || v == 'F' {
+			formStr := sqlStr[i : i+4]
+			if formStr == "FROM" || formStr == "from" {
+				tmpBuf.WriteByte(v)
+				isAppend = true
+			}
+		}
+	}
+	return tmpBuf.String(), args
+}
+
+func (s *Select) GetTotalSqlStr() string {
+	sqlStr, args := s.GetTotalNoParseSql2Args()
+	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Parse().Result()
+}
+
+func (s *Select) GetTotalSql2Args() (string, []interface{}) {
+	sqlStr, args := s.GetTotalNoParseSql2Args()
+	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Replace().Result(), args
+}
+
+func (s *Select) mergeSQL(b *builder) {
 	if len(s.columns) > 0 {
-		s.appendSql(dialect.WarpJoinFields(dialect.GetDialect(s.dbType), s.columns...))
-	} else {
-		s.appendSql("*")
+		b.appendSql("SELECT ")
+		if len(s.columns) == 1 && strings.Contains(s.columns[0], "*") { // 查询 "*" 或 count(*) 时不需要加上字段转义符
+			b.appendSql(s.columns[0])
+		} else {
+			b.appendSql(dialect.WarpJoinCols(dialect.GetDialect(s.dbType), s.columns...))
+		}
 	}
 
 	if s.tableName != "" {
-		s.appendSql(" FROM ")
-		s.appendSql(s.tableName)
+		b.appendSql(" FROM ")
+		b.appendSql(s.tableName)
 	}
 
 	for _, j := range s.joins {
-		s.appendSql(" ")
-		s.appendSql(j)
+		b.appendSql(" ")
+		b.appendSql(j)
 	}
 
 	if s.where != nil && !s.where.empty() {
 		sqlStr, sqlArgs := s.where.GetNoParseSql2Args()
-		s.appendSql(" WHERE ")
-		s.appendSql2Args(sqlStr, sqlArgs...)
+		b.appendSql(" WHERE ")
+		b.appendSql2Args(sqlStr, sqlArgs...)
 	}
 
 	if len(s.groupBys) > 0 {
-		s.appendSql(" GROUP BY ")
-		s.appendSql(strings.Join(s.groupBys, ", "))
+		b.appendSql(" GROUP BY ")
+		b.appendSql(strings.Join(s.groupBys, ", "))
 	}
 
 	if s.havingStr != "" {
-		s.appendSql(" HAVING ")
-		s.appendSql2Args(s.havingStr, s.havingArgs...)
+		b.appendSql(" HAVING ")
+		b.appendSql2Args(s.havingStr, s.havingArgs...)
 	}
 
 	if len(s.orderBys) > 0 {
-		s.appendSql(" ORDER BY ")
-		s.appendSql(strings.Join(s.orderBys, ", "))
+		b.appendSql(" ORDER BY ")
+		b.appendSql(strings.Join(s.orderBys, ", "))
 	}
 
 	if s.limit > 0 {
-		s.appendSql(" ")
-		s.appendSql(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
+		b.appendSql(" ")
+		b.appendSql(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
 	}
 }

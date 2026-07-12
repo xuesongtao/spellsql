@@ -32,3 +32,21 @@ func CallOnce(f func()) func() {
 func Equal(a, b uint8) bool {
 	return a == b
 }
+
+func ToUpper(str string) string {
+	strByte := []byte(str)
+	l := len(strByte)
+	for i := 0; i < l; i++ {
+		strByte[i] &= '_'
+	}
+	return string(strByte)
+}
+
+func ToLower(str string) string {
+	strByte := []byte(str)
+	l := len(strByte)
+	for i := 0; i < l; i++ {
+		strByte[i] |= ' '
+	}
+	return string(strByte)
+}

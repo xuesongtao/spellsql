@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 type PgTable struct {
@@ -33,8 +33,8 @@ func Pg(initArgs ...string) *PgTable {
 	return obj
 }
 
-// GetWarpFieldSymbol implements [Dialect].
-func (p *PgTable) GetWarpFieldSymbol() string {
+// GetWarpColSymbol implements [Dialect].
+func (p *PgTable) GetWarpColSymbol() string {
 	return `"`
 }
 
@@ -63,7 +63,7 @@ func (p *PgTable) GetValueEscapeMap() map[byte][]byte {
 	return escapeMap
 }
 
-func (p *PgTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) {
+func (p *PgTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {
 	if len(p.initArgs) != 2 {
 		return nil, fmt.Errorf(internal.GetField2ColInfoMapErr, p.GetAdapterName())
 	}

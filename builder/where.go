@@ -1,11 +1,11 @@
 package builder
 
 import (
-	"gitee.com/xuesongtao/spellsql/dialect"
-	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
-var _ Builder = (*Where)(nil)
+var _ SQLBuilder = (*Where)(nil)
 
 type Where struct {
 	*builder
@@ -15,129 +15,129 @@ type Where struct {
 func NewWhere(dt dialect.DbType) *Where {
 	obj := &Where{
 		dbType:  dt,
-		builder: newBuilder(dt),
+		builder: NewBuilder(dt),
 	}
 	return obj
 }
 
-func (w *Where) Eq(field string, arg interface{}) *Where {
+func (w *Where) Eq(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" = "+dialect.Placeholders(), arg)
+	return w.And(dialect.WarpCol(gd, col)+" = "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrEq(field string, arg interface{}) *Where {
+func (w *Where) OrEq(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" = "+dialect.Placeholders(), arg)
+	return w.Or(dialect.WarpCol(gd, col)+" = "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) IsNull(field string) *Where {
+func (w *Where) IsNull(col string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field) + " IS NULL")
+	return w.And(dialect.WarpCol(gd, col) + " IS NULL")
 }
 
-func (w *Where) OrIsNull(field string) *Where {
+func (w *Where) OrIsNull(col string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field) + " IS NULL")
+	return w.Or(dialect.WarpCol(gd, col) + " IS NULL")
 }
 
-func (w *Where) NotEq(field string, arg interface{}) *Where {
+func (w *Where) NotEq(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" <> "+dialect.Placeholders(), arg)
+	return w.And(dialect.WarpCol(gd, col)+" <> "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrNotEq(field string, arg interface{}) *Where {
+func (w *Where) OrNotEq(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" <> "+dialect.Placeholders(), arg)
+	return w.Or(dialect.WarpCol(gd, col)+" <> "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Gt(field string, arg interface{}) *Where {
+func (w *Where) Gt(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" > "+dialect.Placeholders(), arg)
+	return w.And(dialect.WarpCol(gd, col)+" > "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrGt(field string, arg interface{}) *Where {
+func (w *Where) OrGt(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" > "+dialect.Placeholders(), arg)
+	return w.Or(dialect.WarpCol(gd, col)+" > "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Gte(field string, arg interface{}) *Where {
+func (w *Where) Gte(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" >= "+dialect.Placeholders(), arg)
+	return w.And(dialect.WarpCol(gd, col)+" >= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrGte(field string, arg interface{}) *Where {
+func (w *Where) OrGte(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" >= "+dialect.Placeholders(), arg)
+	return w.Or(dialect.WarpCol(gd, col)+" >= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Lt(field string, arg interface{}) *Where {
+func (w *Where) Lt(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" < "+dialect.Placeholders(), arg)
+	return w.And(dialect.WarpCol(gd, col)+" < "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrLt(field string, arg interface{}) *Where {
+func (w *Where) OrLt(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" < "+dialect.Placeholders(), arg)
+	return w.Or(dialect.WarpCol(gd, col)+" < "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Lte(field string, arg interface{}) *Where {
+func (w *Where) Lte(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" <= "+dialect.Placeholders(), arg)
+	return w.And(dialect.WarpCol(gd, col)+" <= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrLte(field string, arg interface{}) *Where {
+func (w *Where) OrLte(col string, arg interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" <= "+dialect.Placeholders(), arg)
+	return w.Or(dialect.WarpCol(gd, col)+" <= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Between(field string, arg1, arg2 interface{}) *Where {
+func (w *Where) Between(col string, arg1, arg2 interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
+	return w.And(dialect.WarpCol(gd, col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
 }
 
-func (w *Where) OrBetween(field string, arg1, arg2 interface{}) *Where {
+func (w *Where) OrBetween(col string, arg1, arg2 interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
+	return w.Or(dialect.WarpCol(gd, col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
 }
 
-func (w *Where) In(field string, args ...interface{}) *Where {
+func (w *Where) In(col string, args ...interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" IN ("+dialect.Placeholders(len(args))+")", args...)
+	return w.And(dialect.WarpCol(gd, col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
 }
 
-func (w *Where) OrIn(field string, args ...interface{}) *Where {
+func (w *Where) OrIn(col string, args ...interface{}) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" IN ("+dialect.Placeholders(len(args))+")", args...)
+	return w.Or(dialect.WarpCol(gd, col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
 }
 
-func (w *Where) LikeLeft(field string, arg string) *Where {
+func (w *Where) LikeLeft(col string, arg string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
+	return w.And(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
 }
 
-func (w *Where) OrLikeLeft(field string, arg string) *Where {
+func (w *Where) OrLikeLeft(col string, arg string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
+	return w.Or(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
 }
 
-func (w *Where) LikeRight(field string, arg string) *Where {
+func (w *Where) LikeRight(col string, arg string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
+	return w.And(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
 }
 
-func (w *Where) OrLikeRight(field string, arg string) *Where {
+func (w *Where) OrLikeRight(col string, arg string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
+	return w.Or(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
 }
 
-func (w *Where) Like(field string, arg string) *Where {
+func (w *Where) Like(col string, arg string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpField(gd, field)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
+	return w.And(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
 }
 
-func (w *Where) OrLike(field string, arg string) *Where {
+func (w *Where) OrLike(col string, arg string) *Where {
 	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpField(gd, field)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
+	return w.Or(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
 }
 
 func (w *Where) And(sqlStr string, args ...interface{}) *Where {

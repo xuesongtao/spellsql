@@ -4,22 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 type MysqlTable struct {
-	initArgs []string
 }
 
 // Mysql
 func Mysql() *MysqlTable {
-	return &MysqlTable{
-		initArgs: []string{},
-	}
+	return &MysqlTable{}
 }
 
-func (m *MysqlTable) GetWarpFieldSymbol() string {
+func (m *MysqlTable) GetWarpColSymbol() string {
 	return "`"
 }
 
@@ -40,15 +37,8 @@ func (m *MysqlTable) GetAdapterName() string {
 	return "mysql"
 }
 
-func (m *MysqlTable) SetTableName(name string) {
-	m.initArgs = []string{name}
-}
-
-func (m *MysqlTable) GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) {
-	if len(m.initArgs) != 1 {
-		return nil, fmt.Errorf(internal.GetField2ColInfoMapErr, m.GetAdapterName())
-	}
-	sqlStr := fmt.Sprintf("SHOW COLUMNS FROM %s", m.initArgs[0])
+func (m *MysqlTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {
+	sqlStr := fmt.Sprintf("SHOW COLUMNS FROM %s", tableName)
 	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("mysql query is failed, err: %v, sqlStr: %v", err, sqlStr)

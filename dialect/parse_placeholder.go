@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 type ParsePlaceholder struct {
@@ -167,7 +167,7 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 // Replace 将占位符替换为对应的数据库占位符, 例如 mysql 为 ?, pg 为 $1, $2, ...
 func (p *ParsePlaceholder) Replace() *ParsePlaceholder {
 	p.buf.Reset()
-	// 需要将 ?, ?d, ?v 进行替换
+	// 需要将 ?, ?d, ?v 进行替换为对应数据库的占位符
 	p.loop(
 		func(curIndex, argIndex, lastIndex int) int {
 			hasSuffix := false

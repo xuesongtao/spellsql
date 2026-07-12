@@ -15,7 +15,7 @@ type DBer interface {
 
 // Dialect 数据库方言接口, 适配不同数据库, 不变的部分
 type Dialect interface {
-	GetWarpFieldSymbol() string           // 获取字段包裹符号
+	GetWarpColSymbol() string             // 获取字段包裹符号
 	GetWarpValueStrSymbol() string        // 获取值为字符串的包裹符号
 	GetValueEscapeMap() map[byte][]byte   // 获取值转义规则
 	GetLimitSql(limit, offset int) string // 获取 limit sql 语句
@@ -29,11 +29,11 @@ func Placeholders(n ...int) string {
 	return strings.Repeat("?, ", nn-1) + "?"
 }
 
-func WarpField(d Dialect, field string) string {
-	if strings.HasPrefix(field, d.GetWarpFieldSymbol()) {
+func WarpCol(d Dialect, field string) string {
+	if strings.HasPrefix(field, d.GetWarpColSymbol()) {
 		return field
 	}
-	return d.GetWarpFieldSymbol() + field + d.GetWarpFieldSymbol()
+	return d.GetWarpColSymbol() + field + d.GetWarpColSymbol()
 }
 
 func WarpValue(d Dialect, value string) string {
@@ -43,16 +43,15 @@ func WarpValue(d Dialect, value string) string {
 	return d.GetWarpValueStrSymbol() + value + d.GetWarpValueStrSymbol()
 }
 
-func WarpJoinFields(d Dialect, fields ...string) string {
+func WarpJoinCols(d Dialect, fields ...string) string {
 	result := make([]string, len(fields))
 	for i, field := range fields {
-		result[i] = WarpField(d, field)
+		result[i] = WarpCol(d, field)
 	}
 	return strings.Join(result, ", ")
 }
 
 // TableMeter 表元信息, 为了适配不同数据库
 type TableMeter interface {
-	SetTableName(tableName string)                                                                     // 方便框架调用设置 tableName 参数
-	GetField2ColInfoMap(ctx context.Context, db DBer, printLog bool) (map[string]*TableColInfo, error) // key: field
+	GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) // key: col
 }

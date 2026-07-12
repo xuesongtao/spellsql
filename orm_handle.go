@@ -5,8 +5,11 @@ import (
 	"errors"
 	"reflect"
 	"sort"
-	"strings"
-	"time"
+
+	"gitee.com/xuesongtao/spellsql/v2/builder"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 // Slice2Interfaces 切片转 interfaces
@@ -22,7 +25,7 @@ func Slice2Interfaces(l int, to func(i int) interface{}) []interface{} {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	// 默认插入全量字段
-	if _, err := t.insert(nil, insertObjs...); err != nil {
+	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
 	}
@@ -31,39 +34,49 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 
 // InsertOfField 批量新增, 指定新增列
 func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
-	if _, err := t.insert(cols, insertObjs...); err != nil {
+	if _, err := t.insert(internal.INSERT, cols, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
 	}
 	return t
 }
 
-func (t *Table) insert(cols []string, insertObjs ...interface{}) ([]string, error) {
+func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...interface{}) ([]string, error) {
 	if len(insertObjs) == 0 {
 		return nil, errors.New("insertObjs is empty")
 	}
 
 	var (
-		insertSql  *SqlStrObj
-		needCols   = t.getNeedCols(cols)
-		handleCols []string
+		insertSql    *builder.Insert
+		needCols     = t.getNeedCols(cols)
+		handleCols   []string
 		isOnlyInsert = len(insertObjs) == 1 // 仅仅只有一个
 	)
+
 	for i, insertObj := range insertObjs {
 		if isOnlyInsert { // insert 一个值的时候, 在解析列的时候跳过零值
 			needCols = nil
 		}
-		columns, values, err := t.getHandleTableCol2Val(insertObj, INSERT, needCols, t.name)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, opType, needCols, t.name)
 		if err != nil {
 			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
 		}
 		if i == 0 {
-			insertSql = t.getSqlObj("INSERT INTO ?v (?v) VALUES", t.name, t.GetParcelFields(columns...))
+			insertSql = builder.NewInsert(t.dbType)
+			switch opType {
+			case internal.INSERT_REPLACE:
+				insertSql.IntoReplace(t.name)
+			case internal.INSERT_IGNORE:
+				insertSql.IntoIgnore(t.name)
+			default:
+				insertSql.Into(t.name)
+			}
+			insertSql.Columns(columns...)
 			handleCols = columns
 		}
-		insertSql.SetInsertValues(values...)
+		insertSql.Values(values...)
 	}
-	t.tmpSqlObj = insertSql
+	t.builder = insertSql
 	return handleCols, nil
 }
 
@@ -89,27 +102,17 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
-	if _, err := t.insert(nil, insertObjs...); err != nil {
+	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
 	}
-	kv := make([]string, 0)
-	keys = t.GetParcelFieldArr(keys...)
-	for _, key := range keys {
-		kv = append(kv, key+"=VALUES("+key+")")
-	}
-
-	if len(kv) > 0 {
-		t.AppendSql("ON DUPLICATE KEY UPDATE " + strings.Join(kv, ", "))
-	}
+	t.builder.(*builder.Insert).DuplicateUpdate(keys)
 	return t
 }
 
 // AppendSql 对 sql 进行自定义追加
 func (t *Table) AppendSql(sqlStr string, args ...interface{}) *Table {
-	if sqlStr != "" {
-		t.tmpSqlObj.Append(sqlStr, args...)
-	}
+	t.builder.AppendSql2Args(sqlStr, args...)
 	return t
 }
 
@@ -122,12 +125,12 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // InsertsIg insert ignore into xxx  新增批量忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
-	if _, err := t.insert(nil, insertObjs...); err != nil {
+	if _, err := t.insert(internal.INSERT_IGNORE, nil, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
 	}
-	insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
-	t.tmpSqlObj = t.getSqlObj(insertSqlStr)
+	// insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
+	// t.tmpSqlObj = t.getSqlObj(insertSqlStr)
 	return t
 }
 
@@ -135,25 +138,26 @@ func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
-		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], DELETE, nil, t.name)
+		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], internal.DELETE, nil, t.name)
 		if err != nil {
 			sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
 			return t
 		}
 
 		l := len(columns)
-		t.tmpSqlObj = t.getSqlObj("DELETE FROM ?v WHERE", t.name)
-		for i := 0; i < l; i++ {
-			k := columns[i]
-			v := values[i]
-			t.tmpSqlObj.SetWhereArgs("?v = ?", t.GetParcelFields(k), v)
-		}
+		t.builder = builder.NewDelete(t.dbType).From(t.name).WhereCb(func(wb *builder.Where) {
+			for i := 0; i < l; i++ {
+				k := columns[i]
+				v := values[i]
+				wb.Eq(k, v)
+			}
+		})
 	} else {
-		if null(t.name) {
-			sLog.Error(t.ctx, tableNameIsUnknownErr)
+		if utils.Null(t.name) {
+			sLog.Error(t.ctx, internal.TableNameIsUnknownErr)
 			return t
 		}
-		t.tmpSqlObj = t.getSqlObj("DELETE FROM ?v WHERE", t.name)
+		t.builder = builder.NewDelete(t.dbType).From(t.name)
 	}
 	return t
 }
@@ -161,34 +165,38 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 // Update 会更新输入的值
 // 默认排除更新主键, 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
-	columns, values, err := t.getHandleTableCol2Val(updateObj, UPDATE, nil, t.name)
+	columns, values, err := t.getHandleTableCol2Val(updateObj, internal.UPDATE, nil, t.name)
 	if err != nil {
 		sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
 		return t
 	}
 
 	l := len(columns)
-	t.tmpSqlObj = t.getSqlObj("UPDATE ?v SET", t.name)
+	updateBuilder := builder.NewUpdate(t.dbType).Table(t.name)
 	for i := 0; i < l; i++ {
 		k := columns[i]
 		v := values[i]
-		t.tmpSqlObj.SetUpdateValueArgs("?v = ?", t.GetParcelFields(k), v)
+		// t.tmpSqlObj.SetUpdateValueArgs("?v = ?", t.GetParcelFields(k), v)
+		updateBuilder.Set(k, v)
 	}
-	t.tmpSqlObj.SetWhereArgs(where, args...)
+	updateBuilder.WhereCb(func(wb *builder.Where) {
+		wb.And(where, args...)
+	})
+	t.builder = updateBuilder
 	return t
 }
 
 // getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
 // 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
 func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool, tableName ...string) (columns []string, values []interface{}, err error) {
-	tv := removeValuePtr(reflect.ValueOf(v))
+	tv := utils.RemoveValuePtr(reflect.ValueOf(v))
 	if tv.Kind() != reflect.Struct {
 		err = errors.New("it must is struct")
 		return
 	}
 
 	ty := tv.Type()
-	if null(t.name) {
+	if utils.Null(t.name) {
 		t.name = parseTableName(ty.Name())
 	}
 
@@ -201,7 +209,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 	values = make([]interface{}, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		col, tag, needMarshal := t.parseStructField(ty.Field(i), sureMarshal)
-		if null(col) {
+		if utils.Null(col) {
 			continue
 		}
 
@@ -215,15 +223,15 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		val := tv.Field(i)
 		isZero := val.IsZero()
 		if tableField.IsPri() { // 主键, 防止更新
-			if (equal(op, INSERT) && isZero) ||
-				(equal(op, DELETE) && isZero) ||
-				equal(op, UPDATE) {
+			if (internal.Equal(op, internal.INSERT) && isZero) ||
+				(internal.Equal(op, internal.DELETE) && isZero) ||
+				internal.Equal(op, internal.UPDATE) {
 				continue
 			}
 		}
 
 		if isZero {
-			if op == INSERT || op == UPDATE {
+			if op == internal.INSERT || op == internal.UPDATE {
 				// 判断下是否有设置了默认值
 				tmp, ok := t.waitHandleStructFieldMap[tag]
 				if ok && tmp.defaultVal != nil { // orm 中设置了默认值
@@ -260,7 +268,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 	}
 
 	if len(columns) == 0 || len(values) == 0 {
-		err = structTagErr
+		err = internal.StructTagErr
 		return
 	}
 	return
@@ -268,7 +276,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 
 // ParseCol2Val 根据对象解析表的 col 和 val
 func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interface{}, error) {
-	defaultOp := INSERT
+	defaultOp := internal.INSERT
 	if len(op) > 0 {
 		defaultOp = op[0]
 	}
@@ -292,14 +300,14 @@ func (t *Table) GetCols(skipCols ...string) []string {
 		sLog.Error(t.ctx, "t.initCacheCol2InfoMap is failed, err:", err)
 		return nil
 	}
-	infos := make([]*TableColInfo, 0, len(t.cacheCol2InfoMap))
+	infos := make([]*dialect.TableColInfo, 0, len(t.cacheCol2InfoMap))
 	for _, col := range t.cacheCol2InfoMap {
 		if skipMap[col.Field] {
 			continue
 		}
 		infos = append(infos, col)
 	}
-	sort.Sort(SortByTableColInfo(infos))
+	sort.Sort(dialect.SortByTableColInfo(infos))
 	l := len(infos)
 	cols := make([]string, l)
 	for i := 0; i < l; i++ {
@@ -314,12 +322,12 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	st := time.Now()
-	sqlStr := t.tmpSqlObj.SetCallerSkip(t.printSqlCallSkip).SetPrintLog(false).GetSqlStr("")
-	res, err := t.db.ExecContext(t.ctx, sqlStr)
+	// st := time.Now()
+	sqlStr, args := t.builder.GetSql2Args()
+	res, err := t.db.ExecContext(t.ctx, sqlStr, args...)
 	if err != nil {
 		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
 	}
-	defer printCostTimeLog(t.ctx, st, t.tmpSqlObj.getSqlLogStr("sql", sqlStr), t.isPrintSql)
+	// defer printCostTimeLog(t.ctx, st, t.tmpSqlObj.getSqlLogStr("sql", sqlStr), t.isPrintSql)
 	return res, nil
 }

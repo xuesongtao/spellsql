@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"sync"
 
-	"gitee.com/xuesongtao/spellsql/internal"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
 const (

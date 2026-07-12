@@ -57,10 +57,6 @@ func ExampleNewCacheSql_update() {
 		s.SetUpdateValue("username", "test")
 	}
 
-	if true {
-		s.SetUpdateValueArgs("age=?", 10)
-	}
-
 	s.SetWhere("id", 1)
 	fmt.Println(s.GetSqlStr())
 
@@ -102,32 +98,6 @@ func ExampleNewCacheSql_pageHandle() {
 	// SELECT * FROM user_info WHERE status = 1 LIMIT 10 OFFSET 0;
 	// SELECT * FROM user_info WHERE status = 1 LIMIT 10 OFFSET 10;
 	// SELECT * FROM user_info WHERE status = 1 LIMIT 10 OFFSET 20;
-}
-
-// NewSql 分页处理场景
-func ExampleNewSql_pageHandle() {
-	sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
-	handleFn := func(obj *SqlStrObj, page, size int32) {
-		// 业务代码
-		fmt.Println(obj.SetLimit(page, size).SetPrintLog(false).GetSqlStr())
-	}
-
-	// 每次同步大小
-	var (
-		totalNum  int32 = 30
-		page      int32 = 1
-		size      int32 = 10
-		totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
-	)
-	for page <= totalPage {
-		handleFn(sqlObj.Clone(), page, size)
-		page++
-	}
-
-	// Output:
-	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10 OFFSET 0;
-	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10 OFFSET 10;
-	// SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1 LIMIT 10 OFFSET 20;
 }
 
 func ExampleFmtSqlStr() {

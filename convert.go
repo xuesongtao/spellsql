@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 type convFieldInfo struct {
@@ -264,4 +264,21 @@ func (c *ConvStructObj) Convert() error {
 
 func (c *ConvStructObj) joinConvertErr(destFieldName, srcFieldName string, err error) string {
 	return fmt.Sprintf("src %q, dest %q convert is failed, err: %v;", destFieldName, srcFieldName, err)
+}
+
+func DeepCopy[T any](src interface{}) (T, error) {
+	var zero T
+	if src == nil {
+		return zero, nil
+	}
+	converter := NewConvStruct()
+	err := converter.Init(src, &zero)
+	if err != nil {
+		return zero, fmt.Errorf("init conv struct is failed, err: %v", err)
+	}
+	err = converter.Convert()
+	if err != nil {
+		return zero, fmt.Errorf("convert struct is failed, err: %v", err)
+	}
+	return zero, nil
 }

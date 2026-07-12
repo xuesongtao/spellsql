@@ -7,14 +7,19 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/v2/builder"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 // handleStructField 用于记录 struct 字段的处理方法
 type handleStructField struct {
 	needExclude bool        // 是否需要排除
 	tagAlias    string      // 别名, 便于将数据库的字段映射到 struct
-	marshal     marshalFn   // 序列化方法
-	unmarshal   unmarshalFn // 反序列化方法
+	marshal     MarshalFn   // 序列化方法
+	unmarshal   UnmarshalFn // 反序列化方法
 	defaultVal  interface{} // 默认值
 }
 
@@ -28,19 +33,18 @@ type structField struct {
 type Table struct {
 	ctx                      context.Context
 	db                       DBer
-	tmer                     TableMeter                    // 获取表元信息对象
-	printSqlCallSkip         uint8                         // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
-	destTypeFlag             uint8                         // 查询时, 用于标记 dest 类型的
-	isPrintSql               bool                          // 标记是否打印 sql
-	haveFree                 bool                          // 标记 table 释放已释放
-	needSetSize              bool                          // 标记批量查询的时候是否需要设置默认返回条数
-	tag                      string                        // 记录解析 struct 中字段名的 tag
-	name                     string                        // 表名
-	handleCols               string                        // Insert/Update/Delete/Select 操作的表字段名
-	clonedSqlStr             string                        // 记录克隆前的 sqlStr
-	tmpSqlObj                *SqlStrObj                    // 暂存 SqlStrObj 对象
-	cacheCol2InfoMap         map[string]*TableColInfo      // 记录该表的所有字段名
-	waitHandleStructFieldMap map[string]*handleStructField // 处理 struct 字段的方法, key: tag, value: 处理方法集
+	dbType                   dialect.DbType
+	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
+	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
+	isPrintSql               bool                             // 标记是否打印 sql
+	haveFree                 bool                             // 标记 table 释放已释放
+	needSetSize              bool                             // 标记批量查询的时候是否需要设置默认返回条数
+	tag                      string                           // 记录解析 struct 中字段名的 tag
+	name                     string                           // 表名
+	handleCols               []string                         // Insert/Update/Delete/Select 操作的表字段名
+	builder                  builder.SQLBuilder               // 暂存 SqlStrObj 对象
+	cacheCol2InfoMap         map[string]*dialect.TableColInfo // 记录该表的所有字段名
+	waitHandleStructFieldMap map[string]*handleStructField    // 处理 struct 字段的方法, key: tag, value: 处理方法集
 }
 
 // NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
@@ -55,7 +59,6 @@ type Table struct {
 func NewTable(db DBer, args ...string) *Table {
 	t := cacheTabObj.Get().(*Table)
 	t.init()
-	t.initTmer()
 
 	// 赋值
 	t.db = db
@@ -76,16 +79,11 @@ func (t *Table) init() {
 	t.isPrintSql = true
 	t.haveFree = false
 	t.needSetSize = false
-	t.tag = defaultTableTag
+	t.tag = internal.DefaultTableTag
 }
 
 // free 释放
 func (t *Table) free() {
-	// clone 对象就不放回
-	if !null(t.clonedSqlStr) {
-		return
-	}
-
 	if t.haveFree {
 		sLog.Error(t.ctx, "table already free")
 		return
@@ -95,13 +93,9 @@ func (t *Table) free() {
 
 	// 释放内容
 	t.db = nil
-	if isFreeTmerFlag {
-		t.tmer = nil
-	}
 	t.name = ""
-	t.handleCols = ""
-	t.clonedSqlStr = ""
-	t.tmpSqlObj = nil
+	t.handleCols = nil
+	t.builder = nil
 	t.cacheCol2InfoMap = nil
 	t.waitHandleStructFieldMap = nil
 
@@ -118,33 +112,9 @@ func (t *Table) Ctx(ctx context.Context) *Table {
 	return t
 }
 
-// Clone 克隆对象
-// 说明: 因为都为单线程使用, 不支持并发操作
-func (t *Table) Clone() *Table {
-	if !t.sqlObjIsNil() && null(t.clonedSqlStr) {
-		t.clonedSqlStr = t.tmpSqlObj.FmtSql()
-	}
-	if t.clonedSqlStr == "" {
-		t.clonedSqlStr = "clone" // 进行占位, 便于区别使用什么函数来初始化 tmpSqlObj
-	}
-	t.tmpSqlObj = t.getSqlObj(t.clonedSqlStr)
-	t.printSqlCallSkip = 2
+func (t *Table) DbType(dt dialect.DbType) *Table {
+	t.dbType = dt
 	return t
-}
-
-// getSqlObj 获取 sql 对象
-func (t *Table) getSqlObj(sqlStr string, args ...interface{}) *SqlStrObj {
-	var obj *SqlStrObj
-	if !null(t.clonedSqlStr) { // 克隆模式
-		obj = NewSql(sqlStr, args...)
-	} else {
-		obj = NewCacheSql(sqlStr, args...)
-	}
-	t.initTmer()
-	obj.SetCtx(t.ctx)
-	// obj.SetStrSymbol(t.tmer.GetValueStrSymbol())
-	// obj.SetEscapeMap(t.tmer.GetValueEscapeMap())
-	return obj
 }
 
 // IsPrintSql 是否打印 sql
@@ -165,6 +135,11 @@ func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
 	return t
 }
 
+func (t *Table) Clone() *Table {
+	clone, _ := DeepCopy[Table](t)
+	return &clone
+}
+
 // initCacheCol2InfoMap 初始化表字段 map, 由于json tag 应用比较多, 为了在后续执行 INSERT/UPDATE 等通过对象取值会存在取值错误现象, 所以需要预处理下
 func (t *Table) initCacheCol2InfoMap() error {
 	// 已经初始化过了
@@ -176,27 +151,23 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return err
 	}
 
-	if null(t.name) {
-		return tableNameIsUnknownErr
+	if utils.Null(t.name) {
+		return internal.TableNameIsUnknownErr
 	}
 
-	// 获取表元数据
-	t.initTmer()
-
 	// 防止 name 中包含 别名, 格式为: "db_name"
-	// tableName := t.tmer.GetAdapterName() + "_" + parseTableName(t.name)
 	tableName := parseTableName(t.name)
 
 	// 先判断下缓存中有没有
 	if info, ok := cacheTableName2ColInfoMap.Load(tableName); ok {
-		t.cacheCol2InfoMap, ok = info.(map[string]*TableColInfo)
+		t.cacheCol2InfoMap, ok = info.(map[string]*dialect.TableColInfo)
 		if ok {
 			return nil
 		}
 	}
 
 	var err error
-	t.cacheCol2InfoMap, err = t.tmer.GetField2ColInfoMap(t.ctx, t.db, t.isPrintSql)
+	t.cacheCol2InfoMap, err = dialect.GetTableMeter(t.dbType).GetColInfoMap(t.ctx, t.db, tableName)
 	if err != nil {
 		return err
 	}
@@ -204,17 +175,6 @@ func (t *Table) initCacheCol2InfoMap() error {
 	// 缓存
 	cacheTableName2ColInfoMap.Store(tableName, t.cacheCol2InfoMap)
 	return nil
-}
-
-// initTmer 初始化表元数据对象
-func (t *Table) initTmer() {
-	// 默认按 mysql 的方式处理
-	if t.tmer == nil {
-		t.tmer = getTmerFn()
-	}
-	if !null(t.name) {
-		t.tmer.SetTableName(t.name)
-	}
 }
 
 // setWaitHandleStructFieldMap 设置 waitHandleStructFieldMap 值
@@ -265,7 +225,7 @@ func (t *Table) TagDefault(tag2DefaultMap map[string]interface{}) *Table {
 
 // SetMarshalFn 设置 struct 字段待序列化方法, 如果字段嵌套/对象等, 但是没有设置序列化方法, 那么就默认设置 json.Marshal 来处理该字段
 // 注: 调用必须优先 Insert/Update 操作的方法, 防止通过对象解析字段时被排除
-func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
+func (t *Table) SetMarshalFn(fn MarshalFn, tags ...string) *Table {
 	for _, tag := range tags {
 		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
 			val.marshal = fn
@@ -276,7 +236,7 @@ func (t *Table) SetMarshalFn(fn marshalFn, tags ...string) *Table {
 
 // SetUnmarshalFn 设置 struct 字段待反序列化方法, 如果字段嵌套/对象等, 但是没有设置反序列化方法, 那么就默认设置 json.Unmarshal 来处理该字段
 // 注: 调用必须优先于 SelectAuto, 防止 SelectAuto 解析时查询字段被排除
-func (t *Table) SetUnmarshalFn(fn unmarshalFn, tags ...string) *Table {
+func (t *Table) SetUnmarshalFn(fn UnmarshalFn, tags ...string) *Table {
 	for _, tag := range tags {
 		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
 			val.unmarshal = fn
@@ -320,7 +280,7 @@ func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2Stru
 	sortCol = make([]string, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		col, tag, _ := t.parseStructField(ty.Field(i), sureUnmarshal)
-		if null(col) {
+		if utils.Null(col) {
 			continue
 		}
 
@@ -339,18 +299,18 @@ func (t *Table) parseCol2StructField(ty reflect.Type, isNeedSort bool) (col2Stru
 
 // parseStructField 从结构体的 tag 中解析出列名, 同时跳过嵌套, 包含: 对象, 指针对象, 切片, 不可导出字段
 func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (col, tag string, need bool) {
-	if !isExported(fieldInfo.Name) {
+	if !utils.IsExported(fieldInfo.Name) {
 		return
 	}
 
 	// 解析 tag 中的列名
 	tag = fieldInfo.Tag.Get(t.tag)
-	if null(tag) {
+	if utils.Null(tag) {
 		return
 	}
 
 	// 去除 tag 中的干扰, 如: json:"xxx,omitempty"
-	tag = parseTag2Col(tag)
+	tag = utils.ParseTag2Col(tag)
 
 	// 处理下 tag
 	var alias string
@@ -389,7 +349,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 	}
 
 	col = tag
-	if !null(alias) {
+	if !utils.Null(alias) {
 		col = alias
 	}
 	return
@@ -404,14 +364,9 @@ func (t *Table) needSkipObj(kind reflect.Kind) bool {
 	return false
 }
 
-// GetSqlObj 获取 SqlStrObj, 方便外部使用该对象的方法
-func (t *Table) GetSqlObj() *SqlStrObj {
-	return t.tmpSqlObj
-}
-
-// sqlObjIsNil 判断 sqlObj 是否为空
-func (t *Table) sqlObjIsNil() bool {
-	return t.tmpSqlObj == nil
+// GetBuilder 方便外部使用该对象的方法
+func (t *Table) GetBuilder() builder.SQLBuilder {
+	return t.builder
 }
 
 // Raw 执行原生操作
@@ -421,12 +376,12 @@ func (t *Table) sqlObjIsNil() bool {
 func (t *Table) Raw(sql interface{}) *Table {
 	switch val := sql.(type) {
 	case string:
-		t.tmpSqlObj = t.getSqlObj(val)
-	case *SqlStrObj:
-		t.tmpSqlObj = val
-		t.isPrintSql = val.isPrintSqlLog && t.isPrintSql
+		t.builder.InitSql2Args(val)
+	case builder.SQLBuilder:
+		t.builder = val
+		t.isPrintSql = t.isPrintSql
 	default:
-		sLog.Error(t.ctx, "sql only support string/SqlStrObjPtr")
+		sLog.Error(t.ctx, "sql only support string/SQLBuilder")
 		return t
 	}
 	return t
@@ -447,37 +402,12 @@ func (t *Table) prevCheck(checkSqlObj ...bool) error {
 		defaultCheckSqlObj = checkSqlObj[0]
 	}
 
-	if defaultCheckSqlObj && t.sqlObjIsNil() {
-		if null(t.name) {
-			return tableNameIsUnknownErr
+	if defaultCheckSqlObj {
+		if utils.Null(t.name) {
+			return internal.TableNameIsUnknownErr
 		}
-		return errors.New("tmpSqlObj is nil")
 	}
 	return nil
-}
-
-// GetParcelFields 获取数据库包裹字段后的字段内容, 会根据数据库的不同结果不同
-// 如: mysql: `id`; pg: "id"
-func (t *Table) GetParcelFields(fields ...string) string {
-	return strings.Join(t.GetParcelFieldArr(fields...), ", ")
-}
-
-// GetParcelFieldArr 获取被包裹字段内容
-func (t *Table) GetParcelFieldArr(fields ...string) []string {
-	res := make([]string, 0, len(fields))
-	// parcelStr := string(t.tmer.GetParcelFieldSymbol())
-	parcelStr := ""
-	for _, field := range fields {
-		// 需要去掉表别名, 如 ur.id => ur.`id`
-		prefix := ""
-		tmpField := field
-		if index := strings.Index(field, "."); index != -1 {
-			prefix = field[:index+1]
-			tmpField = field[index+1:]
-		}
-		res = append(res, prefix+parcelStr+tmpField+parcelStr)
-	}
-	return res
 }
 
 // parseTableName 解析表名
@@ -490,8 +420,8 @@ func parseTableName(objName string) string {
 	}
 
 	// 解析对象名
-	res := getTmpBuf(len(objName))
-	defer putTmpBuf(res)
+	res := internal.GetTmpBuf(len(objName))
+	defer internal.PutTmpBuf(res)
 	for i, v := range objName {
 		if v >= 'A' && v <= 'Z' {
 			if i > 0 {

@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/xuesongtao/spellsql/dialect"
-	"gitee.com/xuesongtao/spellsql/internal"
-	"gitee.com/xuesongtao/spellsql/test"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/test"
 )
 
 func TestWhereGetExecArgs(t *testing.T) {
@@ -172,7 +172,7 @@ func TestInsert(t *testing.T) {
 		i := NewInsert(dialect.MySQL)
 		i.IntoReplace("user").Columns("name").Values("bar")
 		sql, _ := i.GetSql2Args()
-		expectedSql := "INSERT REPLACE INTO user(`name`) VALUES (?)"
+		expectedSql := "REPLACE INTO user(`name`) VALUES (?)"
 		if sql != expectedSql {
 			t.Errorf("sql error, got: %s, want: %s", sql, expectedSql)
 		}
@@ -455,12 +455,34 @@ func TestSelect(t *testing.T) {
 		}
 	})
 
+	t.Run("GetTotalNoParseSql2Args", func(t *testing.T) {
+		s := NewSelect(dialect.MySQL)
+		s.Select("name").From("users").WhereCb(func(wb *Where) {
+			wb.Eq("id", 1)
+		})
+
+		finalSql := s.GetSqlStr()
+		expected := "SELECT `name` FROM users WHERE `id` = 1"
+		if finalSql != expected {
+			t.Errorf("GetSqlStr error, got: %s, want: %s", finalSql, expected)
+		}
+
+		finalSql, args := s.GetTotalNoParseSql2Args()
+		expected = "SELECT COUNT(*) FROM users WHERE `id` = ?"
+		if finalSql != expected {
+			t.Errorf("GetTotalNoParseSql2Args error, got: %s, want: %s", finalSql, expected)
+		}
+		if len(args) != 1 || !test.Equal(args[0], 1) {
+			t.Errorf("args sequence error: %v", args)
+		}
+	})
+
 	t.Run("select all when empty", func(t *testing.T) {
 		s := NewSelect(dialect.MySQL)
 		s.From("users")
 		sql, _ := s.GetSql2Args()
-		if !strings.HasPrefix(sql, "SELECT * FROM") {
-			t.Errorf("default select should be *, got: %s", sql)
+		if !strings.HasPrefix(sql, " FROM users") {
+			t.Errorf("default select should be FROM users, got: %s", sql)
 		}
 	})
 

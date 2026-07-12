@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	"gitee.com/xuesongtao/spellsql/test"
-	"gitee.com/xuesongtao/spellsql/utils"
+	"gitee.com/xuesongtao/spellsql/v2/test"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 func TestHandleCusType(t *testing.T) {
@@ -82,7 +82,6 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password)")
 		// s.SetPrintLog(false)
 		for i := 0; i < 2; i++ {
-			s.SetInsertValuesArgs("?, ?d", "xue", "123456")
 			s.SetInsertValues("xue", 123456)
 		}
 		sqlStr := s.GetSqlStr()
@@ -95,7 +94,6 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 	t.Run("duplicate update", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
 		// s.SetPrintLog(false)
-		s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
 		s.Append("ON DUPLICATE KEY UPDATE username=VALUES(?v)", "username")
 		sqlStr := s.GetSqlStr()
 		sureSql := `INSERT INTO sys_user (username, password, age) VALUES ("xuesongtao", "123", 20) ON DUPLICATE KEY UPDATE username=VALUES(username);`
@@ -148,7 +146,6 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 		s := NewCacheSql("UPDATE sys_user SET")
 		// s.SetPrintLog(false)
 		s.SetUpdateValue("name", "xue")
-		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
 		s.SetWhereArgs("id IN (?d) AND age IN (?) AND name = ?", idsStr, []int{18, 20}, "xuesongtao")
 		sqlStr := s.GetSqlStr()
 		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND age IN (18,20) AND name = "xuesongtao";`
@@ -162,7 +159,6 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 		s := NewCacheSql("UPDATE sys_user SET")
 		// s.SetPrintLog(false)
 		s.SetUpdateValue("name", "xue")
-		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
 		s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "xuesongtao")
 		sqlStr := s.GetSqlStr()
 		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND name = "xuesongtao";`
@@ -384,7 +380,7 @@ func BenchmarkSqlStr_Int2Str(b *testing.B) {
 	}
 }
 
-// go test -benchmem -run=^$ -bench ^BenchmarkSqlStr_GetSql gitee.com/xuesongtao/spellsql -v -count=5
+// go test -benchmem -run=^$ -bench ^BenchmarkSqlStr_GetSql gitee.com/xuesongtao/spellsql/v2 -v -count=5
 
 func BenchmarkSqlStr_GetSql(b *testing.B) {
 	b.ResetTimer()
