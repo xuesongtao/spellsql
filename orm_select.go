@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
@@ -20,7 +21,18 @@ func (t *Table) Select(fields string) *Table {
 		return t
 	}
 
-	return t.setSelect(strings.Split(fields, ",")...)
+	return t.setSelect(t.parseCols(fields)...)
+}
+
+func (t *Table) parseCols(fields string) []string {
+	if utils.Null(fields) {
+		return nil
+	}
+	arr := make([]string, 0, 5)
+	for _, col := range strings.Split(fields, ",") {
+		arr = append(arr, strings.TrimSpace(col))
+	}
+	return arr
 }
 
 func (t *Table) setSelect(col ...string) *Table {
@@ -169,8 +181,8 @@ func (t *Table) RightJoin(joinTable, on string) *Table {
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
-	t.getSelectBuilder().WhereCb(func(wb *builder.Where) {
-		wb.And(sqlStr, args)
+	builder.WhereCb(t.builder, func(wb *builder.Where) {
+		wb.And(sqlStr, args...)
 	})
 	return t
 }
@@ -179,8 +191,8 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
-	t.getSelectBuilder().WhereCb(func(wb *builder.Where) {
-		wb.Or(sqlStr, args)
+	builder.WhereCb(t.builder, func(wb *builder.Where) {
+		wb.Or(sqlStr, args...)
 	})
 	return t
 }
@@ -190,36 +202,41 @@ func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
 func (t *Table) WhereLike(likeType uint8, filedName, value string) *Table {
 	switch likeType {
 	case ALK:
-		t.getSelectBuilder().Where().Like(filedName, value)
+		builder.WhereCb(t.builder, func(wb *builder.Where) {
+			wb.Like(filedName, value)
+		})
 	case RLK:
-		t.getSelectBuilder().Where().LikeRight(filedName, value)
+		builder.WhereCb(t.builder, func(wb *builder.Where) {
+			wb.LikeRight(filedName, value)
+		})
 	case LLK:
-		t.getSelectBuilder().Where().LikeLeft(filedName, value)
+		builder.WhereCb(t.builder, func(wb *builder.Where) {
+			wb.LikeLeft(filedName, value)
+		})
 	}
 	return t
 }
 
 // AllLike 全模糊查询
 func (t *Table) AllLike(filedName, value string) *Table {
-	t.getSelectBuilder().Where().Like(filedName, value)
-	return t
+	return t.WhereLike(ALK, filedName, value)
 }
 
 // LeftLike 左模糊
 func (t *Table) LeftLike(filedName, value string) *Table {
-	t.getSelectBuilder().Where().LikeLeft(filedName, value)
-	return t
+	return t.WhereLike(LLK, filedName, value)
 }
 
 // RightLike 右模糊
 func (t *Table) RightLike(filedName, value string) *Table {
-	t.getSelectBuilder().Where().LikeRight(filedName, value)
-	return t
+	return t.WhereLike(RLK, filedName, value)
 }
 
 // Between
 func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
-	t.getSelectBuilder().Where().Between(filedName, leftVal, rightVal)
+	builder.WhereCb(t.builder, func(wb *builder.Where) {
+		wb.Between(filedName, leftVal, rightVal)
+	})
 	return t
 }
 
@@ -357,7 +374,7 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 // 如果没有指定查询条数, 默认 internal.DefaultBatchSelectSize
 // dest 支持 struct/slice/单字段/map
 func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
-	if t.getSelectBuilder().ColsEmpty() {
+	if t.builder == nil || t.getSelectBuilder().ColsEmpty() {
 		t.SelectAuto(dest)
 	}
 
@@ -378,14 +395,12 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 
 // QueryRowScan 单行多值查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
-	defer t.free()
-
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
 	t.printSqlCallSkip += 1
 
-	rows, err := t.Query(false)
+	rows, err := t.Query()
 	if err != nil {
 		return err
 	}
@@ -424,27 +439,18 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 
 // Query 多行查询
 // 注: 返回的 sql.Rows 需要调用 Close, 防止 goroutine 泄露
-func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
-	defaultNeedCache := true
-	if len(isNeedCache) > 0 {
-		defaultNeedCache = isNeedCache[0]
-	}
-
-	if defaultNeedCache {
-		defer t.free()
-	}
-
+func (t *Table) Query() (*sql.Rows, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
-	// st := time.Now()
-	sqlStr, args := t.getSelectBuilder().GetSql2Args()
+	st := time.Now()
+	sqlStr, args := t.builder.GetSql2Args()
 	rows, err := t.db.QueryContext(t.ctx, sqlStr, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
-	// defer printCostTimeLog(t.ctx, st, t.tmpSqlObj.getSqlLogStr("sql", sqlStr), t.isPrintSql)
+	defer printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return rows, nil
 }
 
@@ -492,10 +498,9 @@ func (t *Table) loadDestType(dest reflect.Type) {
 
 // find 查询处理入口, 根据 dest 类型进行分配处理
 func (t *Table) find(dest interface{}, ty reflect.Type, ignoreRes bool, fn ...SelectCallBackFn) error {
-	defer t.free()
 	t.printSqlCallSkip += 2
 
-	rows, err := t.Query(false)
+	rows, err := t.Query()
 	if err != nil {
 		return err
 	}

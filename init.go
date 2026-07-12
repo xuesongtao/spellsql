@@ -11,10 +11,6 @@ import (
 
 // ====================================== spellsql =============================================
 
-var (
-	sqlSyncPool = sync.Pool{New: func() interface{} { return new(SqlStrObj) }} // 考虑到性能问题, 这里用 pool
-)
-
 // ====================================== orm =============================================
 
 const (
@@ -35,7 +31,6 @@ var (
 	cacheStructType2StructFieldMap = utils.NewLRU() // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
 
 	// 常用就缓存下
-	cacheTabObj     = sync.Pool{New: func() interface{} { return new(Table) }}
 	cacheNullString = sync.Pool{New: func() interface{} { return new(sql.NullString) }}
 	cacheNullInt64  = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
 

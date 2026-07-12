@@ -41,18 +41,18 @@ func (s *SqlStrObj) SetRightJoin(tableName string, on string) *SqlStrObj {
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
 func (s *SqlStrObj) SetWhere(fieldName string, args ...interface{}) *SqlStrObj {
-	return s.setWhere(fieldName, args...)
+	return s.setWhere(internal.SELECT, fieldName, args...)
 }
 
 // SetOrWhere 设置过滤条件, 连接符为 OR
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
 func (s *SqlStrObj) SetOrWhere(fieldName string, args ...interface{}) *SqlStrObj {
-	return s.setWhere(fieldName, args...)
+	return s.setWhere(internal.SELECT_OR, fieldName, args...)
 }
 
 // setWhere 转换参数
-func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) setWhere(opType internal.OpType, fieldName string, args ...interface{}) *SqlStrObj {
 	argsLen := len(args)
 	if argsLen == 0 {
 		args = []interface{}{internal.NULL}
@@ -95,25 +95,32 @@ func (s *SqlStrObj) setWhere(fieldName string, args ...interface{}) *SqlStrObj {
 	if needAdd {
 		sqlStr += " ?"
 	}
-	s.getSelectBuilder().Where().AppendSql2Args(sqlStr, arg)
+	// s.getSelectBuilder().Where().AppendSql2Args(sqlStr, arg)
+	builder.WhereCb(s.builder, func(wb *builder.Where) {
+		if opType == internal.SELECT_OR {
+			wb.Or(sqlStr, args...)
+		} else {
+			wb.And(sqlStr, args...)
+		}
+	})
 	return s
 }
 
 // SetRightLike 设置右模糊查询, 如: xxx LIKE "test%"
 func (s *SqlStrObj) SetRightLike(fieldName string, val string) *SqlStrObj {
-	s.setWhere(fieldName, "LIKE", builder.EscapeLike(val)+"%")
+	s.setWhere(internal.SELECT_AND, fieldName, "LIKE", builder.EscapeLike(val)+"%")
 	return s
 }
 
 // SetLeftLike 设置左模糊查询, 如: xxx LIKE "%test"
 func (s *SqlStrObj) SetLeftLike(fieldName string, val string) *SqlStrObj {
-	s.setWhere(fieldName, "LIKE", "%"+builder.EscapeLike(val))
+	s.setWhere(internal.SELECT_AND, fieldName, "LIKE", "%"+builder.EscapeLike(val))
 	return s
 }
 
 // SetAllLike 设置全模糊, 如: xxx LIKE "%test%"
 func (s *SqlStrObj) SetAllLike(fieldName string, val string) *SqlStrObj {
-	s.setWhere(fieldName, "LIKE", "%"+builder.EscapeLike(val)+"%")
+	s.setWhere(internal.SELECT_AND, fieldName, "LIKE", "%"+builder.EscapeLike(val)+"%")
 	return s
 }
 
@@ -126,7 +133,9 @@ func (s *SqlStrObj) SetBetween(fieldName string, leftVal, rightVal interface{}) 
 // 如: SetWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
 func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
-	s.getSelectBuilder().Where().AppendSql2Args(" "+sqlStr, args...)
+	builder.WhereCb(s.builder, func(wb *builder.Where) {
+		wb.And(" "+sqlStr, args...)
+	})
 	return s
 }
 
@@ -134,7 +143,9 @@ func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj 
 // 如: SetOrWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
 func (s *SqlStrObj) SetOrWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
-	s.getSelectBuilder().Where().AppendSql2Args(" "+sqlStr, args...)
+	builder.WhereCb(s.builder, func(wb *builder.Where) {
+		wb.Or(" "+sqlStr, args...)
+	})
 	return s
 }
 

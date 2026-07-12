@@ -3,7 +3,10 @@ package spellsql
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
+	"gitee.com/xuesongtao/spellsql/v2/builder"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
@@ -23,7 +26,7 @@ func GetSqlStrCtx(ctx context.Context, sqlStr string, args ...interface{}) strin
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
 func FmtSqlStr(sqlStr string, args ...interface{}) string {
-	return NewCacheSql(sqlStr, args...).FmtSql()
+	return builder.NewBuilder(dialect.MySQL).InitSql2Args(sqlStr, args...).GetSqlStr()
 }
 
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
@@ -269,4 +272,22 @@ func ConvStruct(src interface{}, dest interface{}, deepCopy ...bool) error {
 		return obj.ConvertUnsafe()
 	}
 	return obj.Convert()
+}
+
+// DeepCopy 转换 struct 的值, 并返回 dest 的副本
+func DeepCopy[T any](src interface{}) (T, error) {
+	var zero T
+	if src == nil {
+		return zero, nil
+	}
+	converter := NewConvStruct()
+	err := converter.Init(src, &zero)
+	if err != nil {
+		return zero, fmt.Errorf("init conv struct is failed, err: %v", err)
+	}
+	err = converter.Convert()
+	if err != nil {
+		return zero, fmt.Errorf("convert struct is failed, err: %v", err)
+	}
+	return zero, nil
 }

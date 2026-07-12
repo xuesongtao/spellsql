@@ -145,13 +145,15 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		}
 
 		l := len(columns)
-		t.builder = builder.NewDelete(t.dbType).From(t.name).WhereCb(func(wb *builder.Where) {
+		bld := builder.NewDelete(t.dbType).From(t.name)
+		bld.WhereCb(func(wb *builder.Where) {
 			for i := 0; i < l; i++ {
 				k := columns[i]
 				v := values[i]
 				wb.Eq(k, v)
 			}
 		})
+		t.builder = bld
 	} else {
 		if utils.Null(t.name) {
 			sLog.Error(t.ctx, internal.TableNameIsUnknownErr)
@@ -160,6 +162,11 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 		t.builder = builder.NewDelete(t.dbType).From(t.name)
 	}
 	return t
+}
+
+// DeleteWhere 根据条件删除
+func (t *Table) DeleteWhere(where string, args ...interface{}) *Table {
+	return t.Delete().Where(where, args...)
 }
 
 // Update 会更新输入的值
@@ -318,12 +325,12 @@ func (t *Table) GetCols(skipCols ...string) []string {
 
 // Exec 执行
 func (t *Table) Exec() (sql.Result, error) {
-	defer t.free()
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
 	// st := time.Now()
 	sqlStr, args := t.builder.GetSql2Args()
+	// fmt.Println("sqlStr:", sqlStr, "args:", args)
 	res, err := t.db.ExecContext(t.ctx, sqlStr, args...)
 	if err != nil {
 		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)

@@ -7,17 +7,15 @@ import (
 var _ SQLBuilder = (*Delete)(nil)
 
 type Delete struct {
-	*builder
-	dbType    dialect.DbType
+	*Builder
 	tableName string
 	where     *Where
 }
 
-func NewDelete(dt dialect.DbType) *Delete {
+func NewDelete(dt ...dialect.DbType) *Delete {
 	obj := &Delete{
-		dbType:  dt,
-		builder: NewBuilder(dt),
-		where:   NewWhere(dt),
+		Builder: NewBuilder(dt...),
+		where:   NewWhere(dt...),
 	}
 	obj.setGenFinal(obj.mergeSQL)
 	return obj
@@ -40,11 +38,10 @@ func (d *Delete) SetWhere(where *Where) *Delete {
 func (d *Delete) WhereCb(f func(wb *Where)) *Delete {
 	wb := d.Where()
 	f(wb)
-	d.SetWhere(wb)
 	return d
 }
 
-func (d *Delete) mergeSQL(b *builder) {
+func (d *Delete) mergeSQL(b *Builder) {
 	if d.tableName != "" {
 		b.appendSql("DELETE FROM ")
 		b.appendSql(d.tableName)

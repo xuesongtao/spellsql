@@ -13,7 +13,7 @@ import (
 type convFieldInfo struct {
 	exclude   bool          // 标记是否排除
 	offset    int           // 偏移量
-	tagVal    string        // tag val
+	field     string        // tag val, 如果 tag 为空, 则为字段名
 	ry        reflect.Type  // 字段类型
 	tv        reflect.Value // 值
 	marshal   MarshalFn     // 序列化方法
@@ -57,16 +57,20 @@ func (c *ConvStructObj) initFieldMap(tv reflect.Value, f func(tagVal string, fie
 	fieldNum := ty.NumField()
 	for i := 0; i < fieldNum; i++ {
 		ty := ty.Field(i)
-		tagVal := utils.ParseTag2Col(ty.Tag.Get(c.tag))
-		if tagVal == "" {
+		field := ty.Tag.Get(c.tag)
+		if field == "" && utils.IsExported(ty.Name) {
+			field = ty.Name
+		}
+		field = utils.ParseTag2Col(field)
+		if field == "" {
 			continue
 		}
 
 		f(
-			tagVal,
+			field,
 			&convFieldInfo{
 				offset: i,
-				tagVal: tagVal,
+				field:  field,
 				ry:     ty.Type,
 				tv:     tv.Field(i),
 			},
@@ -264,21 +268,4 @@ func (c *ConvStructObj) Convert() error {
 
 func (c *ConvStructObj) joinConvertErr(destFieldName, srcFieldName string, err error) string {
 	return fmt.Sprintf("src %q, dest %q convert is failed, err: %v;", destFieldName, srcFieldName, err)
-}
-
-func DeepCopy[T any](src interface{}) (T, error) {
-	var zero T
-	if src == nil {
-		return zero, nil
-	}
-	converter := NewConvStruct()
-	err := converter.Init(src, &zero)
-	if err != nil {
-		return zero, fmt.Errorf("init conv struct is failed, err: %v", err)
-	}
-	err = converter.Convert()
-	if err != nil {
-		return zero, fmt.Errorf("convert struct is failed, err: %v", err)
-	}
-	return zero, nil
 }

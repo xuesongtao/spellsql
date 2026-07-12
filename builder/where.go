@@ -8,14 +8,12 @@ import (
 var _ SQLBuilder = (*Where)(nil)
 
 type Where struct {
-	*builder
-	dbType dialect.DbType
+	*Builder
 }
 
-func NewWhere(dt dialect.DbType) *Where {
+func NewWhere(dt ...dialect.DbType) *Where {
 	obj := &Where{
-		dbType:  dt,
-		builder: NewBuilder(dt),
+		Builder: NewBuilder(dt...),
 	}
 	return obj
 }
@@ -140,6 +138,11 @@ func (w *Where) OrLike(col string, arg string) *Where {
 	return w.Or(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
 }
 
+func (w *Where) WhereCb(f func(wb *Where)) *Where {
+	f(w)
+	return w
+}
+
 func (w *Where) And(sqlStr string, args ...interface{}) *Where {
 	if w.len() > 0 {
 		w.appendSql(" AND ")
@@ -156,6 +159,10 @@ func (w *Where) Or(sqlStr string, args ...interface{}) *Where {
 	return w
 }
 
+func (w *Where) Empty() bool {
+	return w.len() == 0
+}
+
 // EscapeLike 转义 like
 func EscapeLike(val string) string {
 	res := internal.Escape(
@@ -165,4 +172,18 @@ func EscapeLike(val string) string {
 			'%': {'\\', '%'},
 		})
 	return string(res)
+}
+
+// WhereCb 根据不同的 builder 类型调用对应的 WhereCb 方法
+func WhereCb(bld SQLBuilder, cb func(wb *Where)) {
+	switch b := bld.(type) {
+	case *Select:
+		b.WhereCb(cb)
+	case *Update:
+		b.WhereCb(cb)
+	case *Delete:
+		b.WhereCb(cb)
+	case *Where:
+		b.WhereCb(cb)
+	}
 }

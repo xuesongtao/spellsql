@@ -5,19 +5,17 @@ import "gitee.com/xuesongtao/spellsql/v2/dialect"
 var _ SQLBuilder = (*Update)(nil)
 
 type Update struct {
-	*builder
-	dbType    dialect.DbType
+	*Builder
 	tableName string
 	columns   []string
 	values    []interface{}
 	where     *Where
 }
 
-func NewUpdate(dt dialect.DbType) *Update {
+func NewUpdate(dt ...dialect.DbType) *Update {
 	obj := &Update{
-		dbType:  dt,
-		builder: NewBuilder(dt),
-		where:   NewWhere(dt),
+		Builder: NewBuilder(dt...),
+		where:   NewWhere(dt...),
 	}
 	obj.setGenFinal(obj.mergeSQL)
 	return obj
@@ -47,7 +45,6 @@ func (u *Update) Where() *Where {
 func (u *Update) WhereCb(f func(wb *Where)) *Update {
 	wb := u.Where()
 	f(wb)
-	u.SetWhere(wb)
 	return u
 }
 
@@ -56,7 +53,7 @@ func (u *Update) SetWhere(where *Where) *Update {
 	return u
 }
 
-func (u *Update) mergeSQL(b *builder) {
+func (u *Update) mergeSQL(b *Builder) {
 	if u.tableName != "" {
 		b.appendSql("UPDATE ")
 		b.appendSql(u.tableName)

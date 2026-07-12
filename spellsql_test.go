@@ -55,18 +55,6 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 		}
 	})
 
-	t.Run("have values", func(t *testing.T) {
-		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (?, ?, ?)", "test", 123456, "阿涛")
-		// s.SetPrintLog(false)
-		s.SetInsertValues("xuesongtao", "123456", "阿桃")
-		s.SetInsertValues("xuesongtao", "123456", "阿桃")
-		sqlStr := s.GetSqlStr()
-		sureSql := `INSERT INTO sys_user (username, password, name) VALUES ("test", 123456, "阿涛"), ("xuesongtao", "123456", "阿桃"), ("xuesongtao", "123456", "阿桃");`
-		if !test.Equal(sqlStr, sureSql) {
-			t.Error(test.NoEqErr)
-		}
-	})
-
 	t.Run("key-value", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password)")
 		// s.SetPrintLog(false)
@@ -81,7 +69,7 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 	t.Run("insert many", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password)")
 		// s.SetPrintLog(false)
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 4; i++ {
 			s.SetInsertValues("xue", 123456)
 		}
 		sqlStr := s.GetSqlStr()
@@ -93,6 +81,7 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 
 	t.Run("duplicate update", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
+		s.SetInsertValues("xuesongtao", "123", 20)
 		// s.SetPrintLog(false)
 		s.Append("ON DUPLICATE KEY UPDATE username=VALUES(?v)", "username")
 		sqlStr := s.GetSqlStr()

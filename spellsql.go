@@ -14,14 +14,12 @@ import (
 // SqlStrObj 拼接 sql 对象
 // Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
 type SqlStrObj struct {
-	ctx             context.Context
-	isPutPooled     bool            // 标记是否已被回收了
-	isPrintSqlLog   bool            // 标记是否打印 生成的 sqlStr log
-	isCallCacheInit bool            // 标记是否为 NewCacheSql 初始化生产的对象
-	actionNum       internal.OpType // INSERT/DELETE/SELECT/UPDATE
-	callerSkip      uint8           // 跳过调用栈的数
-	dbType          dialect.DbType
-	builder         builder.SQLBuilder // builder 对象, 用于拼接 sql
+	ctx           context.Context
+	isPrintSqlLog bool            // 标记是否打印 生成的 sqlStr log
+	actionNum     internal.OpType // INSERT/DELETE/SELECT/UPDATE
+	callerSkip    uint8           // 跳过调用栈的数
+	dbType        dialect.DbType
+	builder       builder.SQLBuilder // builder 对象, 用于拼接 sql
 }
 
 // NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效(有缓存)
@@ -54,10 +52,8 @@ type SqlStrObj struct {
 //     如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123")
 //     => SELECT username, password FROM sys_user WHERE id = 123
 func NewCacheSql(sqlStr string, args ...interface{}) *SqlStrObj {
-	obj := sqlSyncPool.Get().(*SqlStrObj)
-	obj.initSql(sqlStr, args...)
-	obj.isCallCacheInit = true
-	return obj
+	// 注: Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
+	return NewSql(sqlStr, args...)
 }
 
 // NewSql 此函数与 NewCacheSql 功能一样, 此函数的使用场景: 1. 需要调用多次 GetSqlStr; 2. 需要调用 Clone
@@ -79,31 +75,9 @@ func (s *SqlStrObj) SetCtx(ctx context.Context) *SqlStrObj {
 // initSql 初始化需要的 buf
 func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
 	s.init()
-
-	// INSERT, DELETE, SELECT, UPDATE
-	sqlLen := len(sqlStr)
-	if sqlLen > 6 { // 判断是什么操作
-		actionStr := sqlStr[:6]
-		upperStr := internal.ToUpper(actionStr)
-		switch upperStr {
-		case "INSERT", "REPLAC":
-			s.actionNum = internal.INSERT
-			s.builder = builder.NewInsert(s.dbType)
-		case "DELETE":
-			s.actionNum = internal.DELETE
-			s.builder = builder.NewDelete(s.dbType)
-		case "SELECT":
-			s.actionNum = internal.SELECT
-			s.builder = builder.NewSelect(s.dbType)
-		case "UPDATE":
-			s.actionNum = internal.UPDATE
-			s.builder = builder.NewUpdate(s.dbType)
-		default:
-			s.actionNum = internal.None
-			s.builder = builder.NewBuilder(s.dbType)
-		}
-	}
-	s.builder.InitSql2Args(sqlStr, args...)
+	actionNum, bld := parseSQLBuilder(s.dbType, sqlStr, args...)
+	s.actionNum = actionNum
+	s.builder = bld
 }
 
 // is
@@ -118,36 +92,10 @@ func (s *SqlStrObj) is(op uint8, target ...uint8) bool {
 // init 初始化标记, 防止从 pool 里申请的标记已有内容
 func (s *SqlStrObj) init() {
 	s.ctx = context.Background()
-	s.isPutPooled = false
-	s.isCallCacheInit = false
 	s.callerSkip = 1
 	s.actionNum = internal.None
-
-	// 默认打印 log
+	s.builder = nil
 	s.isPrintSqlLog = true
-}
-
-// free 释放
-func (s *SqlStrObj) free(isNeedPutPool bool) {
-	// 不需要 Put 的条件如下:
-	// 1. 不需要Put的
-	// 2. 只有调用 NewCacheSql 获取的对象才进行 Put
-	// 3. 如果已经Put过了
-	if !isNeedPutPool {
-		return
-	}
-
-	if !s.isCallCacheInit {
-		return
-	}
-
-	if s.isPutPooled {
-		return
-	}
-
-	// 重置 buf
-	sqlSyncPool.Put(s)
-	s.isPutPooled = true
 }
 
 func (s *SqlStrObj) SetDbType(dt dialect.DbType) *SqlStrObj {
@@ -189,15 +137,9 @@ func (s *SqlStrObj) FmtSql() string {
 	return s.SetPrintLog(false).GetSqlStr("", "")
 }
 
-func (s *SqlStrObj) getSqlLogStr(title, sqlStr string) string {
-	return s.getLogTitle(title) + sqlStr
-}
-
 // GetSqlStr 获取最终 sqlStr, 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
 // 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
-	defer s.free(true)
-
 	argsLen := len(title)
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
@@ -223,7 +165,6 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 	if !s.is(internal.SELECT) {
 		return
 	}
-	defer s.free(false)
 	// sqlStr 的结束符, 默认为 ";"
 	endMarkStr := ";"
 	argsLen := len(title)
@@ -254,15 +195,33 @@ func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
 	return
 }
 
-// getTargetIndex 忽略大小写
-func getTargetIndex(sqlStr, targetStr string, isFont2End ...bool) int {
-	is := false // 默认后往前
-	if len(isFont2End) > 0 {
-		is = isFont2End[0]
+// parseSQLBuilder 初始化需要的 buf
+func parseSQLBuilder(dt dialect.DbType, sqlStr string, args ...interface{}) (actionNum internal.OpType, bld builder.SQLBuilder) {
+	// INSERT, DELETE, SELECT, UPDATE
+	sqlLen := len(sqlStr)
+	if sqlLen > 6 { // 判断是什么操作
+		actionStr := sqlStr[:6]
+		upperStr := internal.ToUpper(actionStr)
+		switch upperStr {
+		case "INSERT", "REPLAC":
+			actionNum = internal.INSERT
+			bld = builder.NewInsert(dt)
+		case "DELETE":
+			actionNum = internal.DELETE
+			bld = builder.NewDelete(dt)
+		case "SELECT":
+			actionNum = internal.SELECT
+			bld = builder.NewSelect(dt)
+		case "UPDATE":
+			actionNum = internal.UPDATE
+			bld = builder.NewUpdate(dt)
+		default:
+			actionNum = internal.None
+		}
 	}
-	tmpIndex := utils.Index(sqlStr, targetStr, is)
-	if tmpIndex == -1 {
-		tmpIndex = utils.Index(sqlStr, internal.ToLower(targetStr), is)
+	if actionNum == internal.None { // 不是 INSERT, DELETE, SELECT, UPDATE 就使用 Where
+		bld = builder.NewWhere(dt)
 	}
-	return tmpIndex
+	bld.InitSql2Args(sqlStr, args...)
+	return
 }

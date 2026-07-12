@@ -11,8 +11,7 @@ import (
 var _ SQLBuilder = (*Select)(nil)
 
 type Select struct {
-	*builder
-	dbType     dialect.DbType
+	*Builder
 	columns    []string // 存储 SELECT 的列
 	tableName  string   // 存储表名
 	joins      []string // 存储 JOIN 语句
@@ -25,11 +24,10 @@ type Select struct {
 	offset     int
 }
 
-func NewSelect(dt dialect.DbType) *Select {
+func NewSelect(dt ...dialect.DbType) *Select {
 	obj := &Select{
-		dbType:  dt,
-		builder: NewBuilder(dt),
-		where:   NewWhere(dt),
+		Builder: NewBuilder(dt...),
+		where:   NewWhere(dt...),
 	}
 	obj.setGenFinal(obj.mergeSQL)
 	return obj
@@ -109,7 +107,6 @@ func (s *Select) SetWhere(where *Where) *Select {
 func (s *Select) WhereCb(f func(wb *Where)) *Select {
 	wb := s.Where()
 	f(wb)
-	s.SetWhere(wb)
 	return s
 }
 
@@ -170,7 +167,7 @@ func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
 	tmpBuf := internal.GetTmpBuf(s.len())
 	defer internal.PutTmpBuf(tmpBuf)
 
-	b := s.builder.copy()
+	b := s.Builder.copy()
 	sqlStr, args := b.GetNoParseSql2Args()
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
@@ -215,7 +212,7 @@ func (s *Select) GetTotalSql2Args() (string, []interface{}) {
 	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Replace().Result(), args
 }
 
-func (s *Select) mergeSQL(b *builder) {
+func (s *Select) mergeSQL(b *Builder) {
 	if len(s.columns) > 0 {
 		b.appendSql("SELECT ")
 		if len(s.columns) == 1 && strings.Contains(s.columns[0], "*") { // 查询 "*" 或 count(*) 时不需要加上字段转义符

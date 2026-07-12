@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -225,13 +227,6 @@ func ParseTag2Col(tag string) (column string) {
 	return
 }
 
-// func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
-// 	cost := time.Since(st)
-// 	if len(printLog) > 0 && printLog[0] {
-// 		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
-// 	}
-// }
-
 // GetOffset 根据分页获取 offset
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
@@ -252,4 +247,14 @@ func Int2Str(i int64) string {
 
 func UInt2Str(i uint64) string {
 	return strconv.FormatUint(i, 10)
+}
+
+func MarshalNoEscape(v interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSpace(buf.Bytes()), nil
 }

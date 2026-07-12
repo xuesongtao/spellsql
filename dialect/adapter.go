@@ -20,7 +20,7 @@ const (
 	Postgres
 )
 
-const defaultDbType = MySQL
+const DefaultDbType = MySQL
 
 var (
 	_ Dialect = &MysqlTable{}
@@ -29,33 +29,6 @@ var (
 	_ TableMeter = &MysqlTable{}
 	_ TableMeter = &PgTable{}
 )
-
-var (
-	dialectMap = map[DbType]Dialect{
-		MySQL:    Mysql(),
-		Postgres: Pg(),
-	}
-	tableMeterMap = map[DbType]func() TableMeter{
-		MySQL:    func() TableMeter { return Mysql() },
-		Postgres: func() TableMeter { return Pg() },
-	}
-)
-
-func GetTableMeter(dbType DbType) TableMeter {
-	fn, ok := tableMeterMap[dbType]
-	if ok {
-		return fn()
-	}
-	return tableMeterMap[defaultDbType]()
-}
-
-func GetDialect(dbType DbType) Dialect {
-	dialect, ok := dialectMap[dbType]
-	if ok {
-		return dialect
-	}
-	return dialectMap[defaultDbType]
-}
 
 // TableColInfo 表列详情
 type TableColInfo struct {

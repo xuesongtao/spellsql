@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
@@ -37,7 +39,6 @@ type Table struct {
 	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
 	isPrintSql               bool                             // 标记是否打印 sql
-	haveFree                 bool                             // 标记 table 释放已释放
 	needSetSize              bool                             // 标记批量查询的时候是否需要设置默认返回条数
 	tag                      string                           // 记录解析 struct 中字段名的 tag
 	name                     string                           // 表名
@@ -57,7 +58,7 @@ type Table struct {
 //	1.使用 INSERT/UPDATE/DELETE/SELECT(SELECT 排除使用 Count)操作后该对象就会被释放, 如果继续使用会出现 panic
 //	2.操作的对象字段如果没有设置 SetMarshalFn/SetUnmarshalFn, 那么默认会设置 json.Marshal/json.Unmarshal 来处理该字段
 func NewTable(db DBer, args ...string) *Table {
-	t := cacheTabObj.Get().(*Table)
+	t := new(Table)
 	t.init()
 
 	// 赋值
@@ -77,30 +78,8 @@ func (t *Table) init() {
 	t.ctx = context.Background()
 	t.printSqlCallSkip = 2
 	t.isPrintSql = true
-	t.haveFree = false
 	t.needSetSize = false
 	t.tag = internal.DefaultTableTag
-}
-
-// free 释放
-func (t *Table) free() {
-	if t.haveFree {
-		sLog.Error(t.ctx, "table already free")
-		return
-	}
-
-	t.haveFree = true // 标记释放
-
-	// 释放内容
-	t.db = nil
-	t.name = ""
-	t.handleCols = nil
-	t.builder = nil
-	t.cacheCol2InfoMap = nil
-	t.waitHandleStructFieldMap = nil
-
-	// 存放缓存
-	cacheTabObj.Put(t)
 }
 
 // Ctx 设置 context
@@ -135,9 +114,15 @@ func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
 	return t
 }
 
+// Clone 克隆一个新的 Table 对象
 func (t *Table) Clone() *Table {
-	clone, _ := DeepCopy[Table](t)
-	return &clone
+	newT := NewTable(t.db, t.name, t.tag)
+	newT.ctx = t.ctx
+	newT.dbType = t.dbType
+	sqlStr, args := t.builder.GetNoParseSql2Args()
+	_, bld := parseSQLBuilder(t.dbType, sqlStr, args...)
+	newT.builder = bld
+	return newT
 }
 
 // initCacheCol2InfoMap 初始化表字段 map, 由于json tag 应用比较多, 为了在后续执行 INSERT/UPDATE 等通过对象取值会存在取值错误现象, 所以需要预处理下
@@ -337,7 +322,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 			need = handleStructField != nil && handleStructField.marshal != nil // 外部设置了序列化方法, 那么就需要处理该字段, 否则就默认跳过
 			if !need {
 				need = true // 没有设置序列化方法, 但是需要跳过嵌套/对象等, 那么就默认跳过
-				t.SetMarshalFn(json.Marshal, tag)
+				t.SetMarshalFn(utils.MarshalNoEscape, tag)
 			}
 		case sureUnmarshal:
 			need = handleStructField != nil && handleStructField.unmarshal != nil // 外部设置了反序列化方法, 那么就需要处理该字段, 否则就默认跳过
@@ -376,10 +361,11 @@ func (t *Table) GetBuilder() builder.SQLBuilder {
 func (t *Table) Raw(sql interface{}) *Table {
 	switch val := sql.(type) {
 	case string:
-		t.builder.InitSql2Args(val)
+		_, t.builder = parseSQLBuilder(t.dbType, val)
 	case builder.SQLBuilder:
 		t.builder = val
-		t.isPrintSql = t.isPrintSql
+	case *SqlStrObj:
+		_, t.builder = parseSQLBuilder(t.dbType, val.FmtSql())
 	default:
 		sLog.Error(t.ctx, "sql only support string/SQLBuilder")
 		return t
@@ -388,22 +374,26 @@ func (t *Table) Raw(sql interface{}) *Table {
 }
 
 // prevCheck 查询预检查
-func (t *Table) prevCheck(checkSqlObj ...bool) error {
-	if t.haveFree {
-		return errors.New("tableObj have free, you can't again use")
-	}
-
+func (t *Table) prevCheck(checkBuilder ...bool) error {
 	if t.db == nil {
 		return errors.New("db is nil")
 	}
 
-	defaultCheckSqlObj := true
-	if len(checkSqlObj) > 0 {
-		defaultCheckSqlObj = checkSqlObj[0]
+	switch b := t.builder.(type) {
+	case *builder.Delete:
+		// 需要校验是否设置了 where 条件, 防止误删
+		if b.Where() == nil || b.Where().Empty() {
+			return errors.New("delete sql must have where condition")
+		}
 	}
 
-	if defaultCheckSqlObj {
-		if utils.Null(t.name) {
+	defaultCheck := true
+	if len(checkBuilder) > 0 {
+		defaultCheck = checkBuilder[0]
+	}
+
+	if defaultCheck {
+		if t.builder == nil && utils.Null(t.name) {
 			return internal.TableNameIsUnknownErr
 		}
 	}
@@ -433,4 +423,11 @@ func parseTableName(objName string) string {
 		res.WriteRune(v)
 	}
 	return res.String()
+}
+
+func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
+	cost := time.Since(st)
+	if len(printLog) > 0 && printLog[0] {
+		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
+	}
 }

@@ -21,6 +21,22 @@ type Dialect interface {
 	GetLimitSql(limit, offset int) string // 获取 limit sql 语句
 }
 
+// TableMeter 表元信息, 为了适配不同数据库
+type TableMeter interface {
+	GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) // key: col
+}
+
+var (
+	dialectMap = map[DbType]Dialect{
+		MySQL:    Mysql(),
+		Postgres: Pg(),
+	}
+	tableMeterMap = map[DbType]func() TableMeter{
+		MySQL:    func() TableMeter { return Mysql() },
+		Postgres: func() TableMeter { return Pg() },
+	}
+)
+
 func Placeholders(n ...int) string {
 	nn := 1
 	if len(n) > 0 {
@@ -51,7 +67,18 @@ func WarpJoinCols(d Dialect, fields ...string) string {
 	return strings.Join(result, ", ")
 }
 
-// TableMeter 表元信息, 为了适配不同数据库
-type TableMeter interface {
-	GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) // key: col
+func GetTableMeter(dbType DbType) TableMeter {
+	fn, ok := tableMeterMap[dbType]
+	if ok {
+		return fn()
+	}
+	return tableMeterMap[DefaultDbType]()
+}
+
+func GetDialect(dbType DbType) Dialect {
+	dialect, ok := dialectMap[dbType]
+	if ok {
+		return dialect
+	}
+	return dialectMap[DefaultDbType]
 }

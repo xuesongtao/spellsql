@@ -3,13 +3,13 @@ package builder
 import (
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 var _ SQLBuilder = (*Insert)(nil)
 
 type Insert struct {
-	*builder
-	dbType      dialect.DbType
+	*Builder
 	insertType  internal.OpType
 	tableName   string
 	columns     []string
@@ -18,11 +18,10 @@ type Insert struct {
 	duplicate   []string // ON DUPLICATE KEY UPDATE
 }
 
-func NewInsert(dt dialect.DbType) *Insert {
+func NewInsert(dt ...dialect.DbType) *Insert {
 	obj := &Insert{
-		dbType:     dt,
 		insertType: internal.None,
-		builder:    NewBuilder(dt),
+		Builder:    NewBuilder(dt...),
 	}
 	obj.setGenFinal(obj.mergeSQL)
 	return obj
@@ -83,7 +82,7 @@ func (i *Insert) DuplicateUpdate(cols []string, conflictCol ...string) *Insert {
 	return i
 }
 
-func (i *Insert) mergeSQL(b *builder) {
+func (i *Insert) mergeSQL(b *Builder) {
 	if i.insertType != internal.None {
 		if i.insertType == internal.INSERT_REPLACE {
 			b.appendSql("REPLACE ")
@@ -103,7 +102,12 @@ func (i *Insert) mergeSQL(b *builder) {
 	}
 
 	if len(i.values) > 0 {
-		b.appendSql(" VALUES ")
+		valsIndex := utils.Index(b.finalSql.String(), "VALUES", false)
+		if valsIndex > -1 {
+			b.appendSql(" ")
+		} else {
+			b.appendSql(" VALUES ")
+		}
 		for index, val := range i.values {
 			if index > 0 {
 				b.appendSql(", ")

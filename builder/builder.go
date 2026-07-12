@@ -7,65 +7,59 @@ import (
 )
 
 type SQLBuilder interface {
-	InitSql2Args(s string, args ...interface{})   // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
-	AppendSql2Args(s string, args ...interface{}) // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
-	GetNoParseSql2Args() (string, []interface{})  // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
-	GetSqlStr() string                            // GetSqlStr 解析输入占位符后的 SQL 语句, 用于打印日志
-	GetSql2Args() (string, []interface{})         // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
+	InitSql2Args(s string, args ...interface{}) *Builder   // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
+	AppendSql2Args(s string, args ...interface{}) *Builder // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
+	GetNoParseSql2Args() (string, []interface{})           // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
+	GetSqlStr() string                                     // GetSqlStr 解析输入占位符后的 SQL 语句, 用于打印日志
+	GetSql2Args() (string, []interface{})                  // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 }
 
-type SQLWherer interface {
-	Where() *Where
-	SetWhere(where *Where) SQLWherer
-	WhereCb(f func(wb *Where)) SQLWherer
-}
-
-type builder struct {
+type Builder struct {
 	dbType    dialect.DbType
 	finalSql  strings.Builder
 	finalArgs []interface{}
-	genFinal  func(b *builder)
+	genFinal  func(b *Builder)
 
 	// 用于 AppendSql2Args
 	extSql  []string
 	extArgs []interface{}
 }
 
-func NewBuilder(dt dialect.DbType) *builder {
-	return &builder{
-		dbType: dt,
+func NewBuilder(dt ...dialect.DbType) *Builder {
+	return &Builder{
+		dbType: getDbType(dt...),
 	}
 }
 
-func (b *builder) setGenFinal(f func(b *builder)) {
+func (b *Builder) setGenFinal(f func(b *Builder)) {
 	b.genFinal = f
 }
 
-func (b *builder) appendSql2Args(s string, args ...interface{}) {
+func (b *Builder) appendSql2Args(s string, args ...interface{}) {
 	b.appendSql(s)
 	b.appendArgs(args...)
 }
 
-func (b *builder) len() int {
+func (b *Builder) len() int {
 	return b.finalSql.Len()
 }
 
-func (b *builder) empty() bool {
+func (b *Builder) empty() bool {
 	return b.len() == 0
 }
 
-func (b *builder) appendSql(s string) {
+func (b *Builder) appendSql(s string) {
 	b.finalSql.WriteString(s)
 }
 
-func (b *builder) appendArgs(args ...interface{}) {
+func (b *Builder) appendArgs(args ...interface{}) {
 	if b.finalArgs == nil {
 		b.finalArgs = make([]interface{}, 0, len(args)*2)
 	}
 	b.finalArgs = append(b.finalArgs, args...)
 }
 
-func (b *builder) getFinalSql2Args() (string, []interface{}) {
+func (b *Builder) getFinalSql2Args() (string, []interface{}) {
 	if b.genFinal != nil {
 		b.genFinal(b)
 		b.genFinal = nil
@@ -85,8 +79,8 @@ func (b *builder) getFinalSql2Args() (string, []interface{}) {
 	return b.finalSql.String(), b.finalArgs
 }
 
-func (b *builder) copy() *builder {
-	obj := &builder{
+func (b *Builder) copy() *Builder {
+	obj := &Builder{
 		dbType:    b.dbType,
 		finalSql:  strings.Builder{},
 		finalArgs: make([]interface{}, len(b.finalArgs)),
@@ -101,32 +95,41 @@ func (b *builder) copy() *builder {
 	return obj
 }
 
-func (b *builder) InitSql2Args(sqlStr string, args ...interface{}) {
+func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
 	b.finalSql.Reset()
 	b.finalArgs = nil
 	b.extSql = nil
 	b.extArgs = nil
 	b.appendSql2Args(sqlStr, args...)
+	return b
 }
 
-func (b *builder) AppendSql2Args(sqlStr string, args ...interface{}) {
+func (b *Builder) AppendSql2Args(sqlStr string, args ...interface{}) *Builder {
 	if b.extArgs == nil {
 		b.extArgs = make([]interface{}, 0, len(args))
 	}
 	b.extSql = append(b.extSql, " "+sqlStr)
 	b.extArgs = append(b.extArgs, args...)
+	return b
 }
 
-func (b *builder) GetNoParseSql2Args() (string, []interface{}) {
+func (b *Builder) GetNoParseSql2Args() (string, []interface{}) {
 	return b.getFinalSql2Args()
 }
 
-func (b *builder) GetSqlStr() string {
+func (b *Builder) GetSqlStr() string {
 	sqlStr, sqlArgs := b.getFinalSql2Args()
 	return dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Parse().Result()
 }
 
-func (b *builder) GetSql2Args() (string, []interface{}) {
+func (b *Builder) GetSql2Args() (string, []interface{}) {
 	sqlStr, sqlArgs := b.getFinalSql2Args()
 	return dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Replace().Result(), sqlArgs
+}
+
+func getDbType(dt ...dialect.DbType) dialect.DbType {
+	if len(dt) > 0 {
+		return dt[0]
+	}
+	return dialect.DefaultDbType
 }
