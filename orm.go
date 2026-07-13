@@ -80,6 +80,7 @@ func (t *Table) init() {
 	t.isPrintSql = true
 	t.needSetSize = false
 	t.tag = internal.DefaultTableTag
+	t.dbType = dialect.DefaultDbType
 }
 
 // Ctx 设置 context
@@ -214,6 +215,9 @@ func (t *Table) initCacheCol2InfoMap() error {
 	t.cacheCol2InfoMap, err = dialect.GetTableMeter(t.dbType).GetColInfoMap(t.ctx, t.db, tableName)
 	if err != nil {
 		return err
+	}
+	if len(t.cacheCol2InfoMap) == 0 {
+		return fmt.Errorf("table %s is not exist", tableName)
 	}
 
 	// 缓存
@@ -441,7 +445,7 @@ func (t *Table) prevCheck(checkBuilder ...bool) error {
 	switch b := t.builder.(type) {
 	case *builder.Delete:
 		// 需要校验是否设置了 where 条件, 防止误删
-		if b.Where() == nil || b.Where().Empty() {
+		if (b.Where() == nil || b.Where().Empty()) && !b.HaveStr(" WHERE") {
 			return errors.New("delete sql must have where condition")
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"sort"
+	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
@@ -324,13 +325,12 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	// st := time.Now()
+	st := time.Now()
 	sqlStr, args := t.builder.GetSql2Args()
-	// fmt.Println("sqlStr:", sqlStr, "args:", args)
 	res, err := t.db.ExecContext(t.ctx, sqlStr, args...)
 	if err != nil {
 		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
 	}
-	// defer printCostTimeLog(t.ctx, st, t.tmpSqlObj.getSqlLogStr("sql", sqlStr), t.isPrintSql)
+	defer printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return res, nil
 }

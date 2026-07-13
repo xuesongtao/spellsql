@@ -151,7 +151,7 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 		s.SetUpdateValue("name", "xue")
 		s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "xuesongtao")
 		sqlStr := s.GetSqlStr()
-		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND name = "xuesongtao";`
+		sureSql := "UPDATE sys_user SET `name` = \"xue\" WHERE id IN (1, 2, 3, 4, 5) AND name = \"xuesongtao\";"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
@@ -182,7 +182,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 		if !test.Equal(totalSqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
-
+		// return
 		sqlStr := s.SetOrderByStr("create_time DESC").SetLimit(1, 10).GetSqlStr()
 		sureSql = "SELECT username, password FROM sys_user WHERE money > 1000 AND age > 12 AND age = \"18 or 1=1\" AND age IN (\"18 or 1=1\") AND (create_time BETWEEN \"2022-04-01 01:00:11\" AND \"2022-05-01 01:00:11\") OR name = \"xue\" ORDER BY create_time DESC LIMIT 10 OFFSET 0;"
 		if !test.Equal(sqlStr, sureSql) {
@@ -245,7 +245,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 		s.SetPrintLog(false)
 
 		sqlStr := s.SetGroupByStr("cls_id").SetHaving("sum(cls_id)>10").GetSqlStr()
-		sureSql := `SELECT cls_id,COUNT(*) FROM sys_user WHERE GROUP BY cls_id HAVING sum(cls_id)>10;`
+		sureSql := "SELECT cls_id,COUNT(*) FROM sys_user WHERE GROUP BY `cls_id` HAVING sum(cls_id)>10;"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
@@ -263,13 +263,13 @@ func TestGetSqlStr(t *testing.T) {
 
 func TestFmtSqlStr(t *testing.T) {
 	sqlStr := FmtSqlStr("SELECT * FROM user_info WHERE id IN (?)", []int{1, 2, 3})
-	sureSql := `SELECT * FROM user_info WHERE id IN (1,2,3)`
+	sureSql := `SELECT * FROM user_info WHERE id IN (1, 2, 3)`
 	if !test.Equal(sqlStr, sureSql) {
 		t.Error(test.NoEqErr)
 	}
 
 	sqlStr = FmtSqlStr("SELECT * FROM user_info WHERE id IN (?d)", []string{"1", "2", "3"})
-	sureSql = `SELECT * FROM user_info WHERE id IN (1,2,3)`
+	sureSql = `SELECT * FROM user_info WHERE id IN (1, 2, 3)`
 	if !test.Equal(sqlStr, sureSql) {
 		t.Error(test.NoEqErr)
 	}

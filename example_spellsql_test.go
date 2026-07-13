@@ -35,8 +35,8 @@ func ExampleNewCacheSql_getSqlStr() {
 	fmt.Println(sqlStr)
 
 	// Output:
-	// SELECT COUNT(*) FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大");
-	// SELECT username, password FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80,100) AND id IN (1,2,3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大") ORDER BY create_time DESC LIMIT 10 OFFSET 0;
+	// SELECT COUNT(*) FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80, 100) AND id IN (1, 2, 3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大");
+	// SELECT username, password FROM sys_user WHERE username = "test" AND password = 123 AND username = "test" OR password = "123456" AND age IN (80, 100) AND id IN (1, 2, 3) AND cls_id IN (SELECT id FROM class WHERE cls_name="社大") ORDER BY create_time DESC LIMIT 10 OFFSET 0;
 }
 
 func ExampleNewCacheSql_insert() {
@@ -61,7 +61,7 @@ func ExampleNewCacheSql_update() {
 	fmt.Println(s.GetSqlStr())
 
 	// Output:
-	// UPDATE sys_user SET username = "test", age=10 WHERE id = 1;
+	// UPDATE sys_user SET `username` = "test" WHERE id = 1;
 }
 
 func ExampleNewCacheSql_delete() {
@@ -105,5 +105,5 @@ func ExampleFmtSqlStr() {
 	fmt.Println(sqlStr)
 
 	// Output:
-	// SELECT * FROM user_info WHERE id IN (1,2) AND name="测试"
+	// SELECT * FROM user_info WHERE id IN (1, 2) AND name="测试"
 }

@@ -167,7 +167,7 @@ func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
 	tmpBuf := internal.GetTmpBuf(s.len())
 	defer internal.PutTmpBuf(tmpBuf)
 
-	b := s.Builder.copy()
+	b := s.Copy()
 	sqlStr, args := b.GetNoParseSql2Args()
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
@@ -202,6 +202,40 @@ func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
 	return tmpBuf.String(), args
 }
 
+func (s *Select) Copy() *Select {
+	obj := NewSelect(s.dbType)
+	obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
+
+	obj.columns = make([]string, len(s.columns))
+	copy(obj.columns, s.columns)
+
+	obj.tableName = s.tableName
+
+	obj.joins = make([]string, len(s.joins))
+	copy(obj.joins, s.joins)
+
+	obj.where = NewWhere(s.dbType)
+	if s.where != nil {
+		sqlStr, args := s.where.GetNoParseSql2Args()
+		obj.where.InitSql2Args(sqlStr, args...)
+	}
+
+	obj.groupBys = make([]string, len(s.groupBys))
+	copy(obj.groupBys, s.groupBys)
+
+	obj.havingStr = s.havingStr
+	obj.havingArgs = make([]interface{}, len(s.havingArgs))
+	copy(obj.havingArgs, s.havingArgs)
+
+	obj.orderBys = make([]string, len(s.orderBys))
+	copy(obj.orderBys, s.orderBys)
+
+	obj.limit = s.limit
+	obj.offset = s.offset
+
+	return obj
+}
+
 func (s *Select) GetTotalSqlStr() string {
 	sqlStr, args := s.GetTotalNoParseSql2Args()
 	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Parse().Result()
@@ -234,12 +268,7 @@ func (s *Select) mergeSQL(b *Builder) {
 
 	if s.where != nil && !s.where.empty() {
 		sqlStr, sqlArgs := s.where.GetNoParseSql2Args()
-		if !b.haveWhereStr() {
-			b.appendSql(" WHERE ")
-		} else {
-			b.appendSql(" AND ")
-		}
-		b.appendSql2Args(sqlStr, sqlArgs...)
+		s.initWhere(sqlStr, sqlArgs...)
 	}
 
 	if len(s.groupBys) > 0 {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
-	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
@@ -26,7 +25,7 @@ func GetSqlStrCtx(ctx context.Context, sqlStr string, args ...interface{}) strin
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
 func FmtSqlStr(sqlStr string, args ...interface{}) string {
-	return builder.NewBuilder(dialect.MySQL).InitSql2Args(sqlStr, args...).GetSqlStr()
+	return builder.NewBuilder().InitSql2Args(sqlStr, args...).GetSqlStr()
 }
 
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件

@@ -95,7 +95,6 @@ func (s *SqlStrObj) setWhere(opType internal.OpType, fieldName string, args ...i
 	if needAdd {
 		sqlStr += " ?"
 	}
-	// s.getSelectBuilder().Where().AppendSql2Args(sqlStr, arg)
 	builder.WhereCb(s.builder, func(wb *builder.Where) {
 		if opType == internal.SELECT_OR {
 			wb.Or(sqlStr, arg)

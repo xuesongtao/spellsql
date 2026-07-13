@@ -8,7 +8,7 @@ import (
 
 func TestSearchAfter(t *testing.T) {
 	for i := 1; i <= 100; i++ {
-		TestMain(t)
+		InitTestMain(t)
 	}
 	var totalDst int32
 	_ = Count(db, "man", &totalDst, "1")

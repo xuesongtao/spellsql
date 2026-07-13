@@ -26,7 +26,7 @@ func Index(s, substr string, isFont2End ...bool) int {
 	sLen := len(s)
 	switch {
 	case sLen == 0 || substrLen == 0:
-		return 0
+		return -1
 	case substrLen > sLen:
 		return -1
 	}

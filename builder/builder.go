@@ -80,28 +80,23 @@ func (b *Builder) getFinalSql2Args() (string, []interface{}) {
 	return b.finalSql.String(), b.finalArgs
 }
 
-func (b *Builder) copy() *Builder {
-	obj := &Builder{
-		dbType:    b.dbType,
-		finalSql:  strings.Builder{},
-		finalArgs: make([]interface{}, len(b.finalArgs)),
-		genFinal:  b.genFinal,
-		extSql:    make([]string, len(b.extSql)),
-		extArgs:   make([]interface{}, len(b.extArgs)),
+func (b *Builder) HaveStr(field string) bool {
+	return utils.Index(strings.ToUpper(b.finalSql.String()), strings.ToUpper(field), false) > -1
+}
+
+func (b *Builder) whereStrIndex() int {
+	return utils.Index(strings.ToUpper(b.finalSql.String()), " WHERE", false)
+}
+
+func (b *Builder) initWhere(sqlStr string, args ...interface{}) {
+	if i := b.whereStrIndex(); i == -1 {
+		b.appendSql(" WHERE ")
+	} else if i+5 < b.len()-1 { // "WHERE" 后面还有内容, 需要加上 AND
+		b.appendSql(" AND ")
+	} else if i+5 == b.len()-1 { // "WHERE" 后面没有内容, 直接追加
+		b.appendSql(" ")
 	}
-	obj.finalSql.WriteString(b.finalSql.String())
-	copy(obj.finalArgs, b.finalArgs)
-	copy(obj.extSql, b.extSql)
-	copy(obj.extArgs, b.extArgs)
-	return obj
-}
-
-func (b *Builder) haveStr(field string) bool {
-	return utils.Index(strings.ToUpper(b.finalSql.String()), strings.ToUpper(field), false) >= 0
-}
-
-func (b *Builder) haveWhereStr() bool {
-	return b.haveStr("WHERE")
+	b.appendSql2Args(sqlStr, args...)
 }
 
 func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
@@ -128,6 +123,7 @@ func (b *Builder) GetNoParseSql2Args() (string, []interface{}) {
 
 func (b *Builder) GetSqlStr() string {
 	sqlStr, sqlArgs := b.getFinalSql2Args()
+	// fmt.Println(sqlStr, sqlArgs)
 	return dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Parse().Result()
 }
 

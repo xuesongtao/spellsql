@@ -64,14 +64,11 @@ func (p *PgTable) GetValueEscapeMap() map[byte][]byte {
 }
 
 func (p *PgTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {
-	if len(p.initArgs) != 2 {
-		return nil, fmt.Errorf(internal.GetField2ColInfoMapErr, p.GetAdapterName())
-	}
 	sqlStr := fmt.Sprintf(
 		"SELECT c.column_name,c.data_type,c.is_nullable,tc.constraint_type,c.column_default FROM information_schema.columns AS c "+
 			"LEFT JOIN information_schema.constraint_column_usage AS ccu USING (column_name,table_name) "+
 			"LEFT JOIN information_schema.table_constraints tc ON tc.constraint_name=ccu.constraint_name "+
-			"WHERE c.table_schema='%s' AND c.table_name='%s'", p.initArgs[0], p.initArgs[1])
+			"WHERE c.table_schema='%s' AND c.table_name='%s'", p.initArgs[0], tableName)
 	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("pg query is failed, err: %v, sqlStr: %v", err, sqlStr)

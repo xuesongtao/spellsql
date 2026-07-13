@@ -82,7 +82,7 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 				// 判断下是否加引号
 				isAdd := true
 				// 这里必须小于最后一个最后一值才行
-				if argIndex < lastIndex {
+				if curIndex < sqlSqlLastIndex {
 					if p.waitParse[curIndex+1] == 'd' {
 						isAdd = false
 						curIndex++
