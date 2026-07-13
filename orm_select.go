@@ -55,8 +55,8 @@ func (t *Table) setSelect(col ...string) *Table {
 //  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
 //  3. 其他情况会被解析为查询所有
 //
-// ableName 在 NewTable 时设置过了, 就不需要设置,
-// 如果实现了 TableName 方法, 优先使用该方法返回的表名,
+// tableName 在 NewTable 时设置过了, 就不需要设置, 如果设置了优先级最高
+// 如果实现了 TableName 方法, 使用该方法返回的表名,
 // 如果没有实现该方法, 会使用 struct 的类型名进行解析, 解析规则为: 驼峰转下划线
 func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	if len(tableName) > 0 {
