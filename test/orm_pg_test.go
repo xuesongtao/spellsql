@@ -52,10 +52,7 @@ func init() {
 	pgDb.SetMaxIdleConns(1)
 
 	// 初始化 pg tmer
-	spellsql.GlobalTmer(func() dialect.TableMeter {
-		fmt.Println("call pg")
-		return dialect.Pg("public")
-	})
+	spellsql.GlobalDbType(dialect.Postgres)
 }
 
 func TestTmp(t *testing.T) {
@@ -119,7 +116,7 @@ func TestLocalPg(t *testing.T) {
 		},
 	}
 
-	tableObj := spellsql.NewTable(pgDb, "man").Tmer(spellsql.Pg("public"))
+	tableObj := spellsql.NewTable(pgDb, "man").DbType(dialect.Postgres)
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
 	res, err := tableObj.Insert(m).Exec()

@@ -20,7 +20,7 @@ const (
 	Postgres
 )
 
-const DefaultDbType = MySQL
+var DefaultDbType = MySQL
 
 var (
 	_ Dialect = &MysqlTable{}

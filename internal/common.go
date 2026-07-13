@@ -22,13 +22,6 @@ func PutTmpBuf(obj *strings.Builder) {
 	tmpBuf.Put(obj)
 }
 
-func CallOnce(f func()) func() {
-	var once sync.Once
-	return func() {
-		once.Do(f)
-	}
-}
-
 func Equal(a, b uint8) bool {
 	return a == b
 }

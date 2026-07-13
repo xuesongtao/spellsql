@@ -48,7 +48,7 @@ func (d *Delete) mergeSQL(b *Builder) {
 	}
 	if d.where != nil && !d.where.empty() {
 		b.appendSql(" WHERE ")
-		whereSql, whereArgs := d.where.GetSql2Args()
+		whereSql, whereArgs := d.where.GetNoParseSql2Args()
 		b.appendSql2Args(whereSql, whereArgs...)
 	}
 }

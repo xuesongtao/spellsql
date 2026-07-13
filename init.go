@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sync"
 
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
@@ -37,7 +38,15 @@ var (
 	// null 类型
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
+
+	globalDbTypeOnce = sync.Once{}
 )
+
+func GlobalDbType(dt dialect.DbType) {
+	globalDbTypeOnce.Do(func() {
+		dialect.DefaultDbType = dt
+	})
+}
 
 // ====================================== other =============================================
 // log 处理

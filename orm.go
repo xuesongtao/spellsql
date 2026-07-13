@@ -48,7 +48,7 @@ type Table struct {
 	waitHandleStructFieldMap map[string]*handleStructField    // 处理 struct 字段的方法, key: tag, value: 处理方法集
 }
 
-// NewTable 初始化, 通过 sync.Pool 缓存对象来提高性能
+// NewTable 初始化
 // args 支持两个参数
 // args[0]: 会解析为 tableName, 这里如果有值, 在进行操作表的时候就会以此表为准,
 // 如果为空时, 在通过对象进行操作时按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
