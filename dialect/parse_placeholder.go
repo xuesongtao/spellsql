@@ -54,21 +54,21 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 	p.buf.Reset()
 	gd := GetDialect(p.dbType)
 	p.loop(
-		func(i, argIndex, lastIndex int) int {
+		func(curIndex, argIndex, sqlSqlLastIndex int) int {
 			switch val := p.args[argIndex].(type) {
 			case string:
-				if i < lastIndex {
+				if curIndex < sqlSqlLastIndex {
 					// 如果占位符?在最后一位时, 就不往下执行了防止 panic
 					// 判断下如果为 ?d 字符的话, 这里不需要加引号
 					// 如果包含字母的话, 就转为 0, 防止数字型注入
-					if p.waitParse[i+1] == 'd' {
+					if p.waitParse[curIndex+1] == 'd' {
 						p.buf.WriteString(internal.EscapeOfHasNum(val, true, gd.GetValueEscapeMap()))
-						i++
-						return i
-					} else if p.waitParse[i+1] == 'v' { // 原样输出
+						curIndex++
+						return curIndex
+					} else if p.waitParse[curIndex+1] == 'v' { // 原样输出
 						p.buf.WriteString(val)
-						i++
-						return i
+						curIndex++
+						return curIndex
 					}
 				}
 
@@ -82,10 +82,10 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 				// 判断下是否加引号
 				isAdd := true
 				// 这里必须小于最后一个最后一值才行
-				if i < lastIndex {
-					if p.waitParse[i+1] == 'd' {
+				if argIndex < lastIndex {
+					if p.waitParse[curIndex+1] == 'd' {
 						isAdd = false
-						i++
+						curIndex++
 					}
 					for i1 := 0; i1 <= lastIndex; i1++ {
 						if isAdd {
@@ -158,7 +158,7 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 					p.buf.WriteString("undefined")
 				}
 			}
-			return i
+			return curIndex
 		},
 	)
 	return p

@@ -120,6 +120,7 @@ func TestNewCacheSql_DELETE(t *testing.T) {
 
 // 修改
 func TestNewCacheSql_UPDATE(t *testing.T) {
+
 	t.Run("normal", func(t *testing.T) {
 		s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456, "阿涛", 12)
 		// s.SetPrintLog(false)
@@ -137,7 +138,7 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 		s.SetUpdateValue("name", "xue")
 		s.SetWhereArgs("id IN (?d) AND age IN (?) AND name = ?", idsStr, []int{18, 20}, "xuesongtao")
 		sqlStr := s.GetSqlStr()
-		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND age IN (18,20) AND name = "xuesongtao";`
+		sureSql := "UPDATE sys_user SET `name` = \"xue\" WHERE id IN (1, 2, 3, 4, 5) AND age IN (18, 20) AND name = \"xuesongtao\";"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
@@ -165,10 +166,10 @@ func TestNewCacheSql_Select(t *testing.T) {
 			s.SetWhereArgs("age > ?d", "12")
 		}
 		if true {
-			s.SetWhere("age", "=", "18 or 1=1") // 测试注入
+			s.SetWhere("age", "=", "18 or 1=1") // 测试SQL注入
 		}
 		if true {
-			s.SetWhere("age", "IN", []string{"18 or 1=1"}) // 测试注入
+			s.SetWhere("age", "IN", []string{"18 or 1=1"}) // 测试SQL注入
 		}
 		if true {
 			s.SetBetween("create_time", "2022-04-01 01:00:11", "2022-05-01 01:00:11")
@@ -183,7 +184,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 		}
 
 		sqlStr := s.SetOrderByStr("create_time DESC").SetLimit(1, 10).GetSqlStr()
-		sureSql = `SELECT username, password FROM sys_user WHERE money > 1000 AND age > 12 AND age = "18 or 1=1" AND age IN ("18 or 1=1") AND (create_time BETWEEN "2022-04-01 01:00:11" AND "2022-05-01 01:00:11") OR name = "xue" ORDER BY create_time DESC LIMIT 10 OFFSET 0;`
+		sureSql = "SELECT username, password FROM sys_user WHERE money > 1000 AND age > 12 AND age = \"18 or 1=1\" AND age IN (\"18 or 1=1\") AND (create_time BETWEEN \"2022-04-01 01:00:11\" AND \"2022-05-01 01:00:11\") OR name = \"xue\" ORDER BY create_time DESC LIMIT 10 OFFSET 0;"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}

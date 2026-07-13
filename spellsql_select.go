@@ -98,9 +98,9 @@ func (s *SqlStrObj) setWhere(opType internal.OpType, fieldName string, args ...i
 	// s.getSelectBuilder().Where().AppendSql2Args(sqlStr, arg)
 	builder.WhereCb(s.builder, func(wb *builder.Where) {
 		if opType == internal.SELECT_OR {
-			wb.Or(sqlStr, args...)
+			wb.Or(sqlStr, arg)
 		} else {
-			wb.And(sqlStr, args...)
+			wb.And(sqlStr, arg)
 		}
 	})
 	return s
@@ -134,7 +134,7 @@ func (s *SqlStrObj) SetBetween(fieldName string, leftVal, rightVal interface{}) 
 // => xxx AND "username = "test" AND password = 123
 func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
 	builder.WhereCb(s.builder, func(wb *builder.Where) {
-		wb.And(" "+sqlStr, args...)
+		wb.And(sqlStr, args...)
 	})
 	return s
 }
@@ -154,11 +154,7 @@ func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 	if orderByStr == "" {
 		return s
 	}
-	if strings.HasSuffix(strings.ToUpper(orderByStr), "DESC") {
-		s.getSelectBuilder().OrderByDesc(orderByStr)
-	} else {
-		s.getSelectBuilder().OrderByAsc(orderByStr)
-	}
+	s.getSelectBuilder().OrderBy(orderByStr)
 	return s
 }
 

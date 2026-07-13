@@ -23,6 +23,7 @@ type SqlStrObj struct {
 }
 
 // NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效(有缓存)
+// Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
 //
 //  1. 注意:
 //     a. 此函数只支持调用一次 GetSqlStr 方法, 如果要调用多次需要使用 NewSql
@@ -52,11 +53,11 @@ type SqlStrObj struct {
 //     如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123")
 //     => SELECT username, password FROM sys_user WHERE id = 123
 func NewCacheSql(sqlStr string, args ...interface{}) *SqlStrObj {
-	// 注: Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
 	return NewSql(sqlStr, args...)
 }
 
 // NewSql 此函数与 NewCacheSql 功能一样, 此函数的使用场景: 1. 需要调用多次 GetSqlStr; 2. 需要调用 Clone
+// Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
 func NewSql(sqlStr string, args ...interface{}) *SqlStrObj {
 	obj := new(SqlStrObj)
 	obj.initSql(sqlStr, args...)

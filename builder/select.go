@@ -234,7 +234,11 @@ func (s *Select) mergeSQL(b *Builder) {
 
 	if s.where != nil && !s.where.empty() {
 		sqlStr, sqlArgs := s.where.GetNoParseSql2Args()
-		b.appendSql(" WHERE ")
+		if !b.haveWhereStr() {
+			b.appendSql(" WHERE ")
+		} else {
+			b.appendSql(" AND ")
+		}
 		b.appendSql2Args(sqlStr, sqlArgs...)
 	}
 

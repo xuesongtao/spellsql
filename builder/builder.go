@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 type SQLBuilder interface {
@@ -93,6 +94,14 @@ func (b *Builder) copy() *Builder {
 	copy(obj.extSql, b.extSql)
 	copy(obj.extArgs, b.extArgs)
 	return obj
+}
+
+func (b *Builder) haveStr(field string) bool {
+	return utils.Index(strings.ToUpper(b.finalSql.String()), strings.ToUpper(field), false) >= 0
+}
+
+func (b *Builder) haveWhereStr() bool {
+	return b.haveStr("WHERE")
 }
 
 func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
