@@ -258,3 +258,15 @@ func MarshalNoEscape(v interface{}) ([]byte, error) {
 	}
 	return bytes.TrimSpace(buf.Bytes()), nil
 }
+
+func CheckImplementation(ty reflect.Type, targetInterface reflect.Type) bool {
+	if ty.Implements(targetInterface) {
+		return true
+	}
+	if ty.Kind() != reflect.Ptr {
+		if reflect.PointerTo(ty).Implements(targetInterface) {
+			return true
+		}
+	}
+	return false
+}

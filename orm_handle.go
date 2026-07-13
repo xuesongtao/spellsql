@@ -202,15 +202,11 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		return
 	}
 
-	ty := tv.Type()
-	if utils.Null(t.name) {
-		t.name = parseTableName(ty.Name())
-	}
-
-	if err := t.initCacheCol2InfoMap(); err != nil {
+	if err := t.initTableName(tv, tableName...).initCacheCol2InfoMap(); err != nil {
 		return nil, nil, err
 	}
 
+	ty := tv.Type()
 	fieldNum := ty.NumField()
 	columns = make([]string, 0, fieldNum)
 	values = make([]interface{}, 0, fieldNum)

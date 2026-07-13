@@ -16,6 +16,8 @@ const (
 	// sql join 语句
 	LJI = internal.LJI // 左连接
 	RJI = internal.RJI // 右连接
+
+	TABLE_NAME = "TableName"
 )
 
 // DBer
@@ -30,10 +32,10 @@ type Logger interface {
 
 type TableNamer interface {
 	// TableName 返回表名
-	GetTableName() string
+	TableName() string
 }
 
-var tableNameType = reflect.TypeOf((*TableNamer)(nil)).Elem()
+var tableNameType = reflect.TypeFor[TableNamer]()
 
 // SelectCallBackFn 对每行查询结果进行取出处理
 type SelectCallBackFn func(_row interface{}) error

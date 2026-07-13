@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -154,7 +155,17 @@ func TestMain(t *testing.T) {
 	}
 }
 
-func TestTmp(t *testing.T) {
+func TestCheckImplementation(t *testing.T) {
+	tv := utils.RemoveValuePtr(reflect.ValueOf(&test.Man{}))
+	ret := utils.CheckImplementation(tv.Type(), tableNameType)
+	if !ret {
+		t.Fatal("it is not ok")
+	} else {
+		t.Log("it is ok")
+	}
+}
+
+func TestTableName(t *testing.T) {
 	m := test.Man{
 		Name: "xue1234",
 		Age:  18,
@@ -172,7 +183,7 @@ func TestTmp(t *testing.T) {
 			Data: "test json1 marshal",
 		},
 	}
-	tableObj := NewTable(db, "man")
+	tableObj := NewTable(db)
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
 	res, err := tableObj.Insert(m).Exec()
@@ -185,7 +196,7 @@ func TestTmp(t *testing.T) {
 	}
 
 	var mm test.Man
-	tableObj = NewTable(db, "man")
+	tableObj = NewTable(db)
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
 	if err := tableObj.SelectAuto(mm).Where("id=?", r).FindOne(&mm); err != nil {

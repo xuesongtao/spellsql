@@ -55,8 +55,8 @@ func (t *Table) setSelect(col ...string) *Table {
 //  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
 //  3. 其他情况会被解析为查询所有
 //
-// 注: tableName 在 NewTable 时设置过了, 就不需要设置,
-// 如果实现了 GetTableName 方法, 会优先使用该方法返回的表名,
+// ableName 在 NewTable 时设置过了, 就不需要设置,
+// 如果实现了 TableName 方法, 优先使用该方法返回的表名,
 // 如果没有实现该方法, 会使用 struct 的类型名进行解析, 解析规则为: 驼峰转下划线
 func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	if len(tableName) > 0 {
@@ -68,17 +68,6 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	}
 
 	ty := utils.RemoveTypePtr(reflect.TypeOf(src))
-	if utils.Null(t.name) {
-		v := reflect.ValueOf(src)
-		if v.IsValid() {
-			if v.Type().Implements(tableNameType) {
-				res := v.MethodByName("GetTableName").Call(nil)
-				if len(res) > 0 {
-					t.name = res[0].String()
-				}
-			}
-		}
-	}
 	selectFields := make([]string, 0, 5)
 	switch kind := ty.Kind(); kind {
 	case reflect.Struct, reflect.Slice:
@@ -89,10 +78,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 			}
 		}
 
-		if utils.Null(t.name) {
-			t.name = parseTableName(ty.Name())
-		}
-		if err := t.initCacheCol2InfoMap(); err != nil {
+		if err := t.initTableName(reflect.ValueOf(src), tableName...).initCacheCol2InfoMap(); err != nil {
 			sLog.Error(t.ctx, "initCacheCol2InfoMap is failed, err:", err)
 			return t
 		}

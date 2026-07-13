@@ -125,6 +125,65 @@ func (t *Table) Clone() *Table {
 	return newT
 }
 
+func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
+	if len(tableName) > 0 && !utils.Null(tableName[0]) {
+		t.name = tableName[0]
+		return t
+	}
+
+	if !tv.IsValid() {
+		return t
+	}
+
+	// 尝试通过接口断言直接获取表名
+	if tv.CanInterface() {
+		if namer, ok := tv.Interface().(TableNamer); ok {
+			t.name = namer.TableName()
+			return t
+		}
+	}
+
+	v := utils.RemoveValuePtr(tv)
+	// 如果原始值没实现接口，尝试判断去指针后的值 (或取其指针)
+	if utils.Null(t.name) && v.IsValid() {
+		if v.CanInterface() {
+			if namer, ok := v.Interface().(TableNamer); ok {
+				t.name = namer.TableName()
+			}
+		}
+	}
+
+	// 再尝试通过反射获取和调用方法
+	if utils.Null(t.name) && utils.CheckImplementation(v.Type(), tableNameType) {
+		method := tv.MethodByName(TABLE_NAME)
+		if !method.IsValid() {
+			method = v.MethodByName(TABLE_NAME)
+		}
+		if !method.IsValid() && v.CanAddr() {
+			method = v.Addr().MethodByName(TABLE_NAME)
+		}
+		// 如果没法取址，只能做一次浅拷贝
+		if !method.IsValid() && v.Kind() == reflect.Struct {
+			newPtr := reflect.New(v.Type())
+			newPtr.Elem().Set(v) // 拷贝数据
+			method = newPtr.MethodByName(TABLE_NAME)
+		}
+
+		if method.IsValid() {
+			res := method.Call(nil)
+			if len(res) > 0 {
+				t.name = res[0].String()
+			}
+		}
+	}
+
+	// 如果还是没有获取到表名, 那么就按驼峰规则解析表名
+	if utils.Null(t.name) && v.IsValid() {
+		t.name = parseTableName(v.Type().Name())
+	}
+	return t
+}
+
 // initCacheCol2InfoMap 初始化表字段 map, 由于json tag 应用比较多, 为了在后续执行 INSERT/UPDATE 等通过对象取值会存在取值错误现象, 所以需要预处理下
 func (t *Table) initCacheCol2InfoMap() error {
 	// 已经初始化过了
