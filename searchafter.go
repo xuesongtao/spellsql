@@ -77,6 +77,7 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 		return err
 	}
 
+	total := 0
 	for {
 		rowCount := 0
 		err := NewTable(db, s.Table).
@@ -96,7 +97,8 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 		if err != nil {
 			return err
 		}
-
+		total += rowCount
+		sLog.Info(ctx, "searched rowCount:", rowCount, "total:", total)
 		if rowCount < s.Size {
 			break
 		}
