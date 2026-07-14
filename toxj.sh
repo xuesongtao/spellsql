@@ -40,6 +40,10 @@ function main() {
         # gitee.com
         # gitlab.cd.anpro
         targetFile="${targetDir}/${goFile}"
+        if [[ ! -d $(dirname $targetFile) ]]; then
+            mkdir -p $(dirname $targetFile)
+            checkIsOk "mkdir -p $(dirname $targetFile)"
+        fi
 
         # 替换
         sed -e "s/\/\/ \"gitlab.cd.anpro/\"gitlab.cd.anpro/g" \
