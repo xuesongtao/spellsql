@@ -14,6 +14,10 @@ func TestWhereGetExecArgs(t *testing.T) {
 		w := NewWhere(dialect.MySQL)
 		w.Eq("id", 100).
 			And("status IN (?)", []int{1, 2}).
+			AndGroup(func(wb *Where) {
+				wb.Eq("status", []int{1, 2}).
+					Eq("age", 30)
+			}).
 			OrNotEq("name", "test").
 			Gt("score", 95.5).
 			Lte("age", 30)
@@ -25,14 +29,14 @@ func TestWhereGetExecArgs(t *testing.T) {
 			t.Errorf("placeholder count %d != args len %d", placeholderCount, len(args))
 		}
 
-		expectedArgs := []interface{}{100, []int{1, 2}, "test", 95.5, 30}
+		expectedArgs := []interface{}{100, []int{1, 2}, []int{1, 2}, 30, "test", 95.5, 30}
 		for i, arg := range args {
 			if !test.Equal(arg, expectedArgs[i]) {
 				t.Errorf("arg at index %d error, got: %v, want: %v", i, arg, expectedArgs[i])
 			}
 		}
 
-		expectedSql := "`id` = ? AND status IN (?) OR `name` <> ? AND `score` > ? AND `age` <= ?"
+		expectedSql := "`id` = ? AND status IN (?) AND (`status` = ? AND `age` = ?) OR `name` <> ? AND `score` > ? AND `age` <= ?"
 		if sqlStr != expectedSql {
 			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, expectedSql)
 		}
