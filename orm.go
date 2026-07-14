@@ -38,8 +38,6 @@ type Table struct {
 	dbType                   dialect.DbType
 	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
-	haveFree                 bool                             // 标记 table 释放已释放
-	comeClone                bool                             // 是否来自克隆
 	isPrintSql               bool                             // 标记是否打印 sql
 	tag                      string                           // 记录解析 struct 中字段名的 tag
 	name                     string                           // 表名
@@ -59,8 +57,7 @@ type Table struct {
 //	1.使用 INSERT/UPDATE/DELETE/SELECT(SELECT 排除使用 Count)操作后该对象就会被释放, 如果继续使用会出现 panic
 //	2.操作的对象字段如果没有设置 SetMarshalFn/SetUnmarshalFn, 那么默认会设置 json.Marshal/json.Unmarshal 来处理该字段
 func NewTable(db DBer, args ...string) *Table {
-	// t := new(Table)
-	t := cacheTabObj.Get().(*Table)
+	t := new(Table)
 	t.Reset()
 	t.initDb(db, args...)
 	return t
@@ -86,7 +83,6 @@ func (t *Table) Reset() {
 	t.dbType = dialect.DefaultDbType
 	t.printSqlCallSkip = 2
 	t.destTypeFlag = 0
-	t.haveFree = false
 	t.isPrintSql = true
 	t.tag = internal.DefaultTableTag
 	t.name = ""
@@ -124,8 +120,7 @@ func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
 
 // Clone 克隆一个新的 Table 对象
 func (t *Table) Clone() *Table {
-	newT := &Table{comeClone: true}
-	newT.initDb(t.db, t.name).
+	newT := NewTable(t.db, t.name).
 		Ctx(t.ctx).
 		DbType(t.dbType)
 	if t.builder == nil {
@@ -136,31 +131,6 @@ func (t *Table) Clone() *Table {
 	_, bld := parseSQLBuilder(t.dbType, sqlStr, args...)
 	newT.builder = bld
 	return newT
-}
-
-// free 释放
-func (t *Table) free() {
-	if t.comeClone { // clone 就不要释放了
-		return
-	}
-
-	if t.haveFree {
-		sLog.Error(t.ctx, "table already free")
-		return
-	}
-
-	t.haveFree = true // 标记释放
-
-	// 释放内容
-	t.db = nil
-	t.name = ""
-	t.handleCols = nil
-	t.builder = nil
-	t.cacheCol2InfoMap = nil
-	t.waitHandleStructFieldMap = nil
-
-	// 存放缓存
-	cacheTabObj.Put(t)
 }
 
 func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
@@ -475,10 +445,6 @@ func (t *Table) Raw(sql interface{}) *Table {
 
 // prevCheck 查询预检查
 func (t *Table) prevCheck(checkBuilder ...bool) error {
-	if t.haveFree {
-		return errors.New("tableObj have free, you can't again use")
-	}
-
 	if t.db == nil {
 		return errors.New("db is nil")
 	}

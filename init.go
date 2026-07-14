@@ -33,7 +33,6 @@ var (
 	cacheStructType2StructFieldMap = utils.NewLRU() // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
 
 	// 常用就缓存下
-	cacheTabObj     = sync.Pool{New: func() interface{} { return new(Table) }}
 	cacheNullString = sync.Pool{New: func() interface{} { return new(sql.NullString) }}
 	cacheNullInt64  = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
 
@@ -43,26 +42,6 @@ var (
 
 	globalDbTypeOnce = sync.Once{}
 )
-
-func newTable(db DBer, args ...string) *Table {
-	if v := cacheTabObj.Get(); v != nil {
-		t := v.(*Table)
-		t.Reset()
-		if t.builder != nil {
-			panic("builder is no null")
-		}
-		return t.initDb(db, args...)
-	}
-	return NewTable(db, args...)
-}
-
-func freeTable(t *Table) {
-	if t == nil {
-		return
-	}
-	t.Reset()
-	cacheTabObj.Put(t)
-}
 
 func GlobalDbType(dt dialect.DbType) {
 	json.Marshal(dt) // 仅用于触发 dt 的 init, 以便注册 dialect

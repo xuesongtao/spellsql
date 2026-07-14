@@ -783,6 +783,38 @@ func TestFindOne(t *testing.T) {
 		}
 	})
 
+	t.Run("findOne many field whereCb", func(t *testing.T) {
+		var (
+			name string
+			age  int32
+		)
+		err := NewTable(db, "man").Select("name,age").Where("1=1").WhereCb(func(wb *builder.Where) {
+			wb.Eq("id", 1).Eq("name", sureName)
+		}).FindOne(&name, &age)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !test.Equal(name, sureName) || !test.Equal(age, sureAge) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
+	t.Run("findOne many field orWhereCb", func(t *testing.T) {
+		var (
+			name string
+			age  int32
+		)
+		err := NewTable(db, "man").Select("name,age").Where("1=1").OrWhereCb(func(wb *builder.Where) {
+			wb.Eq("id", 1).Eq("name", sureName).OrEq("age", sureAge)
+		}).FindOne(&name, &age)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !test.Equal(name, sureName) || !test.Equal(age, sureAge) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
 	t.Run("findOne 2 map", func(t *testing.T) {
 		var b map[string]string
 		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&b)
