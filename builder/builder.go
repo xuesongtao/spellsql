@@ -11,7 +11,7 @@ type SQLBuilder interface {
 	InitSql2Args(s string, args ...interface{}) *Builder   // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
 	AppendSql2Args(s string, args ...interface{}) *Builder // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
 	GetNoParseSql2Args() (string, []interface{})           // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
-	GetSqlStr() string                                     // GetSqlStr 解析输入占位符后的 SQL 语句, 用于打印日志
+	GetSqlStr() string                                     // GetSqlStr 解析输入占位符后的 SQL 语句, 建议用于打印日志
 	GetSql2Args() (string, []interface{})                  // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 }
 
@@ -70,7 +70,7 @@ func (b *Builder) appendArgs(args ...interface{}) {
 	b.finalArgs = append(b.finalArgs, args...)
 }
 
-func (b *Builder) getFinalSql2Args() (string, []interface{}) {
+func (b *Builder) getFinalNoPraseSql2Args() (string, []interface{}) {
 	if b.genFinal != nil {
 		b.genFinal(b)
 		b.genFinal = nil
@@ -86,6 +86,18 @@ func (b *Builder) getFinalSql2Args() (string, []interface{}) {
 		b.extArgs = nil
 	}
 	return b.finalSql.String(), b.finalArgs
+}
+
+// GetNoParseSql 获取保留输入的占位符 SQL 语句
+func (b *Builder) GetNoParseSql() string {
+	sqlStr, _ := b.getFinalNoPraseSql2Args()
+	return sqlStr
+}
+
+// GetNoParseArgs 获取保留输入的占位符 SQL 参数
+func (b *Builder) GetNoParseArgs() []interface{} {
+	_, args := b.getFinalNoPraseSql2Args()
+	return args
 }
 
 func (b *Builder) HaveStr(field string) bool {
@@ -122,18 +134,21 @@ func (b *Builder) AppendSql2Args(sqlStr string, args ...interface{}) *Builder {
 	return b
 }
 
+// GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
 func (b *Builder) GetNoParseSql2Args() (string, []interface{}) {
-	return b.getFinalSql2Args()
+	return b.getFinalNoPraseSql2Args()
 }
 
+// GetSqlStr 解析输入占位符后的 SQL 语句, 建议用于打印日志
 func (b *Builder) GetSqlStr() string {
-	sqlStr, sqlArgs := b.getFinalSql2Args()
+	sqlStr, sqlArgs := b.getFinalNoPraseSql2Args()
 	// fmt.Println(sqlStr, sqlArgs)
 	return dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Parse().Result()
 }
 
+// GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 func (b *Builder) GetSql2Args() (string, []interface{}) {
-	sqlStr, sqlArgs := b.getFinalSql2Args()
+	sqlStr, sqlArgs := b.getFinalNoPraseSql2Args()
 	return dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Replace().Result(), sqlArgs
 }
 

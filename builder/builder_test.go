@@ -72,10 +72,11 @@ func TestWhereGetSqlStr(t *testing.T) {
 		w := NewWhere(dialect.MySQL)
 		w.Eq("id", 1).
 			OrEq("name", "xue").
-			In("age", []int{18, 20})
+			In("age", []int{18, 20}).
+			In("age_1", 18, 20)
 
 		sqlStr := w.GetSqlStr()
-		sureSql := "`id` = 1 OR `name` = \"xue\" AND `age` IN (18, 20)"
+		sureSql := "`id` = 1 OR `name` = \"xue\" AND `age` IN (18, 20) AND `age_1` IN (18, 20)"
 		if sqlStr != sureSql {
 			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
 		}
