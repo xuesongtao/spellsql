@@ -14,14 +14,19 @@ import (
 )
 
 // Select 查询内容
-// fields 多个通过逗号隔开
-func (t *Table) Select(fields string) *Table {
-	if utils.Null(fields) {
+// fields:
+// 1. 可以多个通过逗号隔开
+// 2. 也可以直接添加
+func (t *Table) Select(fields ...string) *Table {
+	if len(fields) == 0 {
 		sLog.Error(t.ctx, "fields is null")
 		return t
 	}
-
-	return t.setSelect(t.parseCols(fields)...)
+	if len(fields) == 1 { // 如果只有一个字段, 可能有多个字段拼接的字符串, 需要解析
+		return t.setSelect(t.parseCols(fields[0])...)
+	} else {
+		return t.setSelect(fields...)
+	}
 }
 
 func (t *Table) parseCols(fields string) []string {
@@ -654,7 +659,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]
 			// 当 colInfo == nil 就直接通过 NULL 值处理, 如以下情况:
 			// 1. 说明初始化表失败(只要 tableName 存在就不会为空), 查询的时候只会在 Query 里初始化
 			// 2. sql 语句中使用了字段别名与表元信息字段名不一致
-			mayIsNull = colInfo == nil || (colInfo != nil && !colInfo.NotNull())
+			mayIsNull = colInfo == nil || !colInfo.NotNull()
 			// fmt.Printf("mayIsNull: %v colInfo: %+v\n", mayIsNull, colInfo)
 		}
 		// fmt.Println(colName, colType.ScanType().Name())
