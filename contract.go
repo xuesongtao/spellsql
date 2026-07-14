@@ -18,6 +18,8 @@ const (
 	RJI = internal.RJI // 右连接
 
 	TABLE_NAME = "TableName"
+
+	NULL = internal.NULL
 )
 
 // DBer
