@@ -12,10 +12,10 @@ import (
 // SearchAfter
 type SearchAfter struct {
 	SqlStr   interface{}                  // sql, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
-	Table    string                       // 表面
-	Names    []string                     // 唯一值名, 建议用索引值
+	Table    string                       // 表名
+	Names    []string                     // 唯一值名, 建议用索引值, Names, Values, OrderBys 的长度必须相等, 且顺序一致, 例如: names = ["id", "name"], values = [1, "test"]
 	Values   []interface{}                // 值
-	OrderBys []string                     // 按什么进行排序
+	OrderBys []string                     // 按什么进行排序, 例如: ["id ASC", "name DESC"], 如果不传, 则默认按 names 里的字段进行升序排序
 	Size     int                          // 每次处理多少
 	Dest     interface{}                  // scan 对象, 即回调里的对象
 	RowFn    func(_row interface{}) error // 每行的回调函数, values 为分页值
