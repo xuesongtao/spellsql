@@ -1,4 +1,4 @@
-#### 🚀🚀🚀 项目介绍
+# [spellsql](https://gitee.com/xuesongtao/spellsql/v2)
 
 * `spellsql` 拼接器:
     > 1.使用 `sync.Pool`, `strings.Builder` 等提高 `sql` 拼接工具的性能  
@@ -9,6 +9,14 @@
     > 1.新增/更新: 支持通过 `struct` 解析值进行操作; 支持对字段进行 **序列化** 操作; 支持设置**别名, 设置默认值**等  
     > 2.删除: 支持通过 `struct` 解析值进行  
     > 3.查询: 支持单表/多表查询; 支持对结果进行回调处理; 查询性能接近原生; 支持对结果映射到 `struct/map/slice/单字段`等
+
+#### 1. 使用介绍
+
+* 安装:  
+
+```go
+go get -u gitee.com/xuesongtao/spellsql/v2
+```
 
 #### 2. 占位符
 

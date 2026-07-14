@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/v2/builder"
 )
 
 // SearchAfter
@@ -56,14 +58,17 @@ func (s *SearchAfter) init() error {
 	return nil
 }
 
-func (s *SearchAfter) reGetSqlObj() *SqlStrObj {
-	sqlObj := NewSql(s.SqlStr)
-	for i, name := range s.Names {
-		sqlObj.SetWhereArgs("?v>?", name, s.Values[i])
-	}
-	sqlObj.SetOrderByStr(strings.Join(s.OrderBys, ", "))
-	sqlObj.SetLimit(0, s.Size)
-	return sqlObj
+func (s *SearchAfter) reGetSelectBuilder() *builder.Select {
+	selectObj := builder.NewSelect()
+	selectObj.InitSql2Args(s.SqlStr)
+	selectObj.WhereCb(func(wb *builder.Where) {
+		for i, name := range s.Names {
+			wb.Gt(name, s.Values[i])
+		}
+	})
+	selectObj.OrderBy(strings.Join(s.OrderBys, ", "))
+	selectObj.Limit(0, s.Size)
+	return selectObj
 }
 
 // SearchAfter 统一根据唯一值进行分页
@@ -71,12 +76,12 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 	if err := s.init(); err != nil {
 		return err
 	}
+
 	for {
 		rowCount := 0
-		sqlObj := s.reGetSqlObj()
 		err := NewTable(db, s.Table).
 			Ctx(ctx).
-			Raw(sqlObj).
+			Raw(s.reGetSelectBuilder()).
 			FindOneIgnoreResult(
 				s.Dest,
 				func(_row interface{}) error {

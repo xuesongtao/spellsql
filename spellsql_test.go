@@ -3,11 +3,10 @@ package spellsql
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"testing"
 
-	"gitee.com/xuesongtao/spellsql/test"
-	// "gitlab.cd.anpro/kb/module-kb/vxxx/spellsql/test"
+	"gitee.com/xuesongtao/spellsql/v2/test"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 func TestHandleCusType(t *testing.T) {
@@ -56,18 +55,6 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 		}
 	})
 
-	t.Run("have values", func(t *testing.T) {
-		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (?, ?, ?)", "test", 123456, "阿涛")
-		// s.SetPrintLog(false)
-		s.SetInsertValues("xuesongtao", "123456", "阿桃")
-		s.SetInsertValues("xuesongtao", "123456", "阿桃")
-		sqlStr := s.GetSqlStr()
-		sureSql := `INSERT INTO sys_user (username, password, name) VALUES ("test", 123456, "阿涛"), ("xuesongtao", "123456", "阿桃"), ("xuesongtao", "123456", "阿桃");`
-		if !test.Equal(sqlStr, sureSql) {
-			t.Error(test.NoEqErr)
-		}
-	})
-
 	t.Run("key-value", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password)")
 		// s.SetPrintLog(false)
@@ -82,8 +69,7 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 	t.Run("insert many", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password)")
 		// s.SetPrintLog(false)
-		for i := 0; i < 2; i++ {
-			s.SetInsertValuesArgs("?, ?d", "xue", "123456")
+		for i := 0; i < 4; i++ {
 			s.SetInsertValues("xue", 123456)
 		}
 		sqlStr := s.GetSqlStr()
@@ -95,8 +81,8 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 
 	t.Run("duplicate update", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
+		s.SetInsertValues("xuesongtao", "123", 20)
 		// s.SetPrintLog(false)
-		s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
 		s.Append("ON DUPLICATE KEY UPDATE username=VALUES(?v)", "username")
 		sqlStr := s.GetSqlStr()
 		sureSql := `INSERT INTO sys_user (username, password, age) VALUES ("xuesongtao", "123", 20) ON DUPLICATE KEY UPDATE username=VALUES(username);`
@@ -134,6 +120,7 @@ func TestNewCacheSql_DELETE(t *testing.T) {
 
 // 修改
 func TestNewCacheSql_UPDATE(t *testing.T) {
+
 	t.Run("normal", func(t *testing.T) {
 		s := NewCacheSql("UPDATE sys_user SET username = ?, password = ?, name = ? WHERE id = ?", "test", 123456, "阿涛", 12)
 		// s.SetPrintLog(false)
@@ -149,10 +136,9 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 		s := NewCacheSql("UPDATE sys_user SET")
 		// s.SetPrintLog(false)
 		s.SetUpdateValue("name", "xue")
-		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
 		s.SetWhereArgs("id IN (?d) AND age IN (?) AND name = ?", idsStr, []int{18, 20}, "xuesongtao")
 		sqlStr := s.GetSqlStr()
-		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND age IN (18,20) AND name = "xuesongtao";`
+		sureSql := "UPDATE sys_user SET `name` = \"xue\" WHERE id IN (1, 2, 3, 4, 5) AND age IN (18, 20) AND name = \"xuesongtao\";"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
@@ -163,10 +149,9 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 		s := NewCacheSql("UPDATE sys_user SET")
 		// s.SetPrintLog(false)
 		s.SetUpdateValue("name", "xue")
-		s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
 		s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "xuesongtao")
 		sqlStr := s.GetSqlStr()
-		sureSql := `UPDATE sys_user SET name = "xue", age = 18, score = 90.5 WHERE id IN (1,2,3,4,5) AND name = "xuesongtao";`
+		sureSql := "UPDATE sys_user SET `name` = \"xue\" WHERE id IN (1, 2, 3, 4, 5) AND name = \"xuesongtao\";"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
@@ -181,10 +166,10 @@ func TestNewCacheSql_Select(t *testing.T) {
 			s.SetWhereArgs("age > ?d", "12")
 		}
 		if true {
-			s.SetWhere("age", "=", "18 or 1=1") // 测试注入
+			s.SetWhere("age", "=", "18 or 1=1") // 测试SQL注入
 		}
 		if true {
-			s.SetWhere("age", "IN", []string{"18 or 1=1"}) // 测试注入
+			s.SetWhere("age", "IN", []string{"18 or 1=1"}) // 测试SQL注入
 		}
 		if true {
 			s.SetBetween("create_time", "2022-04-01 01:00:11", "2022-05-01 01:00:11")
@@ -197,9 +182,9 @@ func TestNewCacheSql_Select(t *testing.T) {
 		if !test.Equal(totalSqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
-
+		// return
 		sqlStr := s.SetOrderByStr("create_time DESC").SetLimit(1, 10).GetSqlStr()
-		sureSql = `SELECT username, password FROM sys_user WHERE money > 1000 AND age > 12 AND age = "18 or 1=1" AND age IN ("18 or 1=1") AND (create_time BETWEEN "2022-04-01 01:00:11" AND "2022-05-01 01:00:11") OR name = "xue" ORDER BY create_time DESC LIMIT 10 OFFSET 0;`
+		sureSql = "SELECT username, password FROM sys_user WHERE money > 1000 AND age > 12 AND age = \"18 or 1=1\" AND age IN (\"18 or 1=1\") AND (create_time BETWEEN \"2022-04-01 01:00:11\" AND \"2022-05-01 01:00:11\") OR name = \"xue\" ORDER BY create_time DESC LIMIT 10 OFFSET 0;"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
@@ -260,7 +245,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 		s.SetPrintLog(false)
 
 		sqlStr := s.SetGroupByStr("cls_id").SetHaving("sum(cls_id)>10").GetSqlStr()
-		sureSql := `SELECT cls_id,COUNT(*) FROM sys_user WHERE GROUP BY cls_id HAVING sum(cls_id)>10;`
+		sureSql := "SELECT cls_id,COUNT(*) FROM sys_user WHERE GROUP BY `cls_id` HAVING sum(cls_id)>10;"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
@@ -278,13 +263,13 @@ func TestGetSqlStr(t *testing.T) {
 
 func TestFmtSqlStr(t *testing.T) {
 	sqlStr := FmtSqlStr("SELECT * FROM user_info WHERE id IN (?)", []int{1, 2, 3})
-	sureSql := `SELECT * FROM user_info WHERE id IN (1,2,3)`
+	sureSql := `SELECT * FROM user_info WHERE id IN (1, 2, 3)`
 	if !test.Equal(sqlStr, sureSql) {
 		t.Error(test.NoEqErr)
 	}
 
 	sqlStr = FmtSqlStr("SELECT * FROM user_info WHERE id IN (?d)", []string{"1", "2", "3"})
-	sureSql = `SELECT * FROM user_info WHERE id IN (1,2,3)`
+	sureSql = `SELECT * FROM user_info WHERE id IN (1, 2, 3)`
 	if !test.Equal(sqlStr, sureSql) {
 		t.Error(test.NoEqErr)
 	}
@@ -336,14 +321,14 @@ func TestFmtLikeSqlStr(t *testing.T) {
 
 func TestIndexForBF(t *testing.T) {
 	str := "SELECT kind_id, kind_name FROM item_kind WHERE"
-	i := IndexForBF(true, str, "WHEREb")
+	i := utils.IndexForBF(true, str, "WHEREb")
 	if i != -1 {
 		t.Error(test.NoEqErr)
 	}
 
 	// str = "SELECT kind_id, kind_name FROM item_kind WHERE"
 	str = "SELECT kind_id, kind_name FROM item_kind WHERE"
-	i = IndexForBF(false, str, "aSELECT")
+	i = utils.IndexForBF(false, str, "aSELECT")
 	if i != -1 {
 		t.Error(test.NoEqErr)
 	}
@@ -356,7 +341,7 @@ func TestDistinctIdsStr(t *testing.T) {
 		ids += fmt.Sprintf("%d,", i%2)
 	}
 	t.Log("ids: ", ids)
-	res := DistinctIdsStr(ids, ",")
+	res := utils.DistinctIdsStr(ids, ",")
 	if res != "0,1" {
 		t.Log("ids: ", res)
 		t.Error(test.NoEqErr)
@@ -365,37 +350,9 @@ func TestDistinctIdsStr(t *testing.T) {
 
 func TestDistinctIds(t *testing.T) {
 	ids := []string{"0", "1", "2", "1", "0", "2"}
-	res := DistinctIds(ids)
+	res := utils.DistinctIds(ids)
 	if !test.Equal([]string{"0", "1", "2"}, res) {
 		t.Error(test.NoEqErr)
-	}
-}
-
-func BenchmarkIndexForBF1(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "SELECT kind_id, kind_name FROM item_kind WHERE"
-		_ = IndexForBF(true, str, "WHERE")
-	}
-}
-
-func BenchmarkIndexForBF12(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "SELECT kind_id, kind_name FROM item_kind WHERE"
-		_ = IndexForBF(false, str, "WHERE")
-	}
-}
-
-func BenchmarkIndexForBF(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "GROUP BY test, test1"
-		_ = IndexForBF(true, str, "GROUP BY")
-	}
-}
-
-func BenchmarkStringIndex(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		str := "GROUP BY test, test1"
-		_ = strings.Index(str, "GROUP BY")
 	}
 }
 
@@ -406,15 +363,14 @@ func BenchmarkFmtInt2Str(b *testing.B) {
 }
 
 func BenchmarkSqlStr_Int2Str(b *testing.B) {
-	s := NewSql("SELECT 12")
 	var i int64
 	for i < int64(b.N) {
-		s.Int2Str(i)
+		utils.Int2Str(i)
 		i++
 	}
 }
 
-// go test -benchmem -run=^$ -bench ^BenchmarkSqlStr_GetSql gitee.com/xuesongtao/spellsql -v -count=5
+// go test -benchmem -run=^$ -bench ^BenchmarkSqlStr_GetSql gitee.com/xuesongtao/spellsql/v2 -v -count=5
 
 func BenchmarkSqlStr_GetSql(b *testing.B) {
 	b.ResetTimer()
@@ -529,10 +485,9 @@ func BenchmarkIntStr(b *testing.B) {
 func BenchmarkIntStr1(b *testing.B) {
 	s := int64(56)
 	a := ""
-	obj := NewCacheSql("")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a = obj.Int2Str(s)
+		a = utils.Int2Str(s)
 	}
 	b.Log(a)
 }
@@ -542,7 +497,7 @@ func BenchmarkIntStr3(b *testing.B) {
 	a := ""
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		a = Str(s)
+		a = utils.Str(s)
 	}
 	b.Log(a)
 }

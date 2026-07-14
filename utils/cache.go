@@ -1,8 +1,10 @@
-package spellsql
+package utils
 
 import (
 	"container/list"
 	"sync"
+
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
 const (
@@ -120,9 +122,9 @@ func (l *LRUCache) Len() int {
 
 func (l *LRUCache) Dump() string {
 	head := l.list.Front()
-	buf := getTmpBuf()
-	defer putTmpBuf(buf)
-	
+	buf := internal.GetTmpBuf()
+	defer internal.PutTmpBuf(buf)
+
 	for head != nil {
 		buf.WriteString(Str(head.Value))
 		head = head.Next()
