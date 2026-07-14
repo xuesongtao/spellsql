@@ -64,6 +64,7 @@ func (s *SearchAfter) getSqlStr() string {
 	case string:
 		return v
 	case *builder.Select:
+		s.Table = v.GetTableName()
 		return v.GetSqlStr()
 	default:
 		return ""
