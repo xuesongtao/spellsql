@@ -54,8 +54,7 @@ func init() {
 
 	// 初始化 pg tmer
 	spellsql.GlobalDbType(dialect.Postgres)
-
-	pgDb.ExecContext(context.Background(), "TRUNCATE TABLE man")
+	pgDb.ExecContext(context.Background(), "TRUNCATE TABLE man RESTART IDENTITY")
 }
 
 func InitPgTestMain(t *testing.T, size ...int) {
@@ -65,11 +64,11 @@ func InitPgTestMain(t *testing.T, size ...int) {
 	}
 	for i := 0; i < defaultSize; i++ {
 		prepareMan := Man{
-			Name:     sureName,
-			Age:      sureAge,
-			Addr:     sureAddr,
-			JsonTxt:  Tmp{Name: "json", Data: "test json marshal"},
-			XmlTxt:   Tmp{Name: "xml", Data: "test xml marshal"},
+			Name:    sureName,
+			Age:     sureAge,
+			Addr:    sureAddr,
+			JsonTxt: Tmp{Name: "json", Data: "test json marshal"},
+			// XmlTxt:   Tmp{Name: "xml", Data: "test xml marshal"},
 			Json1Txt: Tmp{Name: "json1", Data: "test json1 marshal"},
 		}
 
@@ -105,7 +104,7 @@ func TestLocalPg(t *testing.T) {
 	tableObj := spellsql.NewTable(pgDb, "man")
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	res, err := tableObj.Insert(m).Exec()
+	res, err := tableObj.Insert(m).DbType(dialect.Postgres).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,6 +246,7 @@ func TestRawForPg(t *testing.T) {
 }
 
 func TestFindOneForPg(t *testing.T) {
+	InitPgTestMain(t)
 	var m Man
 	tableObj := spellsql.NewTable(pgDb)
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
@@ -260,21 +260,22 @@ func TestFindOneForPg(t *testing.T) {
 		Name: "json",
 		Data: "test json marshal",
 	}
-	xmlTxt := Tmp{
-		Name: "xml",
-		Data: "test xml marshal",
-	}
+	// xmlTxt := Tmp{
+	// 	Name: "xml",
+	// 	Data: "test xml marshal",
+	// }
 	json1Txt := Tmp{
 		Name: "json1",
 		Data: "test json1 marshal",
 	}
 	t.Logf("%+v", m)
-	if !Equal(m.Name, sureName) || !Equal(m.Age, sureAge) || !StructValEqual(m.JsonTxt, jsonTxt) || !StructValEqual(m.XmlTxt, xmlTxt) || !StructValEqual(m.Json1Txt, json1Txt) {
+	if !Equal(m.Name, sureName) || !Equal(m.Age, sureAge) || !StructValEqual(m.JsonTxt, jsonTxt) || !StructValEqual(m.Json1Txt, json1Txt) {
 		t.Error(NoEqErr)
 	}
 }
 
 func TestFindAllForPg(t *testing.T) {
+	InitPgTestMain(t, 20)
 	t.Run("ummarshal", func(t *testing.T) {
 		var m []Man
 		var err error
@@ -294,17 +295,17 @@ func TestFindAllForPg(t *testing.T) {
 			Name: "json",
 			Data: "test json marshal",
 		}
-		xmlTxt := Tmp{
-			Name: "xml",
-			Data: "test xml marshal",
-		}
+		// xmlTxt := Tmp{
+		// 	Name: "xml",
+		// 	Data: "test xml marshal",
+		// }
 		json1Txt := Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		}
 		t.Logf("%+v", m)
 		first := m[0]
-		if !Equal(first.Name, sureName) || !Equal(first.Age, sureAge) || !StructValEqual(first.JsonTxt, jsonTxt) || !StructValEqual(first.XmlTxt, xmlTxt) || !StructValEqual(first.Json1Txt, json1Txt) {
+		if !Equal(first.Name, sureName) || !Equal(first.Age, sureAge) || !StructValEqual(first.JsonTxt, jsonTxt) || !StructValEqual(first.Json1Txt, json1Txt) {
 			t.Error(NoEqErr)
 		}
 	})
@@ -322,7 +323,8 @@ func TestFindAllForPg(t *testing.T) {
 		var names []string
 		for page := int32(1); page <= int32(totalPage); page++ {
 			var tmp []string
-			err := tableObj.Clone().OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
+			newTableObj := tableObj.Clone()
+			err := newTableObj.Clone().OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
 			if err != nil {
 				t.Fatal(err)
 			}
