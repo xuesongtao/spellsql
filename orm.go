@@ -492,8 +492,8 @@ func parseTableName(objName string) string {
 }
 
 func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
-	// cost := time.Since(st)
-	// if len(printLog) > 0 && printLog[0] {
-	// 	sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
-	// }
+	cost := time.Since(st)
+	if len(printLog) > 0 && printLog[0] {
+		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
+	}
 }

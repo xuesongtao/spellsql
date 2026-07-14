@@ -178,6 +178,24 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 	return t
 }
 
+// WhereBuilder 使用 builder.Where 进行查询条件构建
+func (t *Table) WhereBuilder(wb *builder.Where) *Table {
+	builder.WhereCb(t.builder, func(innerWb *builder.Where) {
+		sqlStr, args := wb.GetNoParseSql2Args()
+		innerWb.And("("+sqlStr+")", args...)
+	})
+	return t
+}
+
+// OrWhereBuilder 使用 builder.Where 进行查询条件构建
+func (t *Table) OrWhereBuilder(wb *builder.Where) *Table {
+	builder.WhereCb(t.builder, func(innerWb *builder.Where) {
+		sqlStr, args := wb.GetNoParseSql2Args()
+		innerWb.Or("("+sqlStr+")", args...)
+	})
+	return t
+}
+
 // OrWhere 支持占位符
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123

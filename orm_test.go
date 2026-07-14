@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 	"gitee.com/xuesongtao/spellsql/v2/test"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
@@ -789,6 +790,30 @@ func TestFindOne(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !test.Equal(b["name"], sureName) || !test.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
+	t.Run("findOne 2 where builder", func(t *testing.T) {
+		var b map[string]string
+		wb := builder.NewWhere().Eq("id", 1)
+		err := NewTable(db, "man").Select("name,age").WhereBuilder(wb).FindOne(&b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !test.Equal(b["name"], sureName) || !test.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
+	t.Run("findOne 2 or where builder", func(t *testing.T) {
+		var b map[string]string
+		wb := builder.NewWhere().Eq("id", 1).NotEq("id", 2)
+		err := NewTable(db, "man").Select("id,name,age").Where("id=2").OrWhereBuilder(wb).FindOne(&b)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !test.Equal(b["id"], "1") || !test.Equal(b["name"], sureName) || !test.Equal(b["age"], fmt.Sprintf("%d", sureAge)) {
 			t.Error(test.NoEqErr)
 		}
 	})
