@@ -151,11 +151,41 @@ func (w *Where) And(sqlStr string, args ...interface{}) *Where {
 	return w
 }
 
+func (w *Where) AndGroup(cb func(wb *Where)) *Where {
+	wb := NewWhere(w.dbType)
+	cb(wb)
+
+	if !wb.Empty() {
+		if !w.Empty() {
+			w.appendSql(" AND ")
+		}
+		w.appendSql("(")
+		w.appendSql2Args(wb.finalSql.String(), wb.finalArgs...)
+		w.appendSql(")")
+	}
+	return w
+}
+
 func (w *Where) Or(sqlStr string, args ...interface{}) *Where {
 	if w.len() > 0 {
 		w.appendSql(" OR ")
 	}
 	w.appendSql2Args(sqlStr, args...)
+	return w
+}
+
+func (w *Where) OrGroup(cb func(wb *Where)) *Where {
+	wb := NewWhere(w.dbType)
+	cb(wb)
+
+	if !wb.Empty() {
+		if !w.Empty() {
+			w.appendSql(" OR ")
+		}
+		w.appendSql("(")
+		w.appendSql2Args(wb.finalSql.String(), wb.finalArgs...)
+		w.appendSql(")")
+	}
 	return w
 }
 
