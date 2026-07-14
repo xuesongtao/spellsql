@@ -11,7 +11,7 @@ import (
 
 // SearchAfter
 type SearchAfter struct {
-	SqlStr   string                       // sql, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
+	SqlStr   interface{}                  // sql, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
 	Table    string                       // 表面
 	Names    []string                     // 唯一值名, 建议用索引值
 	Values   []interface{}                // 值
@@ -22,7 +22,8 @@ type SearchAfter struct {
 }
 
 func (s *SearchAfter) init() error {
-	if s.SqlStr == "" {
+	sqlStr := s.getSqlStr()
+	if sqlStr == "" {
 		return errors.New("sqlObj required")
 	}
 	if s.Table == "" {
@@ -47,20 +48,31 @@ func (s *SearchAfter) init() error {
 	}
 
 	// 判断
-	if strings.Contains(s.SqlStr, "ORDER") || strings.Contains(s.SqlStr, "GROUP") {
+	if strings.Contains(sqlStr, "ORDER") || strings.Contains(sqlStr, "GROUP") {
 		return errors.New("sqlStr no contains order/group, it only have where")
 	}
 	for _, name := range s.Names {
-		if !strings.Contains(s.SqlStr, name) {
+		if !strings.Contains(sqlStr, name) {
 			return fmt.Errorf("name %q must contains in select", name)
 		}
 	}
 	return nil
 }
 
+func (s *SearchAfter) getSqlStr() string {
+	switch v := s.SqlStr.(type) {
+	case string:
+		return v
+	case *builder.Select:
+		return v.GetSqlStr()
+	default:
+		return ""
+	}
+}
+
 func (s *SearchAfter) reGetSelectBuilder() *builder.Select {
 	selectObj := builder.NewSelect()
-	selectObj.InitSql2Args(s.SqlStr)
+	selectObj.InitSql2Args(s.getSqlStr())
 	selectObj.WhereCb(func(wb *builder.Where) {
 		for i, name := range s.Names {
 			wb.Gt(name, s.Values[i])
