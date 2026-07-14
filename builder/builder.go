@@ -22,14 +22,24 @@ type Builder struct {
 	genFinal  func(b *Builder)
 
 	// 用于 AppendSql2Args
-	extSql  []string
+	extSql  strings.Builder
 	extArgs []interface{}
 }
 
 func NewBuilder(dt ...dialect.DbType) *Builder {
-	return &Builder{
-		dbType: getDbType(dt...),
-	}
+	obj := new(Builder)
+	obj.init(dt...)
+	return obj
+}
+
+func (b *Builder) init(dt ...dialect.DbType) {
+	b.dbType = getDbType(dt...)
+	b.finalSql.Reset()
+	b.finalArgs = nil
+	b.genFinal = nil
+
+	b.extSql.Reset()
+	b.extArgs = nil
 }
 
 func (b *Builder) setGenFinal(f func(b *Builder)) {
@@ -66,11 +76,9 @@ func (b *Builder) getFinalSql2Args() (string, []interface{}) {
 		b.genFinal = nil
 	}
 
-	if len(b.extSql) > 0 {
-		for _, s := range b.extSql {
-			b.finalSql.WriteString(s)
-		}
-		b.extSql = nil
+	if b.extSql.Len() > 0 {
+		b.finalSql.WriteString(b.extSql.String())
+		b.extSql.Reset()
 	}
 
 	if len(b.extArgs) > 0 {
@@ -100,10 +108,6 @@ func (b *Builder) initWhere(sqlStr string, args ...interface{}) {
 }
 
 func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
-	b.finalSql.Reset()
-	b.finalArgs = nil
-	b.extSql = nil
-	b.extArgs = nil
 	b.appendSql2Args(sqlStr, args...)
 	return b
 }
@@ -112,7 +116,8 @@ func (b *Builder) AppendSql2Args(sqlStr string, args ...interface{}) *Builder {
 	if b.extArgs == nil {
 		b.extArgs = make([]interface{}, 0, len(args))
 	}
-	b.extSql = append(b.extSql, " "+sqlStr)
+	b.extSql.WriteString(" ")
+	b.extSql.WriteString(sqlStr)
 	b.extArgs = append(b.extArgs, args...)
 	return b
 }

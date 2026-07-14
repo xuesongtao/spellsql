@@ -86,7 +86,7 @@ func ExampleNewCacheSql_pageHandle() {
 		totalNum  int32 = 30
 		page      int32 = 1
 		size      int32 = 10
-		totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
+		totalPage int32 = int32(math.Ceil(float64(totalNum) / float64(size)))
 	)
 	sqlStr := sqlObj.SetPrintLog(false).GetSqlStr("", "")
 	for page <= totalPage {

@@ -1130,7 +1130,7 @@ func BenchmarkFindOneGorm(b *testing.B) {
 func BenchmarkFindOneOrmQueryRowScan(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m test.Man
+		var m ManCopy
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 1).QueryRowScan(&m.Id, &m.Age, &m.Addr)
 	}
 
@@ -1144,7 +1144,7 @@ func BenchmarkFindOneOrmQueryRowScan(b *testing.B) {
 func BenchmarkFindOneQueryRowScan(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m test.Man
+		var m ManCopy
 		sqlStr := FmtSqlStr("SELECT name,age,addr FROM man WHERE id=?", 1)
 		_ = db.QueryRow(sqlStr).Scan(&m.Id, &m.Age, &m.Addr)
 	}
@@ -1159,7 +1159,7 @@ func BenchmarkFindOneQueryRowScan(b *testing.B) {
 func BenchmarkFindOneOrm(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m test.Man
+		var m ManCopy
 		_ = NewTable(db, "man").IsPrintSql(false).Select("name,age,addr").Where("id=?", 1).FindOne(&m)
 	}
 
@@ -1173,7 +1173,7 @@ func BenchmarkFindOneOrm(b *testing.B) {
 func BenchmarkFindOneOrmForRaw(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var m test.Man
+		var m ManCopy
 		_ = NewTable(db).IsPrintSql(false).Raw(NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1)).FindOne(&m)
 	}
 
@@ -1182,6 +1182,15 @@ func BenchmarkFindOneOrmForRaw(b *testing.B) {
 	// BenchmarkFindOneOrmForRaw-8                31602             37587 ns/op            1337 B/op         33 allocs/op
 	// BenchmarkFindOneOrmForRaw-8                31701             38329 ns/op            1337 B/op         33 allocs/op
 	// BenchmarkFindOneOrmForRaw-8                31494             37600 ns/op            1337 B/op         33 allocs/op
+}
+
+func BenchmarkFindOneFnCtx(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var m ManCopy
+		_ = FindOneFnCtx(context.Background(), db, NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1), &m)
+	}
+
 }
 
 func TestFindAll(t *testing.T) {

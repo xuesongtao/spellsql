@@ -39,7 +39,6 @@ type Table struct {
 	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
 	isPrintSql               bool                             // 标记是否打印 sql
-	needSetSize              bool                             // 标记批量查询的时候是否需要设置默认返回条数
 	tag                      string                           // 记录解析 struct 中字段名的 tag
 	name                     string                           // 表名
 	handleCols               []string                         // Insert/Update/Delete/Select 操作的表字段名
@@ -59,8 +58,13 @@ type Table struct {
 //	2.操作的对象字段如果没有设置 SetMarshalFn/SetUnmarshalFn, 那么默认会设置 json.Marshal/json.Unmarshal 来处理该字段
 func NewTable(db DBer, args ...string) *Table {
 	t := new(Table)
-	t.init()
+	t.Reset()
+	t.initDb(db, args...)
+	return t
+}
 
+// init 初始化
+func (t *Table) initDb(db DBer, args ...string) *Table {
 	// 赋值
 	t.db = db
 	switch len(args) {
@@ -73,14 +77,19 @@ func NewTable(db DBer, args ...string) *Table {
 	return t
 }
 
-// init 初始化
-func (t *Table) init() {
+func (t *Table) Reset() {
 	t.ctx = context.Background()
-	t.printSqlCallSkip = 2
-	t.isPrintSql = true
-	t.needSetSize = false
-	t.tag = internal.DefaultTableTag
+	t.db = nil
 	t.dbType = dialect.DefaultDbType
+	t.printSqlCallSkip = 2
+	t.destTypeFlag = 0
+	t.isPrintSql = true
+	t.tag = internal.DefaultTableTag
+	t.name = ""
+	t.handleCols = nil
+	t.builder = nil
+	t.cacheCol2InfoMap = nil
+	t.waitHandleStructFieldMap = nil
 }
 
 // Ctx 设置 context
@@ -100,12 +109,6 @@ func (t *Table) DbType(dt dialect.DbType) *Table {
 // IsPrintSql 是否打印 sql
 func (t *Table) IsPrintSql(is bool) *Table {
 	t.isPrintSql = is
-	return t
-}
-
-// NeedSetSize 查询的时候, 是否需要设置默认 size
-func (t *Table) NeedSetSize(need bool) *Table {
-	t.needSetSize = need
 	return t
 }
 
@@ -489,8 +492,8 @@ func parseTableName(objName string) string {
 }
 
 func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
-	cost := time.Since(st)
-	if len(printLog) > 0 && printLog[0] {
-		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
-	}
+	// cost := time.Since(st)
+	// if len(printLog) > 0 && printLog[0] {
+	// 	sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
+	// }
 }

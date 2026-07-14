@@ -294,9 +294,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 		return err
 	}
 
-	if t.needSetSize {
-		t.getSelectBuilder().Limit(0, 1)
-	}
+	t.getSelectBuilder().Limit(0, 1)
 
 	if len(dest) == 1 {
 		ty, err := t.getDestReflectType(dest[0], []reflect.Kind{reflect.Struct, reflect.Map}, internal.FindOneDestTypeErr)
@@ -318,9 +316,7 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 		return err
 	}
 
-	if t.needSetSize {
-		t.getSelectBuilder().Limit(0, 1)
-	}
+	t.getSelectBuilder().Limit(0, 1)
 
 	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, internal.FindOneDestTypeErr)
 	if err != nil && !utils.IsOneField(ty.Kind()) { // 需要排除单字段查询

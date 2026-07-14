@@ -167,8 +167,8 @@ func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
 	tmpBuf := internal.GetTmpBuf(s.len())
 	defer internal.PutTmpBuf(tmpBuf)
 
-	b := s.Copy()
-	sqlStr, args := b.GetNoParseSql2Args()
+	// b := s.Copy()
+	sqlStr, args := s.GetNoParseSql2Args()
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
 	for i := 0; i < len(sqlStr); i++ {
