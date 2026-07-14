@@ -18,6 +18,15 @@ function main() {
     fi
 
     curPath=$(pwd)
+    # gitlab.cd.anpro/kb/module-kb/vxxx
+    #替换为具体的版本, 支持 v3, v4
+    read -p "输入需要替换的 gitlab.cd.anpro/kb/module-kb/xv$ 的版本 (e.g., 3, 4): " replaceVersion
+    if [[ -z "$replaceVersion" ]]; then
+        echo "未输入版本号，使用默认版本 4"
+        replaceVersion="4"
+    fi
+    replaceVersion="v$replaceVersion"
+
     for goFile in $(find . -name "*.go"); do
         # skipFile=$(awk 'BEGIN {print index("'${goFile}'", "benchmark")}') # 不更新的
         # if [[ $skipFile > 0 ]]; then
@@ -34,6 +43,7 @@ function main() {
 
         # 替换
         sed -e "s/\/\/ \"gitlab.cd.anpro/\"gitlab.cd.anpro/g" \
+            -e "s/gitlab.cd.anpro\\/kb\\/module-kb\\/vxxx/gitlab.cd.anpro\\/kb\\/module-kb\\/${replaceVersion}/g" \
             -e "s/\"gitee.com\\/xuesongtao\\/spellsql/\/\/ \"gitee.com\\/xuesongtao\\/spellsql/g" \
             -e "s/logOs \"os\"/\/\/ logOs \"os\"/g" \
             -e "s/log: log.New/\/\/ log: log.New/g" \

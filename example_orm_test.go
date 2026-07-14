@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"gitee.com/xuesongtao/spellsql/test"
-	// "gitlab.cd.anpro/go/common/spellsql/test"
+	// "gitlab.cd.anpro/kb/module-kb/vxxx/spellsql/test"
 )
 
 func myPrint(v interface{}, isStruct bool) {

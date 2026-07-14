@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql/test"
-	// "gitlab.cd.anpro/go/common/spellsql/test"
+	// "gitlab.cd.anpro/kb/module-kb/vxxx/spellsql/test"
 )
 
 func TestHandleCusType(t *testing.T) {

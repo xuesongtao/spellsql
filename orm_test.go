@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"gitee.com/xuesongtao/spellsql/test"
-	// "gitlab.cd.anpro/go/common/spellsql/test"
+	// "gitlab.cd.anpro/kb/module-kb/vxxx/spellsql/test"
 	// _ "github.com/go-sql-driver/mysql"
 	// gmysql "gorm.io/driver/mysql"
 	// "gorm.io/gorm"
