@@ -41,6 +41,7 @@ func TestSearchAfter(t *testing.T) {
 }
 
 func TestSearchAfter2ResultDemo(t *testing.T) {
+	InitTestMain(t, 50)
 	obj := &SearchAfter{
 		SqlStr:   "select id,name from man",
 		Table:    "man",
