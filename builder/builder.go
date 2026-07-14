@@ -88,12 +88,14 @@ func (b *Builder) getFinalNoPraseSql2Args() (string, []interface{}) {
 	return b.finalSql.String(), b.finalArgs
 }
 
-func (b *Builder) Sql() string {
+// GetNoParseSql 获取保留输入的占位符 SQL 语句
+func (b *Builder) GetNoParseSql() string {
 	sqlStr, _ := b.getFinalNoPraseSql2Args()
 	return sqlStr
 }
 
-func (b *Builder) Args() []interface{} {
+// GetNoParseArgs 获取保留输入的占位符 SQL 参数
+func (b *Builder) GetNoParseArgs() []interface{} {
 	_, args := b.getFinalNoPraseSql2Args()
 	return args
 }
