@@ -163,12 +163,31 @@ func (s *Select) Having(having string, args ...interface{}) *Select {
 	return s
 }
 
+func (s *Select) getTotalSelect() *Select {
+	obj := NewSelect(s.dbType)
+	obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
+
+	obj.columns = make([]string, len(s.columns))
+	copy(obj.columns, s.columns)
+
+	obj.tableName = s.tableName
+
+	obj.joins = make([]string, len(s.joins))
+	copy(obj.joins, s.joins)
+
+	obj.where = NewWhere(s.dbType)
+	if s.where != nil {
+		sqlStr, args := s.where.GetNoParseSql2Args()
+		obj.where.InitSql2Args(sqlStr, args...)
+	}
+	return obj
+}
+
 func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
 	tmpBuf := internal.GetTmpBuf(s.len())
 	defer internal.PutTmpBuf(tmpBuf)
 
-	// b := s.Copy()
-	sqlStr, args := s.GetNoParseSql2Args()
+	sqlStr, args := s.getTotalSelect().GetNoParseSql2Args()
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
 	for i := 0; i < len(sqlStr); i++ {
