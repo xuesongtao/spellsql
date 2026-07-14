@@ -322,6 +322,8 @@ func (t *Table) GetCols(skipCols ...string) []string {
 
 // Exec 执行
 func (t *Table) Exec() (sql.Result, error) {
+	defer t.free()
+
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}

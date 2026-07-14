@@ -38,6 +38,8 @@ type Table struct {
 	dbType                   dialect.DbType
 	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
+	haveFree                 bool                             // 标记 table 释放已释放
+	comeClone                bool                             // 是否来自克隆
 	isPrintSql               bool                             // 标记是否打印 sql
 	tag                      string                           // 记录解析 struct 中字段名的 tag
 	name                     string                           // 表名
@@ -50,14 +52,15 @@ type Table struct {
 // NewTable 初始化
 // args 支持两个参数
 // args[0]: 会解析为 tableName, 这里如果有值, 在进行操作表的时候就会以此表为准,
-// 如果为空时, 在通过对象进行操作时按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
+// 如果为空时, 在通过对象进行操作时, 如果实现了 TableName() 方法就按返回的设置表名, 如果没有回按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
 // args[1]: 会解析为待解析的 tag, 默认 defaultTableTag
 // 注:
 //
 //	1.使用 INSERT/UPDATE/DELETE/SELECT(SELECT 排除使用 Count)操作后该对象就会被释放, 如果继续使用会出现 panic
 //	2.操作的对象字段如果没有设置 SetMarshalFn/SetUnmarshalFn, 那么默认会设置 json.Marshal/json.Unmarshal 来处理该字段
 func NewTable(db DBer, args ...string) *Table {
-	t := new(Table)
+	// t := new(Table)
+	t := cacheTabObj.Get().(*Table)
 	t.Reset()
 	t.initDb(db, args...)
 	return t
@@ -83,6 +86,7 @@ func (t *Table) Reset() {
 	t.dbType = dialect.DefaultDbType
 	t.printSqlCallSkip = 2
 	t.destTypeFlag = 0
+	t.haveFree = false
 	t.isPrintSql = true
 	t.tag = internal.DefaultTableTag
 	t.name = ""
@@ -120,13 +124,43 @@ func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
 
 // Clone 克隆一个新的 Table 对象
 func (t *Table) Clone() *Table {
-	newT := NewTable(t.db, t.name, t.tag)
-	newT.ctx = t.ctx
-	newT.dbType = t.dbType
+	newT := &Table{comeClone: true}
+	newT.initDb(t.db, t.name).
+		Ctx(t.ctx).
+		DbType(t.dbType)
+	if t.builder == nil {
+		sLog.Error(t.ctx, internal.BuilderIsNilErr)
+		return nil
+	}
 	sqlStr, args := t.builder.GetNoParseSql2Args()
 	_, bld := parseSQLBuilder(t.dbType, sqlStr, args...)
 	newT.builder = bld
 	return newT
+}
+
+// free 释放
+func (t *Table) free() {
+	if t.comeClone { // clone 就不要释放了
+		return
+	}
+
+	if t.haveFree {
+		sLog.Error(t.ctx, "table already free")
+		return
+	}
+
+	t.haveFree = true // 标记释放
+
+	// 释放内容
+	t.db = nil
+	t.name = ""
+	t.handleCols = nil
+	t.builder = nil
+	t.cacheCol2InfoMap = nil
+	t.waitHandleStructFieldMap = nil
+
+	// 存放缓存
+	cacheTabObj.Put(t)
 }
 
 func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
@@ -203,7 +237,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return internal.TableNameIsUnknownErr
 	}
 
-	// 防止 name 中包含 别名, 格式为: "db_name"
+	// 防止 name 中包含 别名
 	tableName := parseTableName(t.name)
 
 	// 先判断下缓存中有没有
@@ -441,6 +475,10 @@ func (t *Table) Raw(sql interface{}) *Table {
 
 // prevCheck 查询预检查
 func (t *Table) prevCheck(checkBuilder ...bool) error {
+	if t.haveFree {
+		return errors.New("tableObj have free, you can't again use")
+	}
+
 	if t.db == nil {
 		return errors.New("db is nil")
 	}
@@ -461,6 +499,10 @@ func (t *Table) prevCheck(checkBuilder ...bool) error {
 	if defaultCheck {
 		if t.builder == nil && utils.Null(t.name) {
 			return internal.TableNameIsUnknownErr
+		}
+
+		if t.builder == nil {
+			return internal.BuilderIsNilErr
 		}
 	}
 	return nil

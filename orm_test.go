@@ -1209,15 +1209,6 @@ func BenchmarkFindOneOrmForRaw(b *testing.B) {
 	// BenchmarkFindOneOrmForRaw-8                31494             37600 ns/op            1337 B/op         33 allocs/op
 }
 
-func BenchmarkFindOneFnCtx(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var m ManCopy
-		_ = FindOneFnCtx(context.Background(), db, NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1), &m)
-	}
-
-}
-
 func TestFindAll(t *testing.T) {
 	t.Log("find all test start")
 	InitTestMain(t)

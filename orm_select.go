@@ -293,13 +293,13 @@ func (t *Table) Count(total interface{}) error {
 
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
-	// st := time.Now()
+	st := time.Now()
 	sqlStr, args := t.getSelectBuilder().GetTotalSql2Args()
 	err := t.db.QueryRowContext(t.ctx, sqlStr, args...).Scan(total)
 	if err != nil {
 		return err
 	}
-	// defer printCostTimeLog(t.ctx, st, t.tmpSqlObj.getSqlLogStr("sql", sqlStr), t.isPrintSql)
+	defer printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetSqlStr(), t.isPrintSql)
 	return nil
 }
 
@@ -400,12 +400,14 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 
 // QueryRowScan 单行多值查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
+	defer t.free()
+
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
 	t.printSqlCallSkip += 1
 
-	rows, err := t.Query()
+	rows, err := t.Query(false)
 	if err != nil {
 		return err
 	}
@@ -444,7 +446,16 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 
 // Query 多行查询
 // 注: 返回的 sql.Rows 需要调用 Close, 防止 goroutine 泄露
-func (t *Table) Query() (*sql.Rows, error) {
+func (t *Table) Query(isNeedCache ...bool) (*sql.Rows, error) {
+	defaultNeedCache := true
+	if len(isNeedCache) > 0 {
+		defaultNeedCache = isNeedCache[0]
+	}
+
+	if defaultNeedCache {
+		defer t.free()
+	}
+
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
@@ -503,9 +514,11 @@ func (t *Table) loadDestType(dest reflect.Type) {
 
 // find 查询处理入口, 根据 dest 类型进行分配处理
 func (t *Table) find(dest interface{}, ty reflect.Type, ignoreRes bool, fn ...SelectCallBackFn) error {
+	defer t.free()
+
 	t.printSqlCallSkip += 2
 
-	rows, err := t.Query()
+	rows, err := t.Query(false)
 	if err != nil {
 		return err
 	}

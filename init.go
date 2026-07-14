@@ -33,7 +33,7 @@ var (
 	cacheStructType2StructFieldMap = utils.NewLRU() // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
 
 	// 常用就缓存下
-	cacheTable      = sync.Pool{New: func() interface{} { return new(Table) }}
+	cacheTabObj     = sync.Pool{New: func() interface{} { return new(Table) }}
 	cacheNullString = sync.Pool{New: func() interface{} { return new(sql.NullString) }}
 	cacheNullInt64  = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
 
@@ -45,7 +45,7 @@ var (
 )
 
 func newTable(db DBer, args ...string) *Table {
-	if v := cacheTable.Get(); v != nil {
+	if v := cacheTabObj.Get(); v != nil {
 		t := v.(*Table)
 		t.Reset()
 		if t.builder != nil {
@@ -61,7 +61,7 @@ func freeTable(t *Table) {
 		return
 	}
 	t.Reset()
-	cacheTable.Put(t)
+	cacheTabObj.Put(t)
 }
 
 func GlobalDbType(dt dialect.DbType) {
