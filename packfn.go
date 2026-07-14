@@ -7,6 +7,7 @@ import (
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 // *******************************************************************************
@@ -361,4 +362,9 @@ func DeepCopy[T any](src interface{}) (T, error) {
 		return zero, fmt.Errorf("convert struct is failed, err: %v", err)
 	}
 	return zero, nil
+}
+
+// DistinctIds 对 ids 进行去重
+func DistinctIds(ids []string) []string {
+	return utils.DistinctIds(ids)
 }
