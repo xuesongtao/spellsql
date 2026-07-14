@@ -62,6 +62,10 @@ func (s *Select) From(table string) *Select {
 	return s
 }
 
+func (s *Select) GetTableName() string {
+	return s.tableName
+}
+
 // Join 设置 join
 // tableName: join 的表名
 // on: join 条件, 例如: "table1.id = table2.id"
