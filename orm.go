@@ -134,6 +134,10 @@ func (t *Table) Clone() *Table {
 }
 
 func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
+	if t.name != "" {
+		return t
+	}
+
 	if len(tableName) > 0 && !utils.Null(tableName[0]) {
 		t.name = tableName[0]
 		return t
