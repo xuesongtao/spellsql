@@ -37,34 +37,11 @@ var (
 	}
 )
 
-func Placeholders(n ...int) string {
-	nn := 1
-	if len(n) > 0 {
-		nn = n[0]
-	}
-	return strings.Repeat("?, ", nn-1) + "?"
-}
-
-func WarpCol(d Dialect, field string) string {
-	if strings.HasPrefix(field, d.GetWarpColSymbol()) {
-		return field
-	}
-	return d.GetWarpColSymbol() + field + d.GetWarpColSymbol()
-}
-
 func WarpValue(d Dialect, value string) string {
 	if strings.HasPrefix(value, d.GetWarpValueStrSymbol()) {
 		return value
 	}
 	return d.GetWarpValueStrSymbol() + value + d.GetWarpValueStrSymbol()
-}
-
-func WarpJoinCols(d Dialect, fields ...string) string {
-	result := make([]string, len(fields))
-	for i, field := range fields {
-		result[i] = WarpCol(d, field)
-	}
-	return strings.Join(result, ", ")
 }
 
 func GetTableMeter(dbType DbType) TableMeter {

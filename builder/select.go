@@ -131,7 +131,7 @@ func (s *Select) OrderByAsc(col string) *Select {
 	if s.orderBys == nil {
 		s.orderBys = make([]string, 0, 2)
 	}
-	s.orderBys = append(s.orderBys, dialect.WarpCol(dialect.GetDialect(s.dbType), col)+" ASC")
+	s.orderBys = append(s.orderBys, s.warpCol(col)+" ASC")
 	return s
 }
 
@@ -139,7 +139,7 @@ func (s *Select) OrderByDesc(col string) *Select {
 	if s.orderBys == nil {
 		s.orderBys = make([]string, 0, 2)
 	}
-	s.orderBys = append(s.orderBys, dialect.WarpCol(dialect.GetDialect(s.dbType), col)+" DESC")
+	s.orderBys = append(s.orderBys, s.warpCol(col)+" DESC")
 	return s
 }
 
@@ -158,7 +158,7 @@ func (s *Select) GroupBy(cols ...string) *Select {
 		s.groupBys = make([]string, 0, 2)
 	}
 	for _, col := range cols {
-		s.groupBys = append(s.groupBys, dialect.WarpCol(dialect.GetDialect(s.dbType), col))
+		s.groupBys = append(s.groupBys, s.warpCol(col))
 	}
 	return s
 }
@@ -245,22 +245,22 @@ func (s *Select) GetTotalSql2Args() (string, []interface{}) {
 
 func (s *Select) mergeSQL(b *Builder) {
 	if len(s.columns) > 0 {
-		b.appendSql("SELECT ")
+		b.writeSql("SELECT ")
 		if len(s.columns) == 1 && strings.Contains(s.columns[0], "*") { // 查询 "*" 或 count(*) 时不需要加上字段转义符
-			b.appendSql(s.columns[0])
+			b.writeSql(s.columns[0])
 		} else {
-			b.appendSql(dialect.WarpJoinCols(dialect.GetDialect(s.dbType), s.columns...))
+			b.writeSql(s.warpJoinCols(s.columns...))
 		}
 	}
 
 	if s.tableName != "" {
-		b.appendSql(" FROM ")
-		b.appendSql(s.tableName)
+		b.writeSql(" FROM ")
+		b.writeSql(s.tableName)
 	}
 
 	for _, j := range s.joins {
-		b.appendSql(" ")
-		b.appendSql(j)
+		b.writeSql(" ")
+		b.writeSql(j)
 	}
 
 	if s.where != nil && !s.where.empty() {
@@ -269,22 +269,22 @@ func (s *Select) mergeSQL(b *Builder) {
 	}
 
 	if len(s.groupBys) > 0 {
-		b.appendSql(" GROUP BY ")
-		b.appendSql(strings.Join(s.groupBys, ", "))
+		b.writeSql(" GROUP BY ")
+		b.writeSql(strings.Join(s.groupBys, ", "))
 	}
 
 	if s.havingStr != "" {
-		b.appendSql(" HAVING ")
-		b.appendSql2Args(s.havingStr, s.havingArgs...)
+		b.writeSql(" HAVING ")
+		b.writeSql2Args(s.havingStr, s.havingArgs...)
 	}
 
 	if len(s.orderBys) > 0 {
-		b.appendSql(" ORDER BY ")
-		b.appendSql(strings.Join(s.orderBys, ", "))
+		b.writeSql(" ORDER BY ")
+		b.writeSql(strings.Join(s.orderBys, ", "))
 	}
 
 	if s.limit > 0 {
-		b.appendSql(" ")
-		b.appendSql(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
+		b.writeSql(" ")
+		b.writeSql(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
 	}
 }

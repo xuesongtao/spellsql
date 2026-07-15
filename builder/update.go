@@ -56,23 +56,22 @@ func (u *Update) SetWhere(where *Where) *Update {
 func (u *Update) mergeSQL(b *Builder) {
 	haveSet := u.HaveStr(" SET")
 	if u.tableName != "" {
-		b.appendSql("UPDATE ")
-		b.appendSql(u.tableName)
+		b.writeSql("UPDATE ")
+		b.writeSql(u.tableName)
 
 	}
 
-	dg := dialect.GetDialect(u.dbType)
 	if len(u.columns) > 0 {
 		if !haveSet {
-			b.appendSql(" SET ")
+			b.writeSql(" SET ")
 		} else {
-			b.appendSql(" ")
+			b.writeSql(" ")
 		}
 		for i, col := range u.columns {
 			if i > 0 {
-				b.appendSql(", ")
+				b.writeSql(", ")
 			}
-			b.appendSql2Args(dialect.WarpCol(dg, col)+" = "+dialect.Placeholders(), u.values[i])
+			b.writeSql2Args(u.warpCol(col)+" = "+Placeholders(), u.values[i])
 		}
 	}
 

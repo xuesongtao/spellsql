@@ -72,15 +72,51 @@ func TestWhereGetSqlStr(t *testing.T) {
 		}
 	})
 
+	t.Run("mysql base in", func(t *testing.T) {
+		w := NewWhere(dialect.MySQL).
+			In("role", 1, 2, 3).
+			In("age", []int{18, 20}).
+			In("age_str", []string{"18", "20"}).
+			Between("create_time", "2024-01-01", "2024-01-02")
+
+		sqlStr, args := w.GetSql2Args()
+		sureSql := "`role` IN (?, ?, ?) AND `age` IN (?) AND `age_str` IN (?) AND `create_time` (BETWEEN ? AND ?)"
+		t.Log(w.GetSqlStr())
+		if sqlStr != sureSql {
+			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
+		}
+		if len(args) != 7 {
+			t.Errorf("args len is not eq, got: %d, want: 7", len(args))
+		}
+	})
+
 	t.Run("mysql getSqlStr", func(t *testing.T) {
 		w := NewWhere(dialect.MySQL)
 		w.Eq("id", 1).
 			OrEq("name", "xue").
 			In("age", []int{18, 20}).
-			In("age_1", 18, 20)
+			In("age_1", 18, 20).
+			IsNull("deleted_at").
+			OrIsNull("deleted_at")
 
 		sqlStr := w.GetSqlStr()
-		sureSql := "`id` = 1 OR `name` = \"xue\" AND `age` IN (18, 20) AND `age_1` IN (18, 20)"
+		sureSql := "`id` = 1 OR `name` = \"xue\" AND `age` IN (18, 20) AND `age_1` IN (18, 20) AND `deleted_at` IS NULL OR `deleted_at` IS NULL"
+		if sqlStr != sureSql {
+			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
+		}
+	})
+
+	t.Run("mysql getSqlStr group", func(t *testing.T) {
+		w := NewWhere(dialect.MySQL)
+		w.Eq("id", 1).
+			OrNewGroup(func(wb *Where) {
+				wb.OrEq("name", "xue").
+					In("age", []int{18, 20}).
+					In("age_1", 18, 20).
+					IsNull("deleted_at")
+			})
+		sqlStr := w.GetSqlStr()
+		sureSql := "`id` = 1 OR (`name` = \"xue\" AND `age` IN (18, 20) AND `age_1` IN (18, 20) AND `deleted_at` IS NULL)"
 		if sqlStr != sureSql {
 			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
 		}

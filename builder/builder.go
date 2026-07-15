@@ -35,7 +35,10 @@ func NewBuilder(dt ...dialect.DbType) *Builder {
 }
 
 func (b *Builder) init(dt ...dialect.DbType) {
-	b.dbType = getDbType(dt...)
+	b.dbType = dialect.DefaultDbType
+	if len(dt) > 0 {
+		b.dbType = dt[0]
+	}
 	b.finalSql.Reset()
 	b.finalArgs = nil
 	b.genFinalFn = nil
@@ -48,9 +51,9 @@ func (b *Builder) setGenFinal(f func(b *Builder)) {
 	b.genFinalFn = f
 }
 
-func (b *Builder) appendSql2Args(s string, args ...interface{}) {
-	b.appendSql(s)
-	b.appendArgs(args...)
+func (b *Builder) writeSql2Args(s string, args ...interface{}) {
+	b.writeSql(s)
+	b.writeArgs(args...)
 }
 
 func (b *Builder) len() int {
@@ -61,11 +64,11 @@ func (b *Builder) empty() bool {
 	return b.len() == 0
 }
 
-func (b *Builder) appendSql(s string) {
+func (b *Builder) writeSql(s string) {
 	b.finalSql.WriteString(s)
 }
 
-func (b *Builder) appendArgs(args ...interface{}) {
+func (b *Builder) writeArgs(args ...interface{}) {
 	if b.finalArgs == nil {
 		b.finalArgs = make([]interface{}, 0, len(args)*2)
 	}
@@ -106,24 +109,20 @@ func (b *Builder) HaveStr(field string) bool {
 	return utils.Index(strings.ToUpper(b.finalSql.String()), strings.ToUpper(field), false) > -1
 }
 
-func (b *Builder) whereStrIndex() int {
-	return utils.Index(strings.ToUpper(b.finalSql.String()), " WHERE", false)
-}
-
 func (b *Builder) initWhere(sqlStr string, args ...interface{}) {
-	if i := b.whereStrIndex(); i == -1 {
-		b.appendSql(" WHERE ")
-	} else if i+5 < b.len()-1 { // "WHERE" 后面还有内容, 需要加上 AND
-		b.appendSql(" AND ")
+	if i := utils.Index(strings.ToUpper(b.finalSql.String()), " WHERE", false); i == -1 {
+		b.writeSql(" WHERE ")
+	} else if i+5+2 < b.len()-1 { // 如: "WHERE x", 需要加 AND
+		b.writeSql(" AND ")
 	} else if i+5 == b.len()-1 { // "WHERE" 后面没有内容, 直接追加
-		b.appendSql(" ")
+		b.writeSql(" ")
 	}
-	b.appendSql2Args(sqlStr, args...)
+	b.writeSql2Args(sqlStr, args...)
 }
 
 func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
 	b.callInitSql2Args = true
-	b.appendSql2Args(sqlStr, args...)
+	b.writeSql2Args(sqlStr, args...)
 	return b
 }
 
@@ -155,9 +154,26 @@ func (b *Builder) GetSql2Args() (string, []interface{}) {
 	return dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Replace().Result(), sqlArgs
 }
 
-func getDbType(dt ...dialect.DbType) dialect.DbType {
-	if len(dt) > 0 {
-		return dt[0]
+func (b *Builder) warpCol(col string) string {
+	gd := dialect.GetDialect(b.dbType)
+	if strings.HasPrefix(col, gd.GetWarpColSymbol()) {
+		return col
 	}
-	return dialect.DefaultDbType
+	return gd.GetWarpColSymbol() + col + gd.GetWarpColSymbol()
+}
+
+func (b *Builder) warpJoinCols(fields ...string) string {
+	result := make([]string, len(fields))
+	for i, field := range fields {
+		result[i] = b.warpCol(field)
+	}
+	return strings.Join(result, ", ")
+}
+
+func Placeholders(n ...int) string {
+	nn := 1
+	if len(n) > 0 {
+		nn = n[0]
+	}
+	return strings.Repeat("?, ", nn-1) + "?"
 }

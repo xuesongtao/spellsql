@@ -43,8 +43,8 @@ func (d *Delete) WhereCb(f func(wb *Where)) *Delete {
 
 func (d *Delete) mergeSQL(b *Builder) {
 	if d.tableName != "" {
-		b.appendSql("DELETE FROM ")
-		b.appendSql(d.tableName)
+		b.writeSql("DELETE FROM ")
+		b.writeSql(d.tableName)
 	}
 	if d.where != nil && !d.where.empty() {
 		whereSql, whereArgs := d.where.GetNoParseSql2Args()
