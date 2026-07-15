@@ -11,6 +11,10 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
+var (
+	CusSearchAfterStop = errors.New("cus search after stop")
+)
+
 // SearchAfter
 type SearchAfter struct {
 	SqlStr   interface{}                  // 查询 base sql, sqlStr 支持 string/*builder.Select, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
@@ -136,6 +140,10 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 				},
 			)
 		if err != nil {
+			if errors.Is(err, CusSearchAfterStop) {
+				sLog.Info(ctx, "cus search after stop, total:", total)
+				return nil
+			}
 			return err
 		}
 		total += rowCount
