@@ -181,7 +181,7 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 // WhereBuilder 使用 builder.Where 进行查询条件拼接
 func (t *Table) WhereBuilder(wb *builder.Where) *Table {
 	builder.WhereCb(t.builder, func(innerWb *builder.Where) {
-		innerWb.AndOutGroup(wb)
+		innerWb.AndGroup(wb)
 	})
 	return t
 }
@@ -189,7 +189,7 @@ func (t *Table) WhereBuilder(wb *builder.Where) *Table {
 // WhereCb 通过回调设置 where 进行查询条件拼接
 func (t *Table) WhereCb(f func(wb *builder.Where)) *Table {
 	builder.WhereCb(t.builder, func(wb *builder.Where) {
-		wb.AndInGroup(f)
+		wb.AndNewGroup(f)
 	})
 	return t
 }
@@ -207,7 +207,7 @@ func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
 // OrWhereBuilder 使用 builder.Where 进行查询条件拼接
 func (t *Table) OrWhereBuilder(wb *builder.Where) *Table {
 	builder.WhereCb(t.builder, func(innerWb *builder.Where) {
-		innerWb.OrOutGroup(wb)
+		innerWb.OrGroup(wb)
 	})
 	return t
 }
@@ -215,7 +215,7 @@ func (t *Table) OrWhereBuilder(wb *builder.Where) *Table {
 // OrWhereCb 通过回调设置 where 进行查询条件拼接
 func (t *Table) OrWhereCb(f func(wb *builder.Where)) *Table {
 	builder.WhereCb(t.builder, func(wb *builder.Where) {
-		wb.OrInGroup(f)
+		wb.OrNewGroup(f)
 	})
 	return t
 }
