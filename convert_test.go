@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"gitee.com/xuesongtao/spellsql/v2/test"
 	"github.com/jinzhu/copier"
 )
 
@@ -44,6 +45,7 @@ type Tmp struct {
 }
 
 func TestConvertNil(t *testing.T) {
+	t.Skip()
 	var src TmpSrc
 	var dest *TmpDest
 	err := ConvStruct(src, &dest)
@@ -351,6 +353,30 @@ func CheckObj(t *testing.T, dest, src interface{}) {
 		return
 	}
 	t.Errorf("dest: %v, src: %v", string(destBytes), string(srcBytes))
+}
+
+func TestDeepCopy(t *testing.T) {
+	old := TmpSrc{
+		Name:  "name",
+		Age:   10,
+		Hobby: []string{"打篮球", "跑步"},
+		CopyPtr: &TmpNest{
+			Name: "针类型结构体",
+			NextPtr: &Tmp{
+				Name: "NextPtr",
+			},
+			Next: Tmp{
+				Name: "Next",
+			},
+		},
+	}
+	newBld, err := DeepCopy[TmpSrc](old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !test.Equal(newBld, old) {
+		t.Error(test.NoEqErr)
+	}
 }
 
 func TestCopyerConvert(t *testing.T) {

@@ -7,13 +7,18 @@ import (
 )
 
 func TestSearchAfter(t *testing.T) {
+	for i := 1; i <= 100; i++ {
+		InitTestMain(t)
+	}
+	var totalDst int32
+	_ = Count(db, "man", &totalDst, "1")
 	obj := &SearchAfter{
 		SqlStr:   "select id,name from man",
 		Table:    "man",
 		Names:    []string{"id"},
 		Values:   []interface{}{0},
 		OrderBys: []string{},
-		Size:     0,
+		Size:     10,
 		Dest:     &ManCopy{},
 	}
 	// 求总数
@@ -29,8 +34,6 @@ func TestSearchAfter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var totalDst int32
-	_ = Count(db, "man", &totalDst, "1")
 	if totalDst != int32(total) {
 		t.Error("it is no ok")
 	}
@@ -38,6 +41,7 @@ func TestSearchAfter(t *testing.T) {
 }
 
 func TestSearchAfter2ResultDemo(t *testing.T) {
+	InitTestMain(t, 50)
 	obj := &SearchAfter{
 		SqlStr:   "select id,name from man",
 		Table:    "man",

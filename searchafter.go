@@ -5,22 +5,25 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/v2/builder"
 )
 
 // SearchAfter
 type SearchAfter struct {
-	SqlStr   string                       // sql, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
-	Table    string                       // 表面
-	Names    []string                     // 唯一值名, 建议用索引值
+	SqlStr   interface{}                  // sqlStr 支持 string/*builder.Select, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
+	Table    string                       // 表名
+	Names    []string                     // 唯一值名, 建议用索引值, Names, Values, OrderBys 的长度必须相等, 且顺序一致, 例如: names = ["id", "name"], values = [1, "test"]
 	Values   []interface{}                // 值
-	OrderBys []string                     // 按什么进行排序
+	OrderBys []string                     // 按什么进行排序, 例如: ["id ASC", "name DESC"], 如果不传, 则默认按 names 里的字段进行升序排序
 	Size     int                          // 每次处理多少
 	Dest     interface{}                  // scan 对象, 即回调里的对象
 	RowFn    func(_row interface{}) error // 每行的回调函数, values 为分页值
 }
 
 func (s *SearchAfter) init() error {
-	if s.SqlStr == "" {
+	sqlStr := s.getSqlStr()
+	if sqlStr == "" {
 		return errors.New("sqlObj required")
 	}
 	if s.Table == "" {
@@ -45,25 +48,40 @@ func (s *SearchAfter) init() error {
 	}
 
 	// 判断
-	if strings.Contains(s.SqlStr, "ORDER") || strings.Contains(s.SqlStr, "GROUP") {
+	if strings.Contains(sqlStr, "ORDER") || strings.Contains(sqlStr, "GROUP") {
 		return errors.New("sqlStr no contains order/group, it only have where")
 	}
 	for _, name := range s.Names {
-		if !strings.Contains(s.SqlStr, name) {
+		if !strings.Contains(sqlStr, name) {
 			return fmt.Errorf("name %q must contains in select", name)
 		}
 	}
 	return nil
 }
 
-func (s *SearchAfter) reGetSqlObj() *SqlStrObj {
-	sqlObj := NewSql(s.SqlStr)
-	for i, name := range s.Names {
-		sqlObj.SetWhereArgs("?v>?", name, s.Values[i])
+func (s *SearchAfter) getSqlStr() string {
+	switch v := s.SqlStr.(type) {
+	case string:
+		return v
+	case *builder.Select:
+		s.Table = v.GetTableName()
+		return v.GetSqlStr()
+	default:
+		return "Notice: SqlStr set value is no ok, it type must be string or *builder.Select"
 	}
-	sqlObj.SetOrderByStr(strings.Join(s.OrderBys, ", "))
-	sqlObj.SetLimit(0, s.Size)
-	return sqlObj
+}
+
+func (s *SearchAfter) reGetSelectBuilder() *builder.Select {
+	selectObj := builder.NewSelect()
+	selectObj.InitSql2Args(s.getSqlStr())
+	selectObj.WhereCb(func(wb *builder.Where) {
+		for i, name := range s.Names {
+			wb.Gt(name, s.Values[i])
+		}
+	})
+	selectObj.OrderBy(strings.Join(s.OrderBys, ", "))
+	selectObj.Limit(0, s.Size)
+	return selectObj
 }
 
 // SearchAfter 统一根据唯一值进行分页
@@ -71,12 +89,13 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 	if err := s.init(); err != nil {
 		return err
 	}
+
+	total := 0
 	for {
 		rowCount := 0
-		sqlObj := s.reGetSqlObj()
 		err := NewTable(db, s.Table).
 			Ctx(ctx).
-			Raw(sqlObj).
+			Raw(s.reGetSelectBuilder()).
 			FindOneIgnoreResult(
 				s.Dest,
 				func(_row interface{}) error {
@@ -91,7 +110,8 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 		if err != nil {
 			return err
 		}
-
+		total += rowCount
+		sLog.Info(ctx, "searched rowCount:", rowCount, "total:", total)
 		if rowCount < s.Size {
 			break
 		}

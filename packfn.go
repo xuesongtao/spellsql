@@ -3,6 +3,11 @@ package spellsql
 import (
 	"context"
 	"database/sql"
+	"fmt"
+
+	"gitee.com/xuesongtao/spellsql/v2/builder"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 // *******************************************************************************
@@ -21,7 +26,7 @@ func GetSqlStrCtx(ctx context.Context, sqlStr string, args ...interface{}) strin
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
 func FmtSqlStr(sqlStr string, args ...interface{}) string {
-	return NewCacheSql(sqlStr, args...).FmtSql()
+	return builder.NewBuilder().InitSql2Args(sqlStr, args...).GetSqlStr()
 }
 
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
@@ -31,11 +36,11 @@ func FmtSqlStr(sqlStr string, args ...interface{}) string {
 func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
 	sqlObj := NewCacheSql(sqlStr)
 	switch likeType {
-	case ALK:
+	case internal.ALK:
 		sqlObj.SetAllLike(fieldName, value)
-	case RLK:
+	case internal.RLK:
 		sqlObj.SetRightLike(fieldName, value)
-	case LLK:
+	case internal.LLK:
 		sqlObj.SetLeftLike(fieldName, value)
 	}
 	isPrintLog := false
@@ -55,7 +60,7 @@ func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...
 
 // IsNullRow 根据 err 判断是否结果为空
 func IsNullRow(err error) bool {
-	return err == nullRowErr
+	return err == internal.NullRowErr
 }
 
 // ExecForSql 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
@@ -65,7 +70,7 @@ func ExecForSql(db DBer, sql interface{}) (sql.Result, error) {
 }
 
 // ExecForSqlCtx 根据 sql 进行执行 INSERT/UPDATE/DELETE 等操作
-// sql sqlStr 或 *SqlStrObj
+// sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func ExecForSqlCtx(ctx context.Context, db DBer, sql interface{}) (sql.Result, error) {
 	return NewTable(db).Ctx(ctx).PrintSqlCallSkip(3).Raw(sql).Exec()
 }
@@ -221,37 +226,37 @@ func SelectFindAllCtx(ctx context.Context, db DBer, fields interface{}, tableNam
 }
 
 // FindOne 单查询
-// sql sqlStr 或 *SqlStrObj
+// sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func FindOne(db DBer, sql interface{}, dest ...interface{}) error {
 	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).FindOne(dest...)
 }
 
 // FindOneCtx 单查询
-// sql sqlStr 或 *SqlStrObj
+// sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func FindOneCtx(ctx context.Context, db DBer, sql interface{}, dest ...interface{}) error {
 	return NewTable(db).Ctx(ctx).PrintSqlCallSkip(3).Raw(sql).FindOne(dest...)
 }
 
 // FindOneFn 单查询
-// sql sqlStr 或 *SqlStrObj
+// sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func FindOneFn(db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
 	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).FindOneFn(dest, fn...)
 }
 
 // FindOneFnCtx 单查询
-// sql sqlStr 或 *SqlStrObj
+// sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func FindOneFnCtx(ctx context.Context, db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
 	return NewTable(db).Ctx(ctx).PrintSqlCallSkip(3).Raw(sql).FindOneFn(dest, fn...)
 }
 
 // FindAll 多查询
-// sql sqlStr 或 *SqlStrObj
+// sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func FindAll(db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
 	return NewTable(db).PrintSqlCallSkip(3).Raw(sql).FindAll(dest, fn...)
 }
 
 // FindAllCtx 多查询
-// sql sqlStr 或 *SqlStrObj
+// sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func FindAllCtx(ctx context.Context, db DBer, sql interface{}, dest interface{}, fn ...SelectCallBackFn) error {
 	return NewTable(db).Ctx(ctx).PrintSqlCallSkip(3).Raw(sql).FindAll(dest, fn...)
 }
@@ -267,4 +272,27 @@ func ConvStruct(src interface{}, dest interface{}, deepCopy ...bool) error {
 		return obj.ConvertUnsafe()
 	}
 	return obj.Convert()
+}
+
+// DeepCopy 转换 struct 的值, 并返回 dest 的副本
+func DeepCopy[T any](src interface{}) (T, error) {
+	var zero T
+	if src == nil {
+		return zero, nil
+	}
+	converter := NewConvStruct()
+	err := converter.Init(src, &zero)
+	if err != nil {
+		return zero, fmt.Errorf("init conv struct is failed, err: %v", err)
+	}
+	err = converter.Convert()
+	if err != nil {
+		return zero, fmt.Errorf("convert struct is failed, err: %v", err)
+	}
+	return zero, nil
+}
+
+// DistinctIds 对 ids 进行去重
+func DistinctIds(ids []string) []string {
+	return utils.DistinctIds(ids)
 }

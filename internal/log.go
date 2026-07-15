@@ -1,9 +1,10 @@
-package spellsql
+package internal
 
 import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 )
@@ -40,6 +41,5 @@ func (d *defaultLogger) callInfo(skip int) (string, int) {
 	if !ok {
 		return "", 0
 	}
-	file = parseFileName(file)
-	return file, line
+	return filepath.Base(file), line
 }

@@ -9,7 +9,6 @@ const (
 	NoEqErr = "src, dest is not eq"
 )
 
-
 type Man struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
 	Name     string `json:"name,omitempty" gorm:"name" db:"name"`       // 姓名
@@ -21,6 +20,10 @@ type Man struct {
 	JsonTxt  Tmp    `json:"json_txt,omitempty"`
 	XmlTxt   Tmp    `json:"xml_txt,omitempty"`
 	Json1Txt Tmp    `json:"json1_txt,omitempty"`
+}
+
+func (m *Man) TableName() string {
+	return "man"
 }
 
 type Tmp struct {
