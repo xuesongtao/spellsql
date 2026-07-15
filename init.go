@@ -2,7 +2,6 @@ package spellsql
 
 import (
 	"database/sql"
-	"encoding/json"
 	"reflect"
 	"sync"
 
@@ -44,7 +43,6 @@ var (
 )
 
 func GlobalDbType(dt dialect.DbType) {
-	json.Marshal(dt) // 仅用于触发 dt 的 init, 以便注册 dialect
 	globalDbTypeOnce.Do(func() {
 		dialect.DefaultDbType = dt
 	})

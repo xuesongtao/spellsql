@@ -313,7 +313,7 @@ func (t *Table) Count(total interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetSqlStr(), t.isPrintSql)
+	defer printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetTotalSqlStr(), t.isPrintSql)
 	return nil
 }
 

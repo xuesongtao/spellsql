@@ -1435,6 +1435,41 @@ func TestFindAll(t *testing.T) {
 		}
 	})
 
+	t.Run("findAll list", func(t *testing.T) {
+		InitTestMain(t, 10)
+		t.Skip("data no ok")
+		where := builder.NewWhere().Gte("id", 1)
+
+		tab := NewTable(db).
+			SelectAuto(&test.Man{}).
+			WhereBuilder(where)
+
+		total := 0
+		tab.Count(&total)
+		if total < 1 {
+			t.Error("count is no ok")
+		}
+		sureSql := "SELECT COUNT(*) FROM man WHERE (`id` >= 1)"
+		getSql := tab.GetBuilder().(*builder.Select).GetTotalSqlStr()
+		if !test.Equal(getSql, sureSql) {
+			t.Error("sql is not ok,", getSql)
+		}
+
+		var datas = make([]*test.Man, 0, total)
+		tab.OrderBy("id asc").Limit(1, 10).FindAll(&datas)
+		if len(datas) < 1 {
+			t.Error("select res is no ok")
+			return
+		}
+		sureSql = "SELECT `id`, `name`, `age`, `addr`, `hobby`, `nickname`, `json_txt`, `xml_txt`, `json1_txt` FROM man WHERE (`id` >= 1) ORDER BY id asc LIMIT 10 OFFSET 0"
+		if !test.Equal(tab.GetBuilder().GetSqlStr(), sureSql) {
+			t.Error("sql is not ok,", tab.GetBuilder().GetSqlStr())
+		}
+		if !test.Equal(datas[0].Name, sureName) || !test.Equal(datas[0].Age, sureAge) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
 	t.Log("find all test end")
 }
 

@@ -16,14 +16,16 @@ type SQLBuilder interface {
 }
 
 type Builder struct {
-	dbType    dialect.DbType
-	finalSql  strings.Builder
-	finalArgs []interface{}
-	genFinal  func(b *Builder)
+	dbType     dialect.DbType
+	finalSql   strings.Builder
+	finalArgs  []interface{}
+	genFinalFn func(b *Builder)
 
 	// 用于 AppendSql2Args
 	extSql  strings.Builder
 	extArgs []interface{}
+
+	callInitSql2Args bool // 标记是否需要调用 InitSql2Args
 }
 
 func NewBuilder(dt ...dialect.DbType) *Builder {
@@ -36,14 +38,14 @@ func (b *Builder) init(dt ...dialect.DbType) {
 	b.dbType = getDbType(dt...)
 	b.finalSql.Reset()
 	b.finalArgs = nil
-	b.genFinal = nil
+	b.genFinalFn = nil
 
 	b.extSql.Reset()
 	b.extArgs = nil
 }
 
 func (b *Builder) setGenFinal(f func(b *Builder)) {
-	b.genFinal = f
+	b.genFinalFn = f
 }
 
 func (b *Builder) appendSql2Args(s string, args ...interface{}) {
@@ -71,9 +73,9 @@ func (b *Builder) appendArgs(args ...interface{}) {
 }
 
 func (b *Builder) getFinalNoPraseSql2Args() (string, []interface{}) {
-	if b.genFinal != nil {
-		b.genFinal(b)
-		b.genFinal = nil
+	if b.genFinalFn != nil {
+		b.genFinalFn(b)
+		b.genFinalFn = nil
 	}
 
 	if b.extSql.Len() > 0 {
@@ -120,6 +122,7 @@ func (b *Builder) initWhere(sqlStr string, args ...interface{}) {
 }
 
 func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
+	b.callInitSql2Args = true
 	b.appendSql2Args(sqlStr, args...)
 	return b
 }
