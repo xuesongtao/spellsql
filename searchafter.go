@@ -16,9 +16,9 @@ type SearchAfter struct {
 	SqlStr   interface{}                  // 查询 base sql, sqlStr 支持 string/*builder.Select, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
 	Table    string                       // 表名, 如果 sqlStr 是 *builder.Select, 则会自动获取表名
 	nameMap  map[string]int               // names 的 map, key: 字段名, value: 下标
-	Names    []string                     // 排序的列名, 建议用索引值, Names, Values, OrderBys 的长度必须相等, 且顺序一致, 例如: names = ["id", "name"], values = [1, "test"]
-	Values   []interface{}                // 值, Values 为分页值, 每次处理完后, 会自动将 Values 里的值更新为最后一行的值, 以便下一次查询
-	OrderBys []string                     // 按什么进行排序, 例如: ["id ASC", "name DESC"], 如果不传, 则默认按 names 里的字段进行升序排序
+	Names    []string                     // 排序的列名, 默认: id(只有在 sqlStr 为 *builder.Select 可用), 建议用索引值, Names, Values, OrderBys 的长度必须相等, 且顺序一致, 例如: names = ["id", "name"], values = [1, "test"]
+	Values   []interface{}                // 分页值, 每次处理完后, 会自动根据查询结果里的值更新为最后一行的值, 以便下一次查询, 根据 大于 的条件进行查询
+	OrderBys []string                     // 按什么进行排序, 默认: id asc, 例如: ["id ASC", "name DESC"], 如果不传, 则默认按 names 里的字段进行升序排序
 	Size     int                          // 每次处理多少
 	Dest     interface{}                  // scan 对象, 即回调里的对象
 	RowFn    func(_row interface{}) error // 每行的回调函数
@@ -32,11 +32,21 @@ func (s *SearchAfter) init() error {
 	if s.Table == "" {
 		return errors.New("table required")
 	}
+
+	selectBuilder, autoSet := s.SqlStr.(*builder.Select)
 	if len(s.Names) == 0 {
-		return errors.New("names required")
+		if autoSet {
+			s.Names = []string{"id"}
+		} else {
+			return errors.New("names required")
+		}
 	}
 	if len(s.Values) == 0 {
-		return errors.New("values required")
+		if autoSet {
+			s.Values = []interface{}{0}
+		} else {
+			return errors.New("values required")
+		}
 	}
 	if len(s.OrderBys) == 0 {
 		for _, v := range s.Names {
@@ -56,11 +66,21 @@ func (s *SearchAfter) init() error {
 	}
 
 	s.nameMap = make(map[string]int)
+	var newSelectBuilder *builder.Select
 	for i, name := range s.Names {
 		if !strings.Contains(sqlStr, name) {
-			return fmt.Errorf("name %q must contains in select", name)
+			if !autoSet {
+				return fmt.Errorf("name %q must contains in select", name)
+			}
+			if newSelectBuilder == nil {
+				newSelectBuilder = selectBuilder.GetNewSelectOfUntilWhere()
+			}
+			newSelectBuilder.Select(name)
 		}
 		s.nameMap[name] = i
+	}
+	if newSelectBuilder != nil {
+		s.SqlStr = newSelectBuilder
 	}
 	return nil
 }
