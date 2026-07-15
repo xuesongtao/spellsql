@@ -14,7 +14,7 @@ func TestWhereGetExecArgs(t *testing.T) {
 		w := NewWhere(dialect.MySQL)
 		w.Eq("id", 100).
 			And("status IN (?)", []int{1, 2}).
-			AndGroup(func(wb *Where) {
+			AndInGroup(func(wb *Where) {
 				wb.Eq("status", []int{1, 2}).
 					Eq("age", 30)
 			}).

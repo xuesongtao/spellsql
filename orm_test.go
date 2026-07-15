@@ -770,6 +770,38 @@ func TestFindOne(t *testing.T) {
 		}
 	})
 
+	t.Run("findOne many field whereCb", func(t *testing.T) {
+		var (
+			name string
+			age  int32
+		)
+		err := NewTable(db, "man").Select("name,age").Where("1=1").WhereCb(func(wb *builder.Where) {
+			wb.Eq("id", 1).Eq("name", sureName)
+		}).FindOne(&name, &age)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !test.Equal(name, sureName) || !test.Equal(age, sureAge) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
+	t.Run("findOne many field orWhereCb", func(t *testing.T) {
+		var (
+			name string
+			age  int32
+		)
+		err := NewTable(db, "man").Select("name,age").Where("1=1").OrWhereCb(func(wb *builder.Where) {
+			wb.Eq("id", 1).Eq("name", sureName).OrEq("age", sureAge)
+		}).FindOne(&name, &age)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !test.Equal(name, sureName) || !test.Equal(age, sureAge) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
 	t.Run("findOne 2 map", func(t *testing.T) {
 		var b map[string]string
 		err := NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&b)
@@ -1194,15 +1226,6 @@ func BenchmarkFindOneOrmForRaw(b *testing.B) {
 	// BenchmarkFindOneOrmForRaw-8                31602             37587 ns/op            1337 B/op         33 allocs/op
 	// BenchmarkFindOneOrmForRaw-8                31701             38329 ns/op            1337 B/op         33 allocs/op
 	// BenchmarkFindOneOrmForRaw-8                31494             37600 ns/op            1337 B/op         33 allocs/op
-}
-
-func BenchmarkFindOneFnCtx(b *testing.B) {
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var m ManCopy
-		_ = FindOneFnCtx(context.Background(), db, NewCacheSql("SELECT name,age,addr FROM man WHERE id=?", 1), &m)
-	}
-
 }
 
 func TestFindAll(t *testing.T) {

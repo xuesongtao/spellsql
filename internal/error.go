@@ -15,4 +15,5 @@ var (
 	NullRowErr            = errors.New("row is null")
 	FindOneDestTypeErr    = errors.New("dest should is struct/oneField/map")
 	FindAllDestTypeErr    = errors.New("dest should is struct/oneField/map slice")
+	BuilderIsNilErr       = errors.New("builder is nil, you should check is first call Select/Insert/Update/Delete")
 )

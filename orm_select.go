@@ -178,20 +178,18 @@ func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
 	return t
 }
 
-// WhereBuilder 使用 builder.Where 进行查询条件构建
+// WhereBuilder 使用 builder.Where 进行查询条件拼接
 func (t *Table) WhereBuilder(wb *builder.Where) *Table {
 	builder.WhereCb(t.builder, func(innerWb *builder.Where) {
-		sqlStr, args := wb.GetNoParseSql2Args()
-		innerWb.And("("+sqlStr+")", args...)
+		innerWb.AndOutGroup(wb)
 	})
 	return t
 }
 
-// OrWhereBuilder 使用 builder.Where 进行查询条件构建
-func (t *Table) OrWhereBuilder(wb *builder.Where) *Table {
-	builder.WhereCb(t.builder, func(innerWb *builder.Where) {
-		sqlStr, args := wb.GetNoParseSql2Args()
-		innerWb.Or("("+sqlStr+")", args...)
+// WhereCb 通过回调设置 where 进行查询条件拼接
+func (t *Table) WhereCb(f func(wb *builder.Where)) *Table {
+	builder.WhereCb(t.builder, func(wb *builder.Where) {
+		wb.AndInGroup(f)
 	})
 	return t
 }
@@ -202,6 +200,22 @@ func (t *Table) OrWhereBuilder(wb *builder.Where) *Table {
 func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
 	builder.WhereCb(t.builder, func(wb *builder.Where) {
 		wb.Or(sqlStr, args...)
+	})
+	return t
+}
+
+// OrWhereBuilder 使用 builder.Where 进行查询条件拼接
+func (t *Table) OrWhereBuilder(wb *builder.Where) *Table {
+	builder.WhereCb(t.builder, func(innerWb *builder.Where) {
+		innerWb.OrOutGroup(wb)
+	})
+	return t
+}
+
+// OrWhereCb 通过回调设置 where 进行查询条件拼接
+func (t *Table) OrWhereCb(f func(wb *builder.Where)) *Table {
+	builder.WhereCb(t.builder, func(wb *builder.Where) {
+		wb.OrInGroup(f)
 	})
 	return t
 }
@@ -293,13 +307,13 @@ func (t *Table) Count(total interface{}) error {
 
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
-	// st := time.Now()
+	st := time.Now()
 	sqlStr, args := t.getSelectBuilder().GetTotalSql2Args()
 	err := t.db.QueryRowContext(t.ctx, sqlStr, args...).Scan(total)
 	if err != nil {
 		return err
 	}
-	// defer printCostTimeLog(t.ctx, st, t.tmpSqlObj.getSqlLogStr("sql", sqlStr), t.isPrintSql)
+	defer printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetSqlStr(), t.isPrintSql)
 	return nil
 }
 

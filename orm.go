@@ -50,7 +50,7 @@ type Table struct {
 // NewTable 初始化
 // args 支持两个参数
 // args[0]: 会解析为 tableName, 这里如果有值, 在进行操作表的时候就会以此表为准,
-// 如果为空时, 在通过对象进行操作时按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
+// 如果为空时, 在通过对象进行操作时, 如果实现了 TableName() 方法就按返回的设置表名, 如果没有回按驼峰规则进行解析表名, 解析规则如: UserInfo => user_info
 // args[1]: 会解析为待解析的 tag, 默认 defaultTableTag
 // 注:
 //
@@ -120,9 +120,13 @@ func (t *Table) PrintSqlCallSkip(skip uint8) *Table {
 
 // Clone 克隆一个新的 Table 对象
 func (t *Table) Clone() *Table {
-	newT := NewTable(t.db, t.name, t.tag)
-	newT.ctx = t.ctx
-	newT.dbType = t.dbType
+	newT := NewTable(t.db, t.name).
+		Ctx(t.ctx).
+		DbType(t.dbType)
+	if t.builder == nil {
+		sLog.Error(t.ctx, internal.BuilderIsNilErr)
+		return nil
+	}
 	sqlStr, args := t.builder.GetNoParseSql2Args()
 	_, bld := parseSQLBuilder(t.dbType, sqlStr, args...)
 	newT.builder = bld
@@ -203,7 +207,7 @@ func (t *Table) initCacheCol2InfoMap() error {
 		return internal.TableNameIsUnknownErr
 	}
 
-	// 防止 name 中包含 别名, 格式为: "db_name"
+	// 防止 name 中包含 别名
 	tableName := parseTableName(t.name)
 
 	// 先判断下缓存中有没有
@@ -461,6 +465,10 @@ func (t *Table) prevCheck(checkBuilder ...bool) error {
 	if defaultCheck {
 		if t.builder == nil && utils.Null(t.name) {
 			return internal.TableNameIsUnknownErr
+		}
+
+		if t.builder == nil {
+			return internal.BuilderIsNilErr
 		}
 	}
 	return nil
