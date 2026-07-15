@@ -19,123 +19,99 @@ func NewWhere(dt ...dialect.DbType) *Where {
 }
 
 func (w *Where) Eq(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" = "+dialect.Placeholders(), arg)
+	return w.And(w.warpCol(col)+" = "+Placeholders(), arg)
 }
 
 func (w *Where) OrEq(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" = "+dialect.Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" = "+Placeholders(), arg)
 }
 
 func (w *Where) IsNull(col string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col) + " IS NULL")
+	return w.And(w.warpCol(col) + " IS NULL")
 }
 
 func (w *Where) OrIsNull(col string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col) + " IS NULL")
+	return w.Or(w.warpCol(col) + " IS NULL")
 }
 
 func (w *Where) NotEq(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" <> "+dialect.Placeholders(), arg)
+	return w.And(w.warpCol(col)+" <> "+Placeholders(), arg)
 }
 
 func (w *Where) OrNotEq(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" <> "+dialect.Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" <> "+Placeholders(), arg)
 }
 
 func (w *Where) Gt(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" > "+dialect.Placeholders(), arg)
+	return w.And(w.warpCol(col)+" > "+Placeholders(), arg)
 }
 
 func (w *Where) OrGt(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" > "+dialect.Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" > "+Placeholders(), arg)
 }
 
 func (w *Where) Gte(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" >= "+dialect.Placeholders(), arg)
+	return w.And(w.warpCol(col)+" >= "+Placeholders(), arg)
 }
 
 func (w *Where) OrGte(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" >= "+dialect.Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" >= "+Placeholders(), arg)
 }
 
 func (w *Where) Lt(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" < "+dialect.Placeholders(), arg)
+	return w.And(w.warpCol(col)+" < "+Placeholders(), arg)
 }
 
 func (w *Where) OrLt(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" < "+dialect.Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" < "+Placeholders(), arg)
 }
 
 func (w *Where) Lte(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" <= "+dialect.Placeholders(), arg)
+	return w.And(w.warpCol(col)+" <= "+Placeholders(), arg)
 }
 
 func (w *Where) OrLte(col string, arg interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" <= "+dialect.Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" <= "+Placeholders(), arg)
 }
 
 func (w *Where) Between(col string, arg1, arg2 interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
+	return w.And(w.warpCol(col)+" (BETWEEN "+Placeholders()+" AND "+Placeholders()+")", arg1, arg2)
 }
 
 func (w *Where) OrBetween(col string, arg1, arg2 interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
+	return w.Or(w.warpCol(col)+" (BETWEEN "+Placeholders()+" AND "+Placeholders()+")", arg1, arg2)
 }
 
 func (w *Where) In(col string, args ...interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
+	return w.And(w.warpCol(col)+" IN ("+Placeholders(len(args))+")", args...)
 }
 
 func (w *Where) OrIn(col string, args ...interface{}) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
+	return w.Or(w.warpCol(col)+" IN ("+Placeholders(len(args))+")", args...)
 }
 
 func (w *Where) LikeLeft(col string, arg string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
+	return w.And(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg))
 }
 
 func (w *Where) OrLikeLeft(col string, arg string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
+	return w.Or(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg))
 }
 
 func (w *Where) LikeRight(col string, arg string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
+	return w.And(w.warpCol(col)+" LIKE "+Placeholders(), EscapeLike(arg)+"%")
 }
 
 func (w *Where) OrLikeRight(col string, arg string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
+	return w.Or(w.warpCol(col)+" LIKE "+Placeholders(), EscapeLike(arg)+"%")
 }
 
 func (w *Where) Like(col string, arg string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.And(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
+	return w.And(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg)+"%")
 }
 
 func (w *Where) OrLike(col string, arg string) *Where {
-	gd := dialect.GetDialect(w.dbType)
-	return w.Or(dialect.WarpCol(gd, col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
+	return w.Or(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg)+"%")
 }
 
 func (w *Where) WhereCb(f func(wb *Where)) *Where {
@@ -145,9 +121,9 @@ func (w *Where) WhereCb(f func(wb *Where)) *Where {
 
 func (w *Where) And(sqlStr string, args ...interface{}) *Where {
 	if w.len() > 0 {
-		w.appendSql(" AND ")
+		w.writeSql(" AND ")
 	}
-	w.appendSql2Args(sqlStr, args...)
+	w.writeSql2Args(sqlStr, args...)
 	return w
 }
 
@@ -169,9 +145,9 @@ func (w *Where) AndNewGroup(cb func(wb *Where)) *Where {
 
 func (w *Where) Or(sqlStr string, args ...interface{}) *Where {
 	if w.len() > 0 {
-		w.appendSql(" OR ")
+		w.writeSql(" OR ")
 	}
-	w.appendSql2Args(sqlStr, args...)
+	w.writeSql2Args(sqlStr, args...)
 	return w
 }
 

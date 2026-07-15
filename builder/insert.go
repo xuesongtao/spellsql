@@ -85,56 +85,55 @@ func (i *Insert) DuplicateUpdate(cols []string, conflictCol ...string) *Insert {
 func (i *Insert) mergeSQL(b *Builder) {
 	if i.insertType != internal.None {
 		if i.insertType == internal.INSERT_REPLACE {
-			b.appendSql("REPLACE ")
+			b.writeSql("REPLACE ")
 		} else {
-			b.appendSql("INSERT ")
+			b.writeSql("INSERT ")
 		}
 		switch i.insertType {
 		case internal.INSERT_IGNORE:
-			b.appendSql("IGNORE ")
+			b.writeSql("IGNORE ")
 		}
-		b.appendSql("INTO " + i.tableName)
+		b.writeSql("INTO " + i.tableName)
 	}
 
-	gd := dialect.GetDialect(i.dbType)
 	if len(i.columns) > 0 {
-		b.appendSql("(" + dialect.WarpJoinCols(gd, i.columns...) + ")")
+		b.writeSql("(" + i.warpJoinCols(i.columns...) + ")")
 	}
 
 	if len(i.values) > 0 {
 		valsIndex := utils.Index(b.finalSql.String(), "VALUES", false)
 		if valsIndex > -1 {
-			b.appendSql(" ")
+			b.writeSql(" ")
 		} else {
-			b.appendSql(" VALUES ")
+			b.writeSql(" VALUES ")
 		}
 		for index, val := range i.values {
 			if index > 0 {
-				b.appendSql(", ")
+				b.writeSql(", ")
 			}
-			b.appendSql("(" + dialect.Placeholders(len(val)) + ")")
-			b.appendArgs(val...)
+			b.writeSql("(" + Placeholders(len(val)) + ")")
+			b.writeArgs(val...)
 		}
 	}
 	if len(i.duplicate) > 0 {
 		switch i.dbType {
 		case dialect.Postgres:
-			b.appendSql(" ON CONFLICT (" + dialect.WarpCol(gd, i.conflictCol) + ") DO UPDATE SET ")
+			b.writeSql(" ON CONFLICT (" + i.warpCol(i.conflictCol) + ") DO UPDATE SET ")
 			for index, col := range i.duplicate {
 				if index > 0 {
-					b.appendSql(", ")
+					b.writeSql(", ")
 				}
-				wCol := dialect.WarpCol(gd, col)
-				b.appendSql(wCol + "=EXCLUDED." + wCol)
+				wCol := i.warpCol(col)
+				b.writeSql(wCol + "=EXCLUDED." + wCol)
 			}
 		default:
-			b.appendSql(" ON DUPLICATE KEY UPDATE ")
+			b.writeSql(" ON DUPLICATE KEY UPDATE ")
 			for index, col := range i.duplicate {
 				if index > 0 {
-					b.appendSql(", ")
+					b.writeSql(", ")
 				}
-				wCol := dialect.WarpCol(gd, col)
-				b.appendSql(wCol + "=VALUES(" + wCol + ")")
+				wCol := i.warpCol(col)
+				b.writeSql(wCol + "=VALUES(" + wCol + ")")
 			}
 		}
 	}
