@@ -278,3 +278,4 @@ func InitCallOnce(fn func()) func() {
 		once.Do(fn)
 	}
 }
+
