@@ -774,7 +774,7 @@ func TestFindOne(t *testing.T) {
 			name string
 			age  int32
 		)
-		err := NewTable(db, "man").Select("name,age").Where("1=1").WhereCb(func(wb *builder.Where) {
+		err := NewTable(db, "man").Select("name,age").Where("1=1").WhereNewGroup(func(wb *builder.Where) {
 			wb.Eq("id", 1).Eq("name", sureName)
 		}).FindOne(&name, &age)
 		if err != nil {
@@ -790,7 +790,7 @@ func TestFindOne(t *testing.T) {
 			name string
 			age  int32
 		)
-		err := NewTable(db, "man").Select("name,age").Where("1=1").OrWhereCb(func(wb *builder.Where) {
+		err := NewTable(db, "man").Select("name,age").Where("1=1").OrWhereNewGroup(func(wb *builder.Where) {
 			wb.Eq("id", 1).Eq("name", sureName).OrEq("age", sureAge)
 		}).FindOne(&name, &age)
 		if err != nil {
@@ -815,7 +815,7 @@ func TestFindOne(t *testing.T) {
 	t.Run("findOne 2 where builder", func(t *testing.T) {
 		var b map[string]string
 		wb := builder.NewWhere().Eq("id", 1)
-		err := NewTable(db, "man").Select("name,age").WhereBuilder(wb).FindOne(&b)
+		err := NewTable(db, "man").Select("name,age").WhereGroup(wb).FindOne(&b)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -827,7 +827,7 @@ func TestFindOne(t *testing.T) {
 	t.Run("findOne 2 or where builder", func(t *testing.T) {
 		var b map[string]string
 		wb := builder.NewWhere().Eq("id", 1).NotEq("id", 2)
-		err := NewTable(db, "man").Select("id,name,age").Where("id=2").OrWhereBuilder(wb).FindOne(&b)
+		err := NewTable(db, "man").Select("id,name,age").Where("id=2").OrWhereGroup(wb).FindOne(&b)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1442,7 +1442,7 @@ func TestFindAll(t *testing.T) {
 
 		tab := NewTable(db).
 			SelectAuto(&test.Man{}).
-			WhereBuilder(where)
+			WhereGroup(where)
 
 		total := 0
 		tab.Count(&total)

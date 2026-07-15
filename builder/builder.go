@@ -25,7 +25,7 @@ type Builder struct {
 	extSql  strings.Builder
 	extArgs []interface{}
 
-	callInitSql2Args bool // 标记是否需要调用 InitSql2Args
+	callInitSql2Args bool // 标记是否调用 InitSql2Args
 }
 
 func NewBuilder(dt ...dialect.DbType) *Builder {
