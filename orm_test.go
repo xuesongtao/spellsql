@@ -1,7 +1,6 @@
 package spellsql
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
