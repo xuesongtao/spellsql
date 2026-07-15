@@ -151,20 +151,20 @@ func (w *Where) And(sqlStr string, args ...interface{}) *Where {
 	return w
 }
 
-// AndOutGroup 外部传入 new builder.Where 作为一个整体进行拼接
+// AndGroup 外部传入 new builder.Where 作为一个整体进行拼接
 // 格式如: AND (xxx AND xxx)
-func (w *Where) AndOutGroup(wb *Where) *Where {
+func (w *Where) AndGroup(wb *Where) *Where {
 	sqlStr, args := wb.GetNoParseSql2Args()
 	w.And("("+sqlStr+")", args...)
 	return w
 }
 
-// AndInGroup 内部 new 一个 builder.Where 作为一个整体进行拼接
+// AndNewGroup 内部 new 一个 builder.Where 作为一个整体进行拼接
 // 格式如: AND (xxx AND xxx)
-func (w *Where) AndInGroup(cb func(wb *Where)) *Where {
+func (w *Where) AndNewGroup(cb func(wb *Where)) *Where {
 	wb := NewWhere(w.dbType)
 	cb(wb)
-	return w.AndOutGroup(wb)
+	return w.AndGroup(wb)
 }
 
 func (w *Where) Or(sqlStr string, args ...interface{}) *Where {
@@ -175,20 +175,20 @@ func (w *Where) Or(sqlStr string, args ...interface{}) *Where {
 	return w
 }
 
-// OrOutGroup 外部传入 new builder.Where 作为一个整体进行拼接
+// OrGroup 外部传入 new builder.Where 作为一个整体进行拼接
 // 格式如: OR (xxx OR xxx)
-func (w *Where) OrOutGroup(wb *Where) *Where {
+func (w *Where) OrGroup(wb *Where) *Where {
 	sqlStr, args := wb.GetNoParseSql2Args()
 	w.Or("("+sqlStr+")", args...)
 	return w
 }
 
-// OrInGroup 内部 new 一个 builder.Where 作为一个整体进行拼接
+// OrNewGroup 内部 new 一个 builder.Where 作为一个整体进行拼接
 // 格式如: OR (xxx OR xxx)
-func (w *Where) OrInGroup(cb func(wb *Where)) *Where {
+func (w *Where) OrNewGroup(cb func(wb *Where)) *Where {
 	wb := NewWhere(w.dbType)
 	cb(wb)
-	return w.OrOutGroup(wb)
+	return w.OrGroup(wb)
 }
 
 func (w *Where) Empty() bool {
