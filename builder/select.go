@@ -172,7 +172,8 @@ func (s *Select) Having(having string, args ...interface{}) *Select {
 	return s
 }
 
-func (s *Select) getTotalSelect() *Select {
+// GetNewSelectOfUntilWhere 获取一个新的 Select 对象, 该对象包含原始 Select 对象直到 Where 条件所有属性
+func (s *Select) GetNewSelectOfUntilWhere() *Select {
 	obj := NewSelect(s.dbType)
 	if s.callInitSql2Args { // 如果原始 Select 对象调用过 InitSql2Args, 则新对象也需要调用 InitSql2Args, 避免漏掉数据
 		obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
@@ -198,7 +199,7 @@ func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
 	tmpBuf := internal.GetTmpBuf(s.len())
 	defer internal.PutTmpBuf(tmpBuf)
 
-	sqlStr, args := s.getTotalSelect().GetNoParseSql2Args()
+	sqlStr, args := s.GetNewSelectOfUntilWhere().GetNoParseSql2Args()
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
 	for i := 0; i < len(sqlStr); i++ {

@@ -49,13 +49,14 @@ func TestSearchAfterOfSelectBuilder(t *testing.T) {
 	_ = Count(db, "man", &totalDst, "1")
 
 	obj := &SearchAfter{
-		SqlStr: builder.NewSelect().Select("id", "name").From("man"),
-		// Table:    "man", //  可以忽略
-		Names:    []string{"id"},
-		Values:   []interface{}{0},
-		OrderBys: []string{},
-		Size:     20,
-		Dest:     &ManCopy{},
+		SqlStr: builder.NewSelect().Select("name").From("man"),
+		// Table:  "", //  可以忽略
+		// 默认按 id asc 进行查询
+		// Names:    []string{},
+		// Values:   []interface{}{},
+		// OrderBys: []string{},
+		Size: 20,
+		Dest: &ManCopy{},
 	}
 	// 求总数
 	total := 0
