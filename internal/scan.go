@@ -146,6 +146,12 @@ func ConvertAssign(dest, src interface{}) error {
 		*d = src
 		return nil
 	}
+
+	// scanner
+	if scanner, ok := dest.(Scanner); ok {
+		return scanner.Scan(src)
+	}
+
 	dpv := reflect.ValueOf(dest)
 	if dpv.Kind() != reflect.Ptr {
 		return errors.New("destination not a pointer")
