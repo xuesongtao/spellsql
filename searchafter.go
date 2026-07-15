@@ -11,7 +11,7 @@ import (
 
 // SearchAfter
 type SearchAfter struct {
-	SqlStr   interface{}                  // sql, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
+	SqlStr   interface{}                  // sqlStr 支持 string/*builder.Select, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
 	Table    string                       // 表名
 	Names    []string                     // 唯一值名, 建议用索引值, Names, Values, OrderBys 的长度必须相等, 且顺序一致, 例如: names = ["id", "name"], values = [1, "test"]
 	Values   []interface{}                // 值
@@ -67,7 +67,7 @@ func (s *SearchAfter) getSqlStr() string {
 		s.Table = v.GetTableName()
 		return v.GetSqlStr()
 	default:
-		return ""
+		return "notice: sqlStr type must be string or *builder.Select"
 	}
 }
 
