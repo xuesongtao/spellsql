@@ -4,21 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 // SearchAfter
 type SearchAfter struct {
-	SqlStr   interface{}                  // sqlStr 支持 string/*builder.Select, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
-	Table    string                       // 表名
-	Names    []string                     // 唯一值名, 建议用索引值, Names, Values, OrderBys 的长度必须相等, 且顺序一致, 例如: names = ["id", "name"], values = [1, "test"]
-	Values   []interface{}                // 值
+	SqlStr   interface{}                  // 查询 base sql, sqlStr 支持 string/*builder.Select, 只能包含到 where 部分, 注: 查询部分, 必须包含 names 里的字段
+	Table    string                       // 表名, 如果 sqlStr 是 *builder.Select, 则会自动获取表名
+	nameMap  map[string]int               // names 的 map, key: 字段名, value: 下标
+	Names    []string                     // 排序的列名, 建议用索引值, Names, Values, OrderBys 的长度必须相等, 且顺序一致, 例如: names = ["id", "name"], values = [1, "test"]
+	Values   []interface{}                // 值, Values 为分页值, 每次处理完后, 会自动将 Values 里的值更新为最后一行的值, 以便下一次查询
 	OrderBys []string                     // 按什么进行排序, 例如: ["id ASC", "name DESC"], 如果不传, 则默认按 names 里的字段进行升序排序
 	Size     int                          // 每次处理多少
 	Dest     interface{}                  // scan 对象, 即回调里的对象
-	RowFn    func(_row interface{}) error // 每行的回调函数, values 为分页值
+	RowFn    func(_row interface{}) error // 每行的回调函数
 }
 
 func (s *SearchAfter) init() error {
@@ -51,10 +54,13 @@ func (s *SearchAfter) init() error {
 	if strings.Contains(sqlStr, "ORDER") || strings.Contains(sqlStr, "GROUP") {
 		return errors.New("sqlStr no contains order/group, it only have where")
 	}
-	for _, name := range s.Names {
+
+	s.nameMap = make(map[string]int)
+	for i, name := range s.Names {
 		if !strings.Contains(sqlStr, name) {
 			return fmt.Errorf("name %q must contains in select", name)
 		}
+		s.nameMap[name] = i
 	}
 	return nil
 }
@@ -93,6 +99,7 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 	total := 0
 	for {
 		rowCount := 0
+		var lastRow interface{}
 		err := NewTable(db, s.Table).
 			Ctx(ctx).
 			Raw(s.reGetSelectBuilder()).
@@ -100,7 +107,8 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 				s.Dest,
 				func(_row interface{}) error {
 					rowCount++
-					err := s.RowFn(_row)
+					lastRow = _row
+					err := s.RowFn(lastRow)
 					if err != nil {
 						return err
 					}
@@ -114,6 +122,26 @@ func (s *SearchAfter) Search(ctx context.Context, db DBer) error {
 		sLog.Info(ctx, "searched rowCount:", rowCount, "total:", total)
 		if rowCount < s.Size {
 			break
+		}
+
+		if lastRow != nil {
+			if err := s.initValues(lastRow); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *SearchAfter) initValues(row interface{}) error {
+	rets, err := utils.ParseStructField(reflect.ValueOf(row))
+	if err != nil {
+		return err
+	}
+
+	for _, v := range rets {
+		if index, exists := s.nameMap[v.Field]; exists {
+			s.Values[index] = v.Tv.Interface()
 		}
 	}
 	return nil

@@ -48,31 +48,19 @@ func NewConvStruct(tagName ...string) *ConvStructObj {
 }
 
 func (c *ConvStructObj) initFieldMap(tv reflect.Value, f func(tagVal string, field *convFieldInfo)) error {
-	tv = utils.RemoveValuePtr(tv)
-	ty := tv.Type()
-	if tv.Kind() != reflect.Struct {
-		return errors.New("it must is struct, it is " + ty.String())
+	rets, err := utils.ParseStructField(tv, c.tag)
+	if err != nil {
+		return err
 	}
 
-	fieldNum := ty.NumField()
-	for i := 0; i < fieldNum; i++ {
-		ty := ty.Field(i)
-		field := ty.Tag.Get(c.tag)
-		if field == "" && utils.IsExported(ty.Name) {
-			field = ty.Name
-		}
-		field = utils.ParseTag2Col(field)
-		if field == "" {
-			continue
-		}
-
+	for _, ret := range rets {
 		f(
-			field,
+			ret.Field,
 			&convFieldInfo{
-				offset: i,
-				field:  field,
-				ry:     ty.Type,
-				tv:     tv.Field(i),
+				offset: ret.Offset,
+				field:  ret.Field,
+				ry:     ret.Ty,
+				tv:     ret.Tv,
 			},
 		)
 	}
