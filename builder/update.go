@@ -58,7 +58,6 @@ func (u *Update) mergeSQL(b *Builder) {
 	if u.tableName != "" {
 		b.writeSql("UPDATE ")
 		b.writeSql(u.tableName)
-
 	}
 
 	if len(u.columns) > 0 {
@@ -76,7 +75,6 @@ func (u *Update) mergeSQL(b *Builder) {
 	}
 
 	if u.where != nil && !u.where.empty() {
-		sqlStr, sqlArgs := u.where.GetNoParseSql2Args()
-		u.initWhere(sqlStr, sqlArgs...)
+		u.mergeWhere(u.where)
 	}
 }

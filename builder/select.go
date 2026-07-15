@@ -264,8 +264,7 @@ func (s *Select) mergeSQL(b *Builder) {
 	}
 
 	if s.where != nil && !s.where.empty() {
-		sqlStr, sqlArgs := s.where.GetNoParseSql2Args()
-		s.initWhere(sqlStr, sqlArgs...)
+		s.mergeWhere(s.where)
 	}
 
 	if len(s.groupBys) > 0 {

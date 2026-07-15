@@ -101,7 +101,7 @@ func (i *Insert) mergeSQL(b *Builder) {
 	}
 
 	if len(i.values) > 0 {
-		valsIndex := utils.Index(b.finalSql.String(), "VALUES", false)
+		valsIndex := utils.Index(b.finalSql.String(), "VALUES", true)
 		if valsIndex > -1 {
 			b.writeSql(" ")
 		} else {
