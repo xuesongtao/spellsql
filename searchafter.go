@@ -67,7 +67,7 @@ func (s *SearchAfter) getSqlStr() string {
 		s.Table = v.GetTableName()
 		return v.GetSqlStr()
 	default:
-		return "notice: sqlStr type must be string or *builder.Select"
+		return "Notice: SqlStr set value is no ok, it type must be string or *builder.Select"
 	}
 }
 
