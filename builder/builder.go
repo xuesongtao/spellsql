@@ -39,12 +39,6 @@ func (b *Builder) init(dt ...dialect.DbType) {
 	if len(dt) > 0 {
 		b.dbType = dt[0]
 	}
-	b.finalSql.Reset()
-	b.finalArgs = nil
-	b.genFinalFn = nil
-
-	b.extSql.Reset()
-	b.extArgs = nil
 }
 
 func (b *Builder) setGenFinal(f func(b *Builder)) {
@@ -109,7 +103,8 @@ func (b *Builder) HaveStr(field string) bool {
 	return utils.Index(strings.ToUpper(b.finalSql.String()), strings.ToUpper(field), false) > -1
 }
 
-func (b *Builder) initWhere(sqlStr string, args ...interface{}) {
+func (b *Builder) mergeWhere(where *Where) {
+	sqlStr, args := where.GetNoParseSql2Args()
 	if i := utils.Index(strings.ToUpper(b.finalSql.String()), " WHERE", false); i == -1 {
 		b.writeSql(" WHERE ")
 	} else if i+5+2 < b.len()-1 { // 如: "WHERE x", 需要加 AND
@@ -120,12 +115,14 @@ func (b *Builder) initWhere(sqlStr string, args ...interface{}) {
 	b.writeSql2Args(sqlStr, args...)
 }
 
+// InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
 func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
 	b.callInitSql2Args = true
 	b.writeSql2Args(sqlStr, args...)
 	return b
 }
 
+// AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
 func (b *Builder) AppendSql2Args(sqlStr string, args ...interface{}) *Builder {
 	if b.extArgs == nil {
 		b.extArgs = make([]interface{}, 0, len(args))
