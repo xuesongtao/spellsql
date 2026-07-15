@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
@@ -269,4 +270,11 @@ func CheckImplementation(ty reflect.Type, targetInterface reflect.Type) bool {
 		}
 	}
 	return false
+}
+
+func InitCallOnce(fn func()) func() {
+	var once sync.Once
+	return func() {
+		once.Do(fn)
+	}
 }

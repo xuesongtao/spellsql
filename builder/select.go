@@ -12,10 +12,11 @@ var _ SQLBuilder = (*Select)(nil)
 
 type Select struct {
 	*Builder
-	columns    []string // 存储 SELECT 的列
-	tableName  string   // 存储表名
-	joins      []string // 存储 JOIN 语句
-	where      *Where   // 存储 WHERE 条件
+	columns   []string // 存储 SELECT 的列
+	tableName string   // 存储表名
+	joins     []string // 存储 JOIN 语句
+	where     *Where   // 存储 WHERE 条件
+
 	groupBys   []string // GROUP BY
 	havingStr  string   // HAVING 条件
 	havingArgs []interface{}
@@ -100,14 +101,18 @@ func (s *Select) join(tableName string, on string, joinType ...uint8) *Select {
 	return s
 }
 
+// Where 设置 where 条件
 func (s *Select) Where() *Where {
 	return s.where
 }
+
+// SetWhere 替换 Where 条件
 func (s *Select) SetWhere(where *Where) *Select {
 	s.where = where
 	return s
 }
 
+// WhereCb 设置 where 条件回调函数
 func (s *Select) WhereCb(f func(wb *Where)) *Select {
 	wb := s.Where()
 	f(wb)
@@ -169,7 +174,9 @@ func (s *Select) Having(having string, args ...interface{}) *Select {
 
 func (s *Select) getTotalSelect() *Select {
 	obj := NewSelect(s.dbType)
-	obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
+	if s.callInitSql2Args { // 如果原始 Select 对象调用过 InitSql2Args, 则新对象也需要调用 InitSql2Args, 避免漏掉数据
+		obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
+	}
 
 	obj.columns = make([]string, len(s.columns))
 	copy(obj.columns, s.columns)
@@ -223,40 +230,6 @@ func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
 		}
 	}
 	return tmpBuf.String(), args
-}
-
-func (s *Select) Copy() *Select {
-	obj := NewSelect(s.dbType)
-	obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
-
-	obj.columns = make([]string, len(s.columns))
-	copy(obj.columns, s.columns)
-
-	obj.tableName = s.tableName
-
-	obj.joins = make([]string, len(s.joins))
-	copy(obj.joins, s.joins)
-
-	obj.where = NewWhere(s.dbType)
-	if s.where != nil {
-		sqlStr, args := s.where.GetNoParseSql2Args()
-		obj.where.InitSql2Args(sqlStr, args...)
-	}
-
-	obj.groupBys = make([]string, len(s.groupBys))
-	copy(obj.groupBys, s.groupBys)
-
-	obj.havingStr = s.havingStr
-	obj.havingArgs = make([]interface{}, len(s.havingArgs))
-	copy(obj.havingArgs, s.havingArgs)
-
-	obj.orderBys = make([]string, len(s.orderBys))
-	copy(obj.orderBys, s.orderBys)
-
-	obj.limit = s.limit
-	obj.offset = s.offset
-
-	return obj
 }
 
 func (s *Select) GetTotalSqlStr() string {
