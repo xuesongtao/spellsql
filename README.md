@@ -1,4 +1,4 @@
-# [spellsql](https://gitee.com/xuesongtao/spellsql)
+# [spellsql](https://gitee.com/xuesongtao/spellsql/v2)
 
 #### 🚀🚀🚀 项目背景
 
@@ -20,7 +20,7 @@
 * 安装:  
 
 ```go
-go get -u gitee.com/xuesongtao/spellsql
+go get -u gitee.com/xuesongtao/spellsql/v2
 ```
 
 #### 2. 占位符

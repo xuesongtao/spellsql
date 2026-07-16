@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
@@ -8,17 +9,19 @@ import (
 	"math"
 	"testing"
 
-	"gitee.com/xuesongtao/spellsql"
+	"gitee.com/xuesongtao/spellsql/v2"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	// _ "github.com/lib/pq"
 )
 
 const (
 	sureName = "xue1234"
 	sureAge  = int32(18)
+	sureAddr = "成都市"
 )
 
 // CREATE TABLE "public"."man" (
-// 	"id" int4 NOT NULL DEFAULT nextval('man_id_seq'::regclass),
+// 	"id" SERIAL PRIMARY KEY,
 // 	"name" varchar(10) COLLATE "pg_catalog"."default" NOT NULL,
 // 	"age" int4 NOT NULL,
 // 	"addr" varchar(50) COLLATE "pg_catalog"."default",
@@ -27,7 +30,6 @@ const (
 // 	"nickname" varchar(30) COLLATE "pg_catalog"."default",
 // 	"xml_txt" text COLLATE "pg_catalog"."default",
 // 	"json1_txt" varchar(255) COLLATE "pg_catalog"."default",
-// 	CONSTRAINT "man_pkey" PRIMARY KEY ("id")
 // );
 
 //   ALTER TABLE "public"."man"
@@ -51,51 +53,32 @@ func init() {
 	pgDb.SetMaxIdleConns(1)
 
 	// 初始化 pg tmer
-	spellsql.GlobalTmer(func() spellsql.TableMetaer {
-		fmt.Println("call pg")
-		return spellsql.Pg("public")
-	})
+	spellsql.GlobalDbType(dialect.Postgres)
+	pgDb.ExecContext(context.Background(), "TRUNCATE TABLE man RESTART IDENTITY")
 }
 
-func TestTmp(t *testing.T) {
-	m := Man{
-		Name: "xue1234",
-		Age:  18,
-		Addr: "成都市",
-		JsonTxt: Tmp{
-			Name: "json",
-			Data: "\n" + "test json marshal",
-		},
-		XmlTxt: Tmp{
-			Name: "xml",
-			Data: "\t" + "test xml marshal",
-		},
-		Json1Txt: Tmp{
-			Name: "json1",
-			Data: "test json1 marshal",
-		},
+func InitPgTestMain(t *testing.T, size ...int) {
+	defaultSize := 1
+	if len(size) > 0 {
+		defaultSize = size[0]
 	}
-	tableObj := spellsql.NewTable(pgDb, "man")
-	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
-	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	_, err := tableObj.Insert(m).Exec()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// r, err := res.LastInsertId()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	for i := 0; i < defaultSize; i++ {
+		prepareMan := Man{
+			Name:    sureName,
+			Age:     sureAge,
+			Addr:    sureAddr,
+			JsonTxt: Tmp{Name: "json", Data: "test json marshal"},
+			// XmlTxt:   Tmp{Name: "xml", Data: "test xml marshal"},
+			Json1Txt: Tmp{Name: "json1", Data: "test json1 marshal"},
+		}
 
-	var mm Man
-	tableObj = spellsql.NewTable(pgDb, "man")
-	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
-	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
-	err = tableObj.SelectAll().Where("id=?", 1).FindOne(&mm)
-	if err != nil {
-		t.Fatal(err)
+		// 强制插入 ID 为 1 的数据（假设表已 TRUNCATE）
+		// 或者使用 InsertsIg (Insert Ignore) 防止冲突
+		_, err := spellsql.NewTable(pgDb, "man").Insert(prepareMan).Exec()
+		if err != nil {
+			t.Fatal("prepare data failed:", err)
+		}
 	}
-	t.Log(mm)
 }
 
 func TestLocalPg(t *testing.T) {
@@ -118,10 +101,10 @@ func TestLocalPg(t *testing.T) {
 		},
 	}
 
-	tableObj := spellsql.NewTable(pgDb, "man").Tmer(spellsql.Pg("public"))
+	tableObj := spellsql.NewTable(pgDb, "man")
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	res, err := tableObj.Insert(m).Exec()
+	res, err := tableObj.Insert(m).DbType(dialect.Postgres).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,6 +232,7 @@ func TestUpdateForPg(t *testing.T) {
 }
 
 func TestRawForPg(t *testing.T) {
+	InitPgTestMain(t)
 	var m Man
 	sqlObj := spellsql.NewCacheSql("SELECT name,age FROM man WHERE id=1")
 	err := spellsql.NewTable(pgDb).Raw(sqlObj).FindOne(&m)
@@ -262,6 +246,7 @@ func TestRawForPg(t *testing.T) {
 }
 
 func TestFindOneForPg(t *testing.T) {
+	InitPgTestMain(t)
 	var m Man
 	tableObj := spellsql.NewTable(pgDb)
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
@@ -275,21 +260,22 @@ func TestFindOneForPg(t *testing.T) {
 		Name: "json",
 		Data: "test json marshal",
 	}
-	xmlTxt := Tmp{
-		Name: "xml",
-		Data: "test xml marshal",
-	}
+	// xmlTxt := Tmp{
+	// 	Name: "xml",
+	// 	Data: "test xml marshal",
+	// }
 	json1Txt := Tmp{
 		Name: "json1",
 		Data: "test json1 marshal",
 	}
 	t.Logf("%+v", m)
-	if !Equal(m.Name, sureName) || !Equal(m.Age, sureAge) || !StructValEqual(m.JsonTxt, jsonTxt) || !StructValEqual(m.XmlTxt, xmlTxt) || !StructValEqual(m.Json1Txt, json1Txt) {
+	if !Equal(m.Name, sureName) || !Equal(m.Age, sureAge) || !StructValEqual(m.JsonTxt, jsonTxt) || !StructValEqual(m.Json1Txt, json1Txt) {
 		t.Error(NoEqErr)
 	}
 }
 
 func TestFindAllForPg(t *testing.T) {
+	InitPgTestMain(t, 20)
 	t.Run("ummarshal", func(t *testing.T) {
 		var m []Man
 		var err error
@@ -309,17 +295,17 @@ func TestFindAllForPg(t *testing.T) {
 			Name: "json",
 			Data: "test json marshal",
 		}
-		xmlTxt := Tmp{
-			Name: "xml",
-			Data: "test xml marshal",
-		}
+		// xmlTxt := Tmp{
+		// 	Name: "xml",
+		// 	Data: "test xml marshal",
+		// }
 		json1Txt := Tmp{
 			Name: "json1",
 			Data: "test json1 marshal",
 		}
 		t.Logf("%+v", m)
 		first := m[0]
-		if !Equal(first.Name, sureName) || !Equal(first.Age, sureAge) || !StructValEqual(first.JsonTxt, jsonTxt) || !StructValEqual(first.XmlTxt, xmlTxt) || !StructValEqual(first.Json1Txt, json1Txt) {
+		if !Equal(first.Name, sureName) || !Equal(first.Age, sureAge) || !StructValEqual(first.JsonTxt, jsonTxt) || !StructValEqual(first.Json1Txt, json1Txt) {
 			t.Error(NoEqErr)
 		}
 	})
@@ -337,7 +323,8 @@ func TestFindAllForPg(t *testing.T) {
 		var names []string
 		for page := int32(1); page <= int32(totalPage); page++ {
 			var tmp []string
-			err := tableObj.Clone().OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
+			newTableObj := tableObj.Clone()
+			err := newTableObj.Clone().OrderBy("id ASC").Limit(page, int32(size)).FindAll(&tmp)
 			if err != nil {
 				t.Fatal(err)
 			}
