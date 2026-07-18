@@ -32,7 +32,7 @@ func TestHandleCusType(t *testing.T) {
 // 新增
 func TestNewCacheSql_INSERT(t *testing.T) {
 	t.Run("no have values", func(t *testing.T) {
-		s := NewCacheSql("INSERT INTO sys_user (username, password, name)")
+		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES")
 		// s.SetPrintLog(false)
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
@@ -44,9 +44,8 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 	})
 
 	t.Run("have values", func(t *testing.T) {
-		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES")
+		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (\"xuesongtao\", \"123456\", \"阿桃\")")
 		// s.SetPrintLog(false)
-		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		s.SetInsertValues("xuesongtao", "123456", "阿桃")
 		sqlStr := s.GetSqlStr()
 		sureSql := `INSERT INTO sys_user (username, password, name) VALUES ("xuesongtao", "123456", "阿桃"), ("xuesongtao", "123456", "阿桃");`
@@ -146,12 +145,12 @@ func TestNewCacheSql_UPDATE(t *testing.T) {
 
 	t.Run("placeholder", func(t *testing.T) {
 		idsStr := []string{"1", "2", "3", "4", "5"}
-		s := NewCacheSql("UPDATE sys_user SET")
+		s := NewCacheSql("UPDATE sys_user SET age=10")
 		// s.SetPrintLog(false)
 		s.SetUpdateValue("name", "xue")
 		s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "xuesongtao")
 		sqlStr := s.GetSqlStr()
-		sureSql := "UPDATE sys_user SET `name` = \"xue\" WHERE id IN (1, 2, 3, 4, 5) AND name = \"xuesongtao\";"
+		sureSql := "UPDATE sys_user SET age=10, `name` = \"xue\" WHERE id IN (1, 2, 3, 4, 5) AND name = \"xuesongtao\";"
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
