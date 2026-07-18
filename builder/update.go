@@ -54,16 +54,17 @@ func (u *Update) SetWhere(where *Where) *Update {
 }
 
 func (u *Update) mergeSQL(b *Builder) {
-	haveSet := u.HaveStr(" SET")
 	if u.tableName != "" {
 		b.writeSql("UPDATE ")
 		b.writeSql(u.tableName)
 	}
 
 	if len(u.columns) > 0 {
-		if !haveSet {
+		if i := u.index(" SET"); i == -1 {
 			b.writeSql(" SET ")
-		} else {
+		} else if i+3+2 < u.len()-1 { // 如: " SET x", 需要加 ,
+			b.writeSql(", ")
+		} else if i+3 == u.len()-1 { // " SET" 后面没有内容, 直接追加
 			b.writeSql(" ")
 		}
 		for i, col := range u.columns {

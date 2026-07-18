@@ -100,16 +100,20 @@ func (b *Builder) GetNoParseArgs() []interface{} {
 }
 
 func (b *Builder) HaveStr(field string) bool {
-	return utils.Index(strings.ToUpper(b.finalSql.String()), strings.ToUpper(field), false) > -1
+	return b.index(field) > -1
+}
+
+func (b *Builder) index(field string) int {
+	return utils.Index(strings.ToUpper(b.finalSql.String()), field, false)
 }
 
 func (b *Builder) mergeWhere(where *Where) {
 	sqlStr, args := where.GetNoParseSql2Args()
-	if i := utils.Index(strings.ToUpper(b.finalSql.String()), " WHERE", false); i == -1 {
+	if i := b.index(" WHERE"); i == -1 {
 		b.writeSql(" WHERE ")
-	} else if i+5+2 < b.len()-1 { // 如: "WHERE x", 需要加 AND
+	} else if i+5+2 < b.len()-1 { // 如: " WHERE x", 需要加 AND
 		b.writeSql(" AND ")
-	} else if i+5 == b.len()-1 { // "WHERE" 后面没有内容, 直接追加
+	} else if i+5 == b.len()-1 { // " WHERE" 后面没有内容, 直接追加
 		b.writeSql(" ")
 	}
 	b.writeSql2Args(sqlStr, args...)
