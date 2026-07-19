@@ -197,13 +197,14 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 // getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
 // 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
 func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool, tableName ...string) (columns []string, values []interface{}, err error) {
-	tv := utils.RemoveValuePtr(reflect.ValueOf(v))
+	oldTv := reflect.ValueOf(v)
+	tv := utils.RemoveValuePtr(oldTv)
 	if tv.Kind() != reflect.Struct {
 		err = errors.New("it must is struct")
 		return
 	}
 
-	if err := t.initTableName(tv, tableName...).initCacheCol2InfoMap(); err != nil {
+	if err := t.initTableName(oldTv, tableName...).initCacheCol2InfoMap(); err != nil {
 		return nil, nil, err
 	}
 
@@ -331,6 +332,6 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err != nil {
 		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
 	}
-	defer printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
+	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return res, nil
 }

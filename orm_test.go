@@ -173,8 +173,21 @@ func TestCheckImplementation(t *testing.T) {
 	}
 }
 
+func TestInitTableName(t *testing.T) {
+	var tableObj *Table
+	// m := test.Man{}
+	// tableObj = NewTable(db)
+	// tableObj.SelectAuto(m)
+	// t.Log(tableObj.name)
+
+	mm := []*test.Man{}
+	tableObj = NewTable(db)
+	tableObj.SelectAuto(mm)
+	t.Log(tableObj.GetBuilder().GetSqlStr())
+}
+
 func TestTableName(t *testing.T) {
-	m := test.Man{
+	m := &test.Man{
 		Name: sureName,
 		Age:  sureAge,
 		Addr: sureAddr,
@@ -194,7 +207,7 @@ func TestTableName(t *testing.T) {
 	tableObj := NewTable(db)
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	res, err := tableObj.Insert(m).Exec()
+	res, err := tableObj.Insert(&m).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}

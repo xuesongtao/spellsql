@@ -23,7 +23,7 @@ type Man struct {
 }
 
 func (m *Man) TableName() string {
-	return "man"
+	return "man1"
 }
 
 type Tmp struct {

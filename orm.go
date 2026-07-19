@@ -147,7 +147,7 @@ func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
 		return t
 	}
 
-	// 尝试通过接口断言直接获取表名
+	// 原始类型, 如果是指针类型, 需要取值
 	if tv.CanInterface() {
 		if namer, ok := tv.Interface().(TableNamer); ok {
 			t.name = namer.TableName()
@@ -156,16 +156,13 @@ func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
 	}
 
 	v := utils.RemoveValuePtr(tv)
-	// 如果原始值没实现接口，尝试判断去指针后的值 (或取其指针)
-	if utils.Null(t.name) && v.IsValid() {
-		if v.CanInterface() {
-			if namer, ok := v.Interface().(TableNamer); ok {
-				t.name = namer.TableName()
-			}
+	// 值类型
+	if v.CanInterface() {
+		if namer, ok := v.Interface().(TableNamer); ok {
+			t.name = namer.TableName()
 		}
 	}
 
-	// 再尝试通过反射获取和调用方法
 	if utils.Null(t.name) && utils.CheckImplementation(v.Type(), tableNameType) {
 		method := tv.MethodByName(TABLE_NAME)
 		if !method.IsValid() {
@@ -506,6 +503,6 @@ func parseTableName(objName string) string {
 func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
 	cost := time.Since(st)
 	if len(printLog) > 0 && printLog[0] {
-		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
+		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms")
 	}
 }

@@ -48,3 +48,15 @@ func ParseStructField(tv reflect.Value, tag ...string) ([]*ParseStructFieldRet, 
 	}
 	return res, nil
 }
+
+func CheckImplementation(ty reflect.Type, targetInterface reflect.Type) bool {
+	if ty.Implements(targetInterface) {
+		return true
+	}
+	if ty.Kind() != reflect.Ptr {
+		if reflect.PointerTo(ty).Implements(targetInterface) {
+			return true
+		}
+	}
+	return false
+}

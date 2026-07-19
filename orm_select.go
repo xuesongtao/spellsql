@@ -59,6 +59,7 @@ func (t *Table) setSelect(col ...string) *Table {
 //  1. 为 string 的话会被直接解析成查询字段
 //  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
 //  3. 其他情况会被解析为查询所有
+//  4. struct 的时候, 支持自动解析表面名, 解析规则为: 实现 TableName 方法优先使用, 否则使用 struct 的类型名进行解析, 解析规则为: 驼峰转下划线
 //
 // tableName 在 NewTable 时设置过了, 就不需要设置, 如果设置了优先级最高
 // 如果实现了 TableName 方法, 使用该方法返回的表名,
@@ -76,14 +77,19 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	selectFields := make([]string, 0, 5)
 	switch kind := ty.Kind(); kind {
 	case reflect.Struct, reflect.Slice:
+		tv := reflect.ValueOf(src)
 		if ty.Kind() == reflect.Slice {
 			ty = ty.Elem()
 			if ty.Kind() == reflect.Ptr {
 				ty = utils.RemoveTypePtr(ty)
 			}
+			if tv.Len() > 0 {
+				tv = tv.Index(0)
+			} else {
+				tv = reflect.New(ty)
+			}
 		}
-
-		if err := t.initTableName(reflect.ValueOf(src), tableName...).initCacheCol2InfoMap(); err != nil {
+		if err := t.initTableName(tv, tableName...).initCacheCol2InfoMap(); err != nil {
 			sLog.Error(t.ctx, "initCacheCol2InfoMap is failed, err:", err)
 			return t
 		}
@@ -317,7 +323,7 @@ func (t *Table) Count(total interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetTotalSqlStr(), t.isPrintSql)
+	printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetTotalSqlStr(), t.isPrintSql)
 	return nil
 }
 
@@ -473,7 +479,7 @@ func (t *Table) Query() (*sql.Rows, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, sqlStr)
 	}
-	defer printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
+	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return rows, nil
 }
 
