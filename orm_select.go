@@ -57,9 +57,9 @@ func (t *Table) setSelect(col ...string) *Table {
 // SelectAuto 根据输入类型进行自动推断要查询的字段值
 // src 如下:
 //  1. 为 string 的话会被直接解析成查询字段
-//  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
+//  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名;
+//     如果实现 TableNamer 接口, 会使用该方法返回的表名, 否则会按驼峰转下划线解析表名
 //  3. 其他情况会被解析为查询所有
-//  4. struct 的时候, 支持自动解析表面名, 解析规则为: 实现 TableName 方法优先使用, 否则使用 struct 的类型名进行解析, 解析规则为: 驼峰转下划线
 //
 // tableName 在 NewTable 时设置过了, 就不需要设置, 如果设置了优先级最高
 // 如果实现了 TableName 方法, 使用该方法返回的表名,
