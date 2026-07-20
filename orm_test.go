@@ -73,7 +73,7 @@ type ManCopy struct {
 	Age      int32    `json:"age,omitempty" gorm:"age" db:"age"`
 	Addr     string   `json:"addr,omitempty" gorm:"addr" db:"addr"`
 	NickName string   `json:"nickname,omitempty" gorm:"nickname" db:"nickname"`
-	ManSons  []ManSon `json:"mansons,omitempty" gorm:"mansons" db:"mansons"`
+	// ManSons  []ManSon `json:"mansons,omitempty" gorm:"mansons" db:"mansons"`
 }
 
 type ManSon struct {
