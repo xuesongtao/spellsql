@@ -8,6 +8,11 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
+type arg struct {
+	del bool
+	val interface{}
+}
+
 type ParsePlaceholder struct {
 	dbType    DbType
 	buf       *strings.Builder
@@ -15,6 +20,14 @@ type ParsePlaceholder struct {
 	args      []interface{}
 }
 
+// NewParsePlaceholder 创建一个占位符解析器
+// dbType: 数据库类型
+// sqlStr: 待解析的 sql 语句
+// args: 占位符对应的参数
+// 支持的占位符有:
+// ?: 常规占位符, 会根据数据库类型替换为对应的占位符, 例如 mysql 为 ?, pg 为 $1, $2, ...
+// ?d: (特殊占位符)数字占位符, 会将对应的参数转为数字, 如果参数中包含字母, 则会转为 0, 防止数字型注入
+// ?v: (特殊占位符)原样输出占位符, 会直接替换为对应的原样参数
 func NewParsePlaceholder(dt DbType, sqlStr string, args ...interface{}) *ParsePlaceholder {
 	obj := &ParsePlaceholder{
 		dbType:    dt,
@@ -22,10 +35,12 @@ func NewParsePlaceholder(dt DbType, sqlStr string, args ...interface{}) *ParsePl
 		args:      args,
 		buf:       &strings.Builder{},
 	}
-	return obj
+	return obj.replace()
 }
 
-func (p *ParsePlaceholder) loop(f func(curIndex, argIndex, lastIndex int) int) {
+func (p *ParsePlaceholder) loopWaitParse(f func(curIndex, argIndex, sqlSqlLastIndex int) int) {
+	p.buf.Reset()
+
 	argLen := len(p.args)
 	if argLen == 0 {
 		p.buf.WriteString(p.waitParse)
@@ -46,32 +61,91 @@ func (p *ParsePlaceholder) loop(f func(curIndex, argIndex, lastIndex int) int) {
 			p.buf.WriteByte(v)
 			continue
 		}
+		// 使用过滤后的 args
 		i = f(i, argIndex, sqlLen-1)
 	}
 }
 
-func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
-	p.buf.Reset()
-	gd := GetDialect(p.dbType)
-	p.loop(
+func (p *ParsePlaceholder) toNum(v string) string {
+	tmpBuf := internal.GetTmpBuf()
+	defer internal.PutTmpBuf(tmpBuf)
+
+	for i := 0; i < len(v); i++ {
+		b := v[i]
+		if b >= '0' && b <= '9' {
+			tmpBuf.WriteByte(b)
+		}
+	}
+	if tmpBuf.Len() > 0 {
+		return tmpBuf.String()
+	}
+	return "0"
+}
+
+// replace 将 ?d, ?v 进行替换为对应的值
+func (p *ParsePlaceholder) replace() *ParsePlaceholder {
+	tmpArgs := make([]arg, len(p.args))
+	for i, v := range p.args {
+		tmpArgs[i] = arg{val: v}
+	}
+
+	// 需要将 ?d, ?v 进行替换为对应的值, 这两个占位符只会出现在 string 类型的参数中
+	p.loopWaitParse(
 		func(curIndex, argIndex, sqlSqlLastIndex int) int {
-			switch val := p.args[argIndex].(type) {
-			case string:
-				if curIndex < sqlSqlLastIndex {
+			if curIndex < sqlSqlLastIndex {
+				switch v := tmpArgs[argIndex].val.(type) {
+				case string:
 					// 如果占位符?在最后一位时, 就不往下执行了防止 panic
 					// 判断下如果为 ?d 字符的话, 这里不需要加引号
 					// 如果包含字母的话, 就转为 0, 防止数字型注入
 					if p.waitParse[curIndex+1] == 'd' {
-						p.buf.WriteString(internal.EscapeOfHasNum(val, true, gd.GetValueEscapeMap()))
+						p.buf.WriteString(p.toNum(v))
 						curIndex++
+						tmpArgs[argIndex].del = true
 						return curIndex
 					} else if p.waitParse[curIndex+1] == 'v' { // 原样输出
-						p.buf.WriteString(val)
+						p.buf.WriteString(v)
 						curIndex++
+						tmpArgs[argIndex].del = true
+						return curIndex
+					}
+				case []string:
+					// 判断下是否加引号
+					if p.waitParse[curIndex+1] == 'd' {
+						lastIndex := len(v) - 1
+						for i1 := 0; i1 <= lastIndex; i1++ {
+							p.buf.WriteString(p.toNum(v[i1]))
+							if i1 < lastIndex {
+								p.buf.WriteString(", ")
+							}
+						}
+						curIndex++
+						tmpArgs[argIndex].del = true
 						return curIndex
 					}
 				}
+			}
+			p.buf.WriteByte(p.waitParse[curIndex]) // 直接输出 ?
+			return curIndex
+		})
 
+	p.waitParse = p.Result()
+	p.args = make([]interface{}, 0)
+	for _, v := range tmpArgs {
+		if v.del {
+			continue
+		}
+		p.args = append(p.args, v.val)
+	}
+	return p
+}
+
+func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
+	gd := GetDialect(p.dbType)
+	p.loopWaitParse(
+		func(curIndex, argIndex, sqlSqlLastIndex int) int {
+			switch val := p.args[argIndex].(type) {
+			case string:
 				if val == internal.NULL {
 					p.buf.WriteString(internal.NULL)
 				} else {
@@ -79,33 +153,12 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 				}
 			case []string:
 				lastIndex := len(val) - 1
-				// 判断下是否加引号
-				isAdd := true
-				// 这里必须小于最后一个最后一值才行
-				if curIndex < sqlSqlLastIndex {
-					if p.waitParse[curIndex+1] == 'd' {
-						isAdd = false
-						curIndex++
-					}
-					for i1 := 0; i1 <= lastIndex; i1++ {
-						if isAdd {
-							p.buf.WriteString(gd.GetWarpValueStrSymbol())
-						}
-						p.buf.WriteString(internal.EscapeOfHasNum(val[i1], !isAdd, gd.GetValueEscapeMap()))
-						if isAdd {
-							p.buf.WriteString(gd.GetWarpValueStrSymbol())
-						}
-						if i1 < lastIndex {
-							p.buf.WriteString(", ")
-						}
-					}
-				} else {
-					// 最后一个占位符
-					for i1 := 0; i1 <= lastIndex; i1++ {
-						p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(val[i1], false, gd.GetValueEscapeMap())))
-						if i1 < lastIndex {
-							p.buf.WriteString(", ")
-						}
+				for i1 := 0; i1 <= lastIndex; i1++ {
+					p.buf.WriteString(gd.GetWarpValueStrSymbol())
+					p.buf.WriteString(internal.EscapeOfHasNum(val[i1], false, gd.GetValueEscapeMap()))
+					p.buf.WriteString(gd.GetWarpValueStrSymbol())
+					if i1 < lastIndex {
+						p.buf.WriteString(", ")
 					}
 				}
 			case []byte:
@@ -164,29 +217,16 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 	return p
 }
 
-// Replace 将占位符替换为对应的数据库占位符, 例如 mysql 为 ?, pg 为 $1, $2, ...
+// Replace 将占位符 "?" 替换为对应的数据库占位符, 例如 mysql 为 ?, pg 为 $1, $2, ...
 func (p *ParsePlaceholder) Replace() *ParsePlaceholder {
-	p.buf.Reset()
-	// 需要将 ?, ?d, ?v 进行替换为对应数据库的占位符
-	p.loop(
+	p.loopWaitParse(
 		func(curIndex, argIndex, lastIndex int) int {
-			hasSuffix := false
-			if curIndex < lastIndex {
-				next := p.waitParse[curIndex+1]
-				if next == 'd' || next == 'v' {
-					hasSuffix = true
-				}
-			}
 			switch p.dbType {
 			case Postgres:
 				p.buf.WriteString("$")
 				p.buf.WriteString(utils.Int2Str(int64(argIndex + 1)))
 			default:
 				p.buf.WriteString("?")
-			}
-
-			if hasSuffix {
-				curIndex++
 			}
 			return curIndex
 		},

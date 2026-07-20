@@ -243,10 +243,10 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 					columns = append(columns, col)
 					values = append(values, tmp.defaultVal)
 					continue
-				// } else if op == internal.INSERT && tableField.Default.Valid { // db 中设置了默认值
-				// 	columns = append(columns, col)
-				// 	values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
-				// 	continue
+					// } else if op == internal.INSERT && tableField.Default.Valid { // db 中设置了默认值
+					// 	columns = append(columns, col)
+					// 	values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
+					// 	continue
 				}
 				// if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
 				// 	return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
@@ -333,7 +333,7 @@ func (t *Table) Exec() (sql.Result, error) {
 	sqlStr, args := t.builder.GetSql2Args()
 	res, err := t.db.ExecContext(t.ctx, sqlStr, args...)
 	if err != nil {
-		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
+		return res, errors.New("err:" + err.Error() + "; sqlStr:" + t.builder.GetSqlStr())
 	}
 	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return res, nil

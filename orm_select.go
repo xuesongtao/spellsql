@@ -477,7 +477,7 @@ func (t *Table) Query() (*sql.Rows, error) {
 	sqlStr, args := t.builder.GetSql2Args()
 	rows, err := t.db.QueryContext(t.ctx, sqlStr, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, sqlStr)
+		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, t.builder.GetSqlStr())
 	}
 	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return rows, nil
