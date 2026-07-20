@@ -122,6 +122,8 @@ func InitMyDb(...uint8) {
 	db.ExecContext(context.TODO(), "TRUNCATE TABLE man")
 	db.ExecContext(context.TODO(), "TRUNCATE TABLE student")
 	db.ExecContext(context.TODO(), "TRUNCATE TABLE test_col")
+
+	InitTestMain(&testing.T{}, 100)
 }
 
 func init() {
