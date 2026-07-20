@@ -234,10 +234,10 @@ func TestParseTable(t *testing.T) {
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
-	c, v, e := NewTable(db).getHandleTableCol2Val(m, internal.INSERT, nil, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, internal.INSERT, nil)
 	t.Log(c, v, e)
 
-	c, v, e = NewTable(db).getHandleTableCol2Val(m, internal.UPDATE, nil, "man")
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, internal.UPDATE, nil)
 	t.Log(c, v, e)
 }
 
@@ -519,6 +519,37 @@ func TestInsert(t *testing.T) {
 		}
 	})
 
+	t.Run("insert auto default", func(t *testing.T) {
+		m := test.Man{
+			Id:    0,
+			Name:  sureName,
+			SName: sureName,
+			Age:   sureAge,
+			Addr:  sureAddr,
+			// Hobby:    "",
+			// NickName: "",
+			// JsonTxt:  test.Tmp{},
+			// XmlTxt:   test.Tmp{},
+			// Json1Txt: test.Tmp{},
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 10; i++ {
+			mm = append(mm, m)
+		}
+		tableObj := NewTable(db, "man")
+		res, err := tableObj.Insert(mm...).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
+
 	t.Run("insert many value to sqlstr", func(t *testing.T) {
 		type Tmp struct {
 			Id   int32  `json:"id,omitempty"`
@@ -596,7 +627,7 @@ func TestInsert(t *testing.T) {
 		tableObj := NewTable(db, "man")
 		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-		res, err := tableObj.InsertOfFields(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
+		res, err := tableObj.InsertOfColumns(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}

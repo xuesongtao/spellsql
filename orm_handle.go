@@ -33,8 +33,8 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	return t
 }
 
-// InsertOfField 批量新增, 指定新增列
-func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
+// InsertOfColumns 批量新增, 指定新增列
+func (t *Table) InsertOfColumns(cols []string, insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT, cols, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
@@ -58,7 +58,7 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 		if isOnlyInsert { // insert 一个值的时候, 在解析列的时候跳过零值
 			needCols = nil
 		}
-		columns, values, err := t.getHandleTableCol2Val(insertObj, opType, needCols, t.name)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, opType, needCols)
 		if err != nil {
 			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
 		}
@@ -139,7 +139,7 @@ func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
-		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], internal.DELETE, nil, t.name)
+		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], internal.DELETE, nil)
 		if err != nil {
 			sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
 			return t
@@ -173,7 +173,7 @@ func (t *Table) DeleteWhere(where string, args ...interface{}) *Table {
 // Update 会更新输入的值
 // 默认排除更新主键, 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
-	columns, values, err := t.getHandleTableCol2Val(updateObj, internal.UPDATE, nil, t.name)
+	columns, values, err := t.getHandleTableCol2Val(updateObj, internal.UPDATE, nil)
 	if err != nil {
 		sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
 		return t
@@ -196,7 +196,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 
 // getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
 // 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
-func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool, tableName ...string) (columns []string, values []interface{}, err error) {
+func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool) (columns []string, values []interface{}, err error) {
 	oldTv := reflect.ValueOf(v)
 	tv := utils.RemoveValuePtr(oldTv)
 	if tv.Kind() != reflect.Struct {
@@ -204,7 +204,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		return
 	}
 
-	if err := t.initTableName(oldTv, tableName...).initCacheCol2InfoMap(); err != nil {
+	if err := t.initTableName(oldTv).initCacheCol2InfoMap(); err != nil {
 		return nil, nil, err
 	}
 
@@ -221,6 +221,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		// 判断下数据库字段是否存在
 		tableField, ok := t.cacheCol2InfoMap[col]
 		if !ok {
+			// sLog.Error(t.ctx, "cacheCol2InfoMap is not found col:", col)
 			continue
 		}
 
@@ -238,16 +239,18 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		if isZero {
 			if op == internal.INSERT || op == internal.UPDATE {
 				// 判断下是否有设置了默认值
-				tmp, ok := t.waitHandleStructFieldMap[tag]
-				if ok && tmp.defaultVal != nil { // orm 中设置了默认值
+				if tmp, ok := t.waitHandleStructFieldMap[tag]; ok && tmp.defaultVal != nil { // orm 中设置了默认值
 					columns = append(columns, col)
 					values = append(values, tmp.defaultVal)
 					continue
+				// } else if op == internal.INSERT && tableField.Default.Valid { // db 中设置了默认值
+				// 	columns = append(columns, col)
+				// 	values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
+				// 	continue
 				}
 				// if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
 				// 	return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
 				// }
-
 			}
 
 			if needCols == nil {
@@ -285,7 +288,7 @@ func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interfac
 	if len(op) > 0 {
 		defaultOp = op[0]
 	}
-	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, nil, t.name)
+	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, nil)
 	if err != nil {
 		return nil, nil, err
 	}

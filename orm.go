@@ -33,9 +33,10 @@ type structField struct {
 
 // Table 表的信息
 type Table struct {
-	ctx                      context.Context
-	db                       DBer
-	dbType                   dialect.DbType
+	ctx    context.Context
+	db     DBer
+	dbType dialect.DbType
+	// err                      error                            // 错误信息
 	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
 	isPrintSql               bool                             // 标记是否打印 sql
