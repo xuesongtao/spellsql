@@ -119,6 +119,5 @@ func (p *PgTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) 
 }
 
 func (p *PgTable) GetDefaultVal(col string, colInfo *TableColInfo) interface{} {
-
-	return nil
+	return internal.DEFAULT
 }

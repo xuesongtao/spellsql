@@ -119,6 +119,7 @@ func (w *Where) WhereCb(f func(wb *Where)) *Where {
 	return w
 }
 
+// And 添加 AND 条件, 如果已有条件, 则追加 AND
 func (w *Where) And(sqlStr string, args ...interface{}) *Where {
 	if w.len() > 0 {
 		w.writeSql(" AND ")
@@ -143,6 +144,7 @@ func (w *Where) AndNewGroup(cb func(wb *Where)) *Where {
 	return w.AndGroup(wb)
 }
 
+// Or 添加 OR 条件, 如果已有条件, 则追加 OR
 func (w *Where) Or(sqlStr string, args ...interface{}) *Where {
 	if w.len() > 0 {
 		w.writeSql(" OR ")

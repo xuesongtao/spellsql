@@ -244,6 +244,23 @@ func TestInsert(t *testing.T) {
 		}
 	})
 
+	t.Run("mysql batch insert have default", func(t *testing.T) {
+		i := NewInsert(dialect.MySQL)
+		i.Into("user").Columns("name", "age").
+			Values("foo", 18).
+			Values("bar", 20).
+			Values("test", internal.DEFAULT)
+		sql, args := i.GetSql2Args()
+		expectedSql := "INSERT INTO user(`name`, `age`) VALUES (?, ?), (?, ?), (?, DEFAULT)"
+		if sql != expectedSql {
+			t.Errorf("sql error, got: %s, want: %s", sql, expectedSql)
+		}
+		t.Logf("args: %v", args)
+		if len(args) != 5 || !test.Equal(args[0], "foo") || !test.Equal(args[2], "bar") {
+			t.Errorf("args error, got: %v", args)
+		}
+	})
+
 	t.Run("postgres insert", func(t *testing.T) {
 		i := NewInsert(dialect.Postgres)
 		i.Into("user").Columns("name", "age").Values("foo", 18)

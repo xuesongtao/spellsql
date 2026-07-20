@@ -107,12 +107,23 @@ func (i *Insert) mergeSQL(b *Builder) {
 		} else if ii+6 == i.len()-1 { // " VALUES" 后面没有内容, 直接追加
 			b.writeSql(" ")
 		}
-		for index, val := range i.values {
+		for index, vals := range i.values {
 			if index > 0 {
 				b.writeSql(", ")
 			}
-			b.writeSql("(" + Placeholders(len(val)) + ")")
-			b.writeArgs(val...)
+			b.writeSql("(")
+			for vIndex, val := range vals {
+				if vIndex > 0 {
+					b.writeSql(", ")
+				}
+				if v, ok := val.(string); ok && (v == internal.DEFAULT || v == internal.NULL) {
+					b.writeSql("?v")
+				} else {
+					b.writeSql("?")
+				}
+				b.writeArgs(val)
+			}
+			b.writeSql(")")
 		}
 	}
 	if len(i.duplicate) > 0 {

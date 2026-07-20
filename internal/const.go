@@ -26,7 +26,8 @@ const (
 )
 
 const (
-	NULL = "NULL"
+	NULL    = "NULL"
+	DEFAULT = "DEFAULT"
 )
 
 const (

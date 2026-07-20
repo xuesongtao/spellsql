@@ -123,7 +123,7 @@ func InitMyDb(...uint8) {
 	db.ExecContext(context.TODO(), "TRUNCATE TABLE student")
 	db.ExecContext(context.TODO(), "TRUNCATE TABLE test_col")
 
-	InitTestMain(&testing.T{}, 100)
+	// InitTestMain(&testing.T{}, 100)
 }
 
 func init() {
@@ -148,11 +148,11 @@ func InitTestMain(t *testing.T, size ...int) {
 	}
 	for i := 0; i < defaultSize; i++ {
 		prepareMan := test.Man{
-			Name:     sureName,
-			Age:      sureAge,
-			Addr:     "四川成都",
-			JsonTxt:  test.Tmp{Name: "json", Data: "test json marshal"},
-			XmlTxt:   test.Tmp{Name: "xml", Data: "test xml marshal"},
+			Name:    sureName,
+			Age:     sureAge,
+			Addr:    "四川成都",
+			JsonTxt: test.Tmp{Name: "json", Data: "test json marshal"},
+			// XmlTxt:   test.Tmp{Name: "xml", Data: "test xml marshal"},
 			Json1Txt: test.Tmp{Name: "json1", Data: "test json1 marshal"},
 		}
 
@@ -176,16 +176,27 @@ func TestCheckImplementation(t *testing.T) {
 }
 
 func TestInitTableName(t *testing.T) {
-	var tableObj *Table
-	// m := test.Man{}
-	// tableObj = NewTable(db)
-	// tableObj.SelectAuto(m)
-	// t.Log(tableObj.name)
-
-	mm := []*test.Man{}
-	tableObj = NewTable(db)
-	tableObj.SelectAuto(mm)
-	t.Log(tableObj.GetBuilder().GetSqlStr())
+	// TestInsert
+	type TestInsert struct {
+		Id       int32  `json:"id"`
+		Name     string `json:"name"`
+		TestNull string `json:"test_null"`
+	}
+	datas := make([]interface{}, 0)
+	for i := 0; i < 1; i++ {
+		prepareMan := TestInsert{
+			Name:     sureName,
+			TestNull: "test",
+		}
+		if i == 1 {
+			prepareMan.TestNull = ""
+		}
+		datas = append(datas, prepareMan)
+	}
+	_, err := NewTable(db, "test_insert").InsertsIg(datas...).Exec()
+	if err != nil {
+		t.Fatal("prepare data failed:", err)
+	}
 }
 
 func TestTableName(t *testing.T) {

@@ -130,8 +130,6 @@ func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 		sLog.Error(t.ctx, err)
 		return nil
 	}
-	// insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
-	// t.tmpSqlObj = t.getSqlObj(insertSqlStr)
 	return t
 }
 
@@ -243,17 +241,17 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 					columns = append(columns, col)
 					values = append(values, tmp.defaultVal)
 					continue
-					// } else if op == internal.INSERT && tableField.Default.Valid { // db 中设置了默认值
-					// 	columns = append(columns, col)
-					// 	values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
-					// 	continue
+				} else if op == internal.INSERT && needCols != nil { // db 中设置了默认值, 批量的时候
+					columns = append(columns, col)
+					values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
+					continue
 				}
 				// if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
 				// 	return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
 				// }
 			}
 
-			if needCols == nil {
+			if needCols == nil { // 单行
 				continue
 			}
 		}

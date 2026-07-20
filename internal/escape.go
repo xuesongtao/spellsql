@@ -21,16 +21,16 @@ func Escape(val []byte, escapeMap map[byte][]byte) []byte {
 	if escapeMap == nil {
 		escapeMap = GetValueEscapeMap()
 	}
-	return toEscapeBytes(val, false, escapeMap)
+	return toEscapeBytes(val, escapeMap)
 }
 
 // EscapeOfHasNum 转义
-func EscapeOfHasNum(val string, is2Num bool, escapeMap map[byte][]byte) string {
-	return string(toEscapeBytes([]byte(val), is2Num, escapeMap))
+func EscapeOfHasNum(val string, escapeMap map[byte][]byte) string {
+	return string(toEscapeBytes([]byte(val), escapeMap))
 }
 
 // toEscapeBytes 转义
-func toEscapeBytes(val []byte, is2Num bool, escapeMap map[byte][]byte) []byte {
+func toEscapeBytes(val []byte, escapeMap map[byte][]byte) []byte {
 	pos := 0
 	vLen := len(val)
 
@@ -44,9 +44,9 @@ func toEscapeBytes(val []byte, is2Num bool, escapeMap map[byte][]byte) []byte {
 			pos += 2
 		} else {
 			// 这里需要判断下在占位符: ?d 时是否包含字母, 如果有的话就转为 0, 防止数字型注入
-			if is2Num && ((v >= 'A' && v <= 'Z') || (v >= 'a' && v <= 'z')) {
-				v = '0'
-			}
+			// if is2Num && ((v >= 'A' && v <= 'Z') || (v >= 'a' && v <= 'z')) {
+			// 	v = '0'
+			// }
 			buf[pos] = v
 			pos++
 		}

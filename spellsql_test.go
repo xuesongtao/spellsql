@@ -196,11 +196,35 @@ func TestNewCacheSql_Select(t *testing.T) {
 			s.SetWhere("age", "IN", FmtSqlStr("SELECT age FROM user_info WHERE id=?", 10))
 		}
 		if true {
-			s.SetWhereArgs("age IN (?v)", FmtSqlStr("SELECT age FROM user_info WHERE id=?", 10))
+			s.SetWhereArgs("age1 IN (?v)", FmtSqlStr("SELECT age1 FROM user_info WHERE id=?", 10))
 		}
 		sqlStr := s.GetSqlStr()
-		sureSql := `SELECT username, password FROM sys_user WHERE age IN (SELECT age FROM user_info WHERE id=10) AND age IN (SELECT age FROM user_info WHERE id=10);`
+		sureSql := `SELECT username, password FROM sys_user WHERE age IN (SELECT age FROM user_info WHERE id=10) AND age1 IN (SELECT age1 FROM user_info WHERE id=10);`
 		if !test.Equal(sqlStr, sureSql) {
+			t.Error(test.NoEqErr)
+		}
+		sqlStr, args := s.builder.GetSql2Args()
+		sureSql = `SELECT username, password FROM sys_user WHERE age IN (SELECT age FROM user_info WHERE id=10) AND age1 IN (SELECT age1 FROM user_info WHERE id=10)`
+		if !test.Equal(sqlStr, sureSql) {
+			t.Error(test.NoEqErr)
+		}
+		if !test.Equal(args, []interface{}{}) {
+			t.Error(test.NoEqErr)
+		}
+	})
+
+	t.Run("son select sqlStr2args", func(t *testing.T) {
+		s := NewSql("SELECT username, password FROM sys_user WHERE")
+		// s.SetPrintLog(false)
+		if true {
+			s.SetWhereArgs("age1 IN (?v)", FmtSqlStr("SELECT age1 FROM user_info WHERE id=?", 10))
+		}
+		sqlStr, args := s.builder.GetSql2Args()
+		sureSql := `SELECT username, password FROM sys_user WHERE age1 IN (SELECT age1 FROM user_info WHERE id=10)`
+		if !test.Equal(sqlStr, sureSql) {
+			t.Error(test.NoEqErr)
+		}
+		if !test.Equal(args, []interface{}{}) {
 			t.Error(test.NoEqErr)
 		}
 	})

@@ -61,6 +61,5 @@ func (m *MysqlTable) GetColInfoMap(ctx context.Context, db DBer, tableName strin
 }
 
 func (m *MysqlTable) GetDefaultVal(col string, colInfo *TableColInfo) interface{} {
-	
-	return nil
+	return internal.DEFAULT
 }
