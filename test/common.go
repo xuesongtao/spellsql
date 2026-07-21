@@ -20,6 +20,7 @@ type Man struct {
 	JsonTxt  Tmp    `json:"json_txt,omitempty"`
 	XmlTxt   Tmp    `json:"xml_txt,omitempty"`
 	Json1Txt Tmp    `json:"json1_txt,omitempty"`
+	PtrTmp   *Tmp   `json:"ptr_tmp,omitempty"`
 }
 
 func (m *Man) TableName() string {

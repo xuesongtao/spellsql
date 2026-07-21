@@ -59,3 +59,7 @@ func (m *MysqlTable) GetColInfoMap(ctx context.Context, db DBer, tableName strin
 	}
 	return cacheCol2InfoMap, nil
 }
+
+func (m *MysqlTable) GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql {
+	return internal.DEFAULT
+}

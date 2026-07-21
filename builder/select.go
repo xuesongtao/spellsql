@@ -240,7 +240,8 @@ func (s *Select) GetTotalSqlStr() string {
 
 func (s *Select) GetTotalSql2Args() (string, []interface{}) {
 	sqlStr, args := s.GetTotalNoParseSql2Args()
-	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Replace().Result(), args
+	pl := dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Replace()
+	return pl.Result(), pl.Args()
 }
 
 func (s *Select) mergeSQL(b *Builder) {

@@ -3,7 +3,6 @@ package builder
 import (
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
-	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 var _ SQLBuilder = (*Insert)(nil)
@@ -101,18 +100,30 @@ func (i *Insert) mergeSQL(b *Builder) {
 	}
 
 	if len(i.values) > 0 {
-		valsIndex := utils.Index(b.finalSql.String(), "VALUES", true)
-		if valsIndex > -1 {
-			b.writeSql(" ")
-		} else {
+		if ii := i.index(" VALUES"); ii == -1 {
 			b.writeSql(" VALUES ")
+		} else if ii+6+2 < i.len()-1 { // 如: " VALUES x", 需要加 ,
+			b.writeSql(", ")
+		} else if ii+6 == i.len()-1 { // " VALUES" 后面没有内容, 直接追加
+			b.writeSql(" ")
 		}
-		for index, val := range i.values {
+		for index, vals := range i.values {
 			if index > 0 {
 				b.writeSql(", ")
 			}
-			b.writeSql("(" + Placeholders(len(val)) + ")")
-			b.writeArgs(val...)
+			b.writeSql("(")
+			for vIndex, val := range vals {
+				if vIndex > 0 {
+					b.writeSql(", ")
+				}
+				if _, ok := val.(internal.RawSql); ok {
+					b.writeSql("?v")
+				} else {
+					b.writeSql("?")
+				}
+				b.writeArgs(val)
+			}
+			b.writeSql(")")
 		}
 	}
 	if len(i.duplicate) > 0 {

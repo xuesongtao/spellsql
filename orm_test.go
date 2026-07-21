@@ -71,6 +71,15 @@ const (
 // 	KEY `a` (`l_int`)
 // );
 
+// CREATE TABLE `test_insert` (
+//   `id` int NOT NULL AUTO_INCREMENT,
+//   `name` varchar(100) DEFAULT '',
+//   `test_default_null` varchar(100) DEFAULT NULL,
+//   `test_no_have_default` int,
+//   `created_time` datetime DEFAULT CURRENT_TIMESTAMP,
+//   PRIMARY KEY (`id`)
+// );
+
 type ManCopy struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
 	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
@@ -132,11 +141,11 @@ func InitTestMain(t *testing.T, size ...int) {
 	}
 	for i := 0; i < defaultSize; i++ {
 		prepareMan := test.Man{
-			Name:     sureName,
-			Age:      sureAge,
-			Addr:     "四川成都",
-			JsonTxt:  test.Tmp{Name: "json", Data: "test json marshal"},
-			XmlTxt:   test.Tmp{Name: "xml", Data: "test xml marshal"},
+			Name:    sureName,
+			Age:     sureAge,
+			Addr:    "四川成都",
+			JsonTxt: test.Tmp{Name: "json", Data: "test json marshal"},
+			// XmlTxt:   test.Tmp{Name: "xml", Data: "test xml marshal"},
 			Json1Txt: test.Tmp{Name: "json1", Data: "test json1 marshal"},
 		}
 
@@ -159,8 +168,37 @@ func TestCheckImplementation(t *testing.T) {
 	}
 }
 
+func TestBatchInsertDefault(t *testing.T) {
+	// TestInsert
+	type TestInsert struct {
+		Id                int32  `json:"id"`
+		Name              string `json:"name"`
+		TestDefaultNull   string `json:"test_default_null"`
+		TestNoHaveDefault int32  `json:"test_no_have_default"`
+		CreatedTime       string `json:"created_time"`
+	}
+	datas := make([]interface{}, 0)
+	for i := 0; i < 2; i++ {
+		prepareMan := TestInsert{
+			Name:              sureName,
+			TestDefaultNull:   "1",
+			TestNoHaveDefault: 0,
+			CreatedTime:       "",
+		}
+		if i == 1 {
+			prepareMan.TestDefaultNull = ""
+		}
+
+		datas = append(datas, prepareMan)
+	}
+	_, err := NewTable(db, "test_insert").InsertsIg(datas...).Exec()
+	if err != nil {
+		t.Fatal("prepare data failed:", err)
+	}
+}
+
 func TestTableName(t *testing.T) {
-	m := test.Man{
+	m := &test.Man{
 		Name: sureName,
 		Age:  sureAge,
 		Addr: sureAddr,
@@ -180,7 +218,7 @@ func TestTableName(t *testing.T) {
 	tableObj := NewTable(db)
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	res, err := tableObj.Insert(m).Exec()
+	res, err := tableObj.Insert(&m).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,10 +245,10 @@ func TestParseTable(t *testing.T) {
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
-	c, v, e := NewTable(db).getHandleTableCol2Val(m, internal.INSERT, nil, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, internal.INSERT, nil)
 	t.Log(c, v, e)
 
-	c, v, e = NewTable(db).getHandleTableCol2Val(m, internal.UPDATE, nil, "man")
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, internal.UPDATE, nil)
 	t.Log(c, v, e)
 }
 
@@ -492,6 +530,37 @@ func TestInsert(t *testing.T) {
 		}
 	})
 
+	t.Run("insert auto default", func(t *testing.T) {
+		m := test.Man{
+			Id:    0,
+			Name:  sureName,
+			SName: sureName,
+			Age:   sureAge,
+			Addr:  sureAddr,
+			// Hobby:    "",
+			// NickName: "",
+			// JsonTxt:  test.Tmp{},
+			// XmlTxt:   test.Tmp{},
+			// Json1Txt: test.Tmp{},
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 10; i++ {
+			mm = append(mm, m)
+		}
+		tableObj := NewTable(db, "man")
+		res, err := tableObj.Insert(mm...).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
+
 	t.Run("insert many value to sqlstr", func(t *testing.T) {
 		type Tmp struct {
 			Id   int32  `json:"id,omitempty"`
@@ -569,7 +638,7 @@ func TestInsert(t *testing.T) {
 		tableObj := NewTable(db, "man")
 		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-		res, err := tableObj.InsertOfFields(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
+		res, err := tableObj.InsertOfColumns(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
