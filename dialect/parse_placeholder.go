@@ -135,15 +135,17 @@ func (p *ParsePlaceholder) replaceInternalArgs() *ParsePlaceholder {
 	for i, v := range p.args {
 		tmpArgs[i] = arg{val: v}
 	}
+	tmpBuf := internal.GetTmpBuf()
+	defer internal.PutTmpBuf(tmpBuf)
 
 	// 需要将 ?d, ?v 进行替换为对应的值, 这两个占位符只会出现在 string 类型的参数中
-	p.loopWaitParse(p.buf,
+	p.loopWaitParse(tmpBuf,
 		func(curIndex, argIndex, sqlSqlLastIndex int) int {
 			if curIndex < sqlSqlLastIndex {
 				switch v := tmpArgs[argIndex].val.(type) {
 				case internal.RawSql: // 内部处理
 					if p.waitParse[curIndex+1] == 'v' { // 原样输出
-						p.buf.WriteString(string(v))
+						tmpBuf.WriteString(string(v))
 						curIndex++
 						tmpArgs[argIndex].del = true
 						return curIndex
@@ -152,12 +154,12 @@ func (p *ParsePlaceholder) replaceInternalArgs() *ParsePlaceholder {
 					// 判断下如果为 ?d 字符的话, 这里不需要加引号
 					// 如果包含字母的话, 就转为 0, 防止数字型注入
 					if p.waitParse[curIndex+1] == 'd' {
-						p.buf.WriteString(p.toNum(v))
+						tmpBuf.WriteString(p.toNum(v))
 						curIndex++
 						tmpArgs[argIndex].del = true
 						return curIndex
 					} else if p.waitParse[curIndex+1] == 'v' { // 原样输出
-						p.buf.WriteString(v)
+						tmpBuf.WriteString(v)
 						curIndex++
 						tmpArgs[argIndex].del = true
 						return curIndex
@@ -167,9 +169,9 @@ func (p *ParsePlaceholder) replaceInternalArgs() *ParsePlaceholder {
 					if p.waitParse[curIndex+1] == 'd' {
 						lastIndex := len(v) - 1
 						for i1 := 0; i1 <= lastIndex; i1++ {
-							p.buf.WriteString(p.toNum(v[i1]))
+							tmpBuf.WriteString(p.toNum(v[i1]))
 							if i1 < lastIndex {
-								p.buf.WriteString(", ")
+								tmpBuf.WriteString(", ")
 							}
 						}
 						curIndex++
@@ -178,11 +180,11 @@ func (p *ParsePlaceholder) replaceInternalArgs() *ParsePlaceholder {
 					}
 				}
 			}
-			p.buf.WriteByte(p.waitParse[curIndex]) // 直接输出 ?
+			tmpBuf.WriteByte(p.waitParse[curIndex]) // 直接输出 ?
 			return curIndex
 		})
 
-	p.waitParse = p.buf.String()
+	p.waitParse = tmpBuf.String()
 	p.args = make([]interface{}, 0)
 	for _, v := range tmpArgs {
 		if v.del {
