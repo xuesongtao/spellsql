@@ -68,5 +68,8 @@ func Placeholders(n ...int) string {
 	if len(n) > 0 {
 		nn = n[0]
 	}
+	if nn <= 0 {
+		return ""
+	}
 	return strings.Repeat("?, ", nn-1) + "?"
 }

@@ -111,7 +111,7 @@ func (b *Builder) mergeWhere(where *Where) {
 	sqlStr, args := where.GetNoParseSql2Args()
 	if i := b.index(" WHERE"); i == -1 {
 		b.writeSql(" WHERE ")
-	} else if i+5+2 < b.len()-1 { // 如: " WHERE x", 需要加 AND
+	} else if i+5+2 <= b.len()-1 { // 如: " WHERE x", 需要加 AND
 		b.writeSql(" AND ")
 	} else if i+5 == b.len()-1 { // " WHERE" 后面没有内容, 直接追加
 		b.writeSql(" ")

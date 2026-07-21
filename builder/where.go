@@ -82,12 +82,12 @@ func (w *Where) OrBetween(col string, arg1, arg2 interface{}) *Where {
 	return w.Or(w.warpCol(col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
 }
 
-func (w *Where) In(col string, args ...interface{}) *Where {
-	return w.And(w.warpCol(col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
+func (w *Where) In(col string, arg interface{}) *Where {
+	return w.And(w.warpCol(col)+" IN ("+dialect.Placeholders()+")", arg)
 }
 
-func (w *Where) OrIn(col string, args ...interface{}) *Where {
-	return w.Or(w.warpCol(col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
+func (w *Where) OrIn(col string, arg interface{}) *Where {
+	return w.Or(w.warpCol(col)+" IN ("+dialect.Placeholders()+")", arg)
 }
 
 func (w *Where) LikeLeft(col string, arg string) *Where {
