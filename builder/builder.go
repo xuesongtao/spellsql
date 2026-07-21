@@ -152,8 +152,9 @@ func (b *Builder) GetSqlStr() string {
 // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 func (b *Builder) GetSql2Args() (string, []interface{}) {
 	sqlStr, sqlArgs := b.getFinalNoPraseSql2Args()
-	// fmt.Println(sqlStr, sqlArgs)
+	// fmt.Println("======> before", sqlStr, sqlArgs)
 	pl := dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Replace()
+	// fmt.Println("======> after", pl.Result(), pl.Args())
 	return pl.Result(), pl.Args()
 }
 
@@ -171,12 +172,4 @@ func (b *Builder) warpJoinCols(fields ...string) string {
 		result[i] = b.warpCol(field)
 	}
 	return strings.Join(result, ", ")
-}
-
-func Placeholders(n ...int) string {
-	nn := 1
-	if len(n) > 0 {
-		nn = n[0]
-	}
-	return strings.Repeat("?, ", nn-1) + "?"
 }

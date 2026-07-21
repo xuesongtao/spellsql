@@ -35,15 +35,15 @@ func NewParsePlaceholder(dt DbType, sqlStr string, args ...interface{}) *ParsePl
 		args:      args,
 		buf:       &strings.Builder{},
 	}
-	return obj.replace()
+	return obj.replaceInternalArgs().unpackArgs()
 }
 
-func (p *ParsePlaceholder) loopWaitParse(f func(curIndex, argIndex, sqlSqlLastIndex int) int) {
-	p.buf.Reset()
+func (p *ParsePlaceholder) loopWaitParse(out *strings.Builder, f func(curIndex, argIndex, sqlSqlLastIndex int) int) {
+	out.Reset()
 
 	argLen := len(p.args)
 	if argLen == 0 {
-		p.buf.WriteString(p.waitParse)
+		out.WriteString(p.waitParse)
 		return
 	}
 
@@ -52,13 +52,13 @@ func (p *ParsePlaceholder) loopWaitParse(f func(curIndex, argIndex, sqlSqlLastIn
 	for i := 0; i < sqlLen; i++ {
 		v := p.waitParse[i]
 		if v != '?' {
-			p.buf.WriteByte(v)
+			out.WriteByte(v)
 			continue
 		}
 		argIndex++
 		// 如果参数不够的话就不进行处理
 		if argIndex > argLen-1 {
-			p.buf.WriteByte(v)
+			out.WriteByte(v)
 			continue
 		}
 		// 使用过滤后的 args
@@ -82,15 +82,62 @@ func (p *ParsePlaceholder) toNum(v string) string {
 	return "0"
 }
 
-// replace 将 ?d, ?v 进行替换为对应的值
-func (p *ParsePlaceholder) replace() *ParsePlaceholder {
+// unpackArgs 对 ? 占位符的参数进行拆解, 例如 ? => []int{1,2,3} 会被拆解为 ?,?,? => 1,2,3
+func (p *ParsePlaceholder) unpackArgs() *ParsePlaceholder {
+	args := make([]interface{}, 0, len(p.args)*2)
+	tmpBuf := internal.GetTmpBuf()
+	defer internal.PutTmpBuf(tmpBuf)
+
+	p.loopWaitParse(tmpBuf, func(curIndex, argIndex, sqlSqlLastIndex int) int {
+		switch val := p.args[argIndex].(type) {
+		case []string:
+			tmpBuf.WriteString(Placeholders(len(val)))
+			for i1 := 0; i1 <= len(val)-1; i1++ {
+				args = append(args, val[i1])
+			}
+			return curIndex
+		case []int:
+			tmpBuf.WriteString(Placeholders(len(val)))
+			for i1 := 0; i1 <= len(val)-1; i1++ {
+				args = append(args, val[i1])
+			}
+			return curIndex
+		case []int32:
+			tmpBuf.WriteString(Placeholders(len(val)))
+			for i1 := 0; i1 <= len(val)-1; i1++ {
+				args = append(args, val[i1])
+			}
+			return curIndex
+		case []byte: // 不做任何处理
+		default:
+			reflectValue := reflect.ValueOf(val)
+			if reflectValue.Kind() == reflect.Slice || reflectValue.Kind() == reflect.Array {
+				vLen := reflectValue.Len()
+				tmpBuf.WriteString(Placeholders(vLen))
+				for i1 := 0; i1 <= vLen-1; i1++ {
+					args = append(args, reflectValue.Index(i1).Interface())
+				}
+				return curIndex
+			}
+		}
+		args = append(args, p.args[argIndex])
+		tmpBuf.WriteByte(p.waitParse[curIndex])
+		return curIndex
+	})
+	p.waitParse = tmpBuf.String()
+	p.args = args
+	return p
+}
+
+// replaceInternalArgs 将 ?d, ?v 进行替换为对应的值
+func (p *ParsePlaceholder) replaceInternalArgs() *ParsePlaceholder {
 	tmpArgs := make([]arg, len(p.args))
 	for i, v := range p.args {
 		tmpArgs[i] = arg{val: v}
 	}
 
 	// 需要将 ?d, ?v 进行替换为对应的值, 这两个占位符只会出现在 string 类型的参数中
-	p.loopWaitParse(
+	p.loopWaitParse(p.buf,
 		func(curIndex, argIndex, sqlSqlLastIndex int) int {
 			if curIndex < sqlSqlLastIndex {
 				switch v := tmpArgs[argIndex].val.(type) {
@@ -149,23 +196,13 @@ func (p *ParsePlaceholder) replace() *ParsePlaceholder {
 // Parse 将占位符进行解析, 将占位符替换为对应的值
 func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 	gd := GetDialect(p.dbType)
-	p.loopWaitParse(
+	p.loopWaitParse(p.buf,
 		func(curIndex, argIndex, sqlSqlLastIndex int) int {
 			switch val := p.args[argIndex].(type) {
 			case internal.RawSql:
 				p.buf.WriteString(string(val))
 			case string:
 				p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(val, gd.GetValueEscapeMap())))
-			case []string:
-				lastIndex := len(val) - 1
-				for i1 := 0; i1 <= lastIndex; i1++ {
-					p.buf.WriteString(gd.GetWarpValueStrSymbol())
-					p.buf.WriteString(internal.EscapeOfHasNum(val[i1], gd.GetValueEscapeMap()))
-					p.buf.WriteString(gd.GetWarpValueStrSymbol())
-					if i1 < lastIndex {
-						p.buf.WriteString(", ")
-					}
-				}
 			case []byte:
 				p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(string(val), gd.GetValueEscapeMap())))
 			case int:
@@ -176,34 +213,10 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 				p.buf.WriteString(utils.UInt2Str(uint64(val)))
 			case uint32:
 				p.buf.WriteString(utils.UInt2Str(uint64(val)))
-			case []int:
-				lastIndex := len(val) - 1
-				for i1 := 0; i1 <= lastIndex; i1++ {
-					p.buf.WriteString(utils.Int2Str(int64(val[i1])))
-					if i1 < lastIndex {
-						p.buf.WriteString(", ")
-					}
-				}
-			case []int32:
-				lastIndex := len(val) - 1
-				for i1 := 0; i1 <= lastIndex; i1++ {
-					p.buf.WriteString(utils.Int2Str(int64(val[i1])))
-					if i1 < lastIndex {
-						p.buf.WriteString(", ")
-					}
-				}
 			default:
 				// slow path
 				reflectValue := reflect.ValueOf(val)
 				switch reflectValue.Kind() {
-				case reflect.Slice, reflect.Array: // 这里不会有 []string, 不需要处理符号, 所以直接处理即可
-					lastIndex := reflectValue.Len() - 1
-					for i1 := 0; i1 <= lastIndex; i1++ {
-						p.buf.WriteString(utils.Str(reflectValue.Index(i1).Interface()))
-						if i1 < lastIndex {
-							p.buf.WriteString(", ")
-						}
-					}
 				case reflect.Float32, reflect.Float64:
 					p.buf.WriteString(utils.Str(reflectValue.Float()))
 				case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
@@ -224,7 +237,7 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 
 // Replace 将占位符 "?" 替换为对应的数据库占位符, 例如 mysql 为 ?, pg 为 $1, $2, ...
 func (p *ParsePlaceholder) Replace() *ParsePlaceholder {
-	p.loopWaitParse(
+	p.loopWaitParse(p.buf,
 		func(curIndex, argIndex, lastIndex int) int {
 			switch p.dbType {
 			case Postgres:

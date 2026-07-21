@@ -62,3 +62,11 @@ func GetDialect(dbType DbType) Dialect {
 	}
 	return dialectMap[DefaultDbType]
 }
+
+func Placeholders(n ...int) string {
+	nn := 1
+	if len(n) > 0 {
+		nn = n[0]
+	}
+	return strings.Repeat("?, ", nn-1) + "?"
+}

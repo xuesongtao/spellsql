@@ -19,11 +19,11 @@ func NewWhere(dt ...dialect.DbType) *Where {
 }
 
 func (w *Where) Eq(col string, arg interface{}) *Where {
-	return w.And(w.warpCol(col)+" = "+Placeholders(), arg)
+	return w.And(w.warpCol(col)+" = "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) OrEq(col string, arg interface{}) *Where {
-	return w.Or(w.warpCol(col)+" = "+Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" = "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) IsNull(col string) *Where {
@@ -35,83 +35,83 @@ func (w *Where) OrIsNull(col string) *Where {
 }
 
 func (w *Where) NotEq(col string, arg interface{}) *Where {
-	return w.And(w.warpCol(col)+" <> "+Placeholders(), arg)
+	return w.And(w.warpCol(col)+" <> "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) OrNotEq(col string, arg interface{}) *Where {
-	return w.Or(w.warpCol(col)+" <> "+Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" <> "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) Gt(col string, arg interface{}) *Where {
-	return w.And(w.warpCol(col)+" > "+Placeholders(), arg)
+	return w.And(w.warpCol(col)+" > "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) OrGt(col string, arg interface{}) *Where {
-	return w.Or(w.warpCol(col)+" > "+Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" > "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) Gte(col string, arg interface{}) *Where {
-	return w.And(w.warpCol(col)+" >= "+Placeholders(), arg)
+	return w.And(w.warpCol(col)+" >= "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) OrGte(col string, arg interface{}) *Where {
-	return w.Or(w.warpCol(col)+" >= "+Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" >= "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) Lt(col string, arg interface{}) *Where {
-	return w.And(w.warpCol(col)+" < "+Placeholders(), arg)
+	return w.And(w.warpCol(col)+" < "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) OrLt(col string, arg interface{}) *Where {
-	return w.Or(w.warpCol(col)+" < "+Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" < "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) Lte(col string, arg interface{}) *Where {
-	return w.And(w.warpCol(col)+" <= "+Placeholders(), arg)
+	return w.And(w.warpCol(col)+" <= "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) OrLte(col string, arg interface{}) *Where {
-	return w.Or(w.warpCol(col)+" <= "+Placeholders(), arg)
+	return w.Or(w.warpCol(col)+" <= "+dialect.Placeholders(), arg)
 }
 
 func (w *Where) Between(col string, arg1, arg2 interface{}) *Where {
-	return w.And(w.warpCol(col)+" (BETWEEN "+Placeholders()+" AND "+Placeholders()+")", arg1, arg2)
+	return w.And(w.warpCol(col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
 }
 
 func (w *Where) OrBetween(col string, arg1, arg2 interface{}) *Where {
-	return w.Or(w.warpCol(col)+" (BETWEEN "+Placeholders()+" AND "+Placeholders()+")", arg1, arg2)
+	return w.Or(w.warpCol(col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
 }
 
 func (w *Where) In(col string, args ...interface{}) *Where {
-	return w.And(w.warpCol(col)+" IN ("+Placeholders(len(args))+")", args...)
+	return w.And(w.warpCol(col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
 }
 
 func (w *Where) OrIn(col string, args ...interface{}) *Where {
-	return w.Or(w.warpCol(col)+" IN ("+Placeholders(len(args))+")", args...)
+	return w.Or(w.warpCol(col)+" IN ("+dialect.Placeholders(len(args))+")", args...)
 }
 
 func (w *Where) LikeLeft(col string, arg string) *Where {
-	return w.And(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg))
+	return w.And(w.warpCol(col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
 }
 
 func (w *Where) OrLikeLeft(col string, arg string) *Where {
-	return w.Or(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg))
+	return w.Or(w.warpCol(col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg))
 }
 
 func (w *Where) LikeRight(col string, arg string) *Where {
-	return w.And(w.warpCol(col)+" LIKE "+Placeholders(), EscapeLike(arg)+"%")
+	return w.And(w.warpCol(col)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
 }
 
 func (w *Where) OrLikeRight(col string, arg string) *Where {
-	return w.Or(w.warpCol(col)+" LIKE "+Placeholders(), EscapeLike(arg)+"%")
+	return w.Or(w.warpCol(col)+" LIKE "+dialect.Placeholders(), EscapeLike(arg)+"%")
 }
 
 func (w *Where) Like(col string, arg string) *Where {
-	return w.And(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg)+"%")
+	return w.And(w.warpCol(col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
 }
 
 func (w *Where) OrLike(col string, arg string) *Where {
-	return w.Or(w.warpCol(col)+" LIKE "+Placeholders(), "%"+EscapeLike(arg)+"%")
+	return w.Or(w.warpCol(col)+" LIKE "+dialect.Placeholders(), "%"+EscapeLike(arg)+"%")
 }
 
 func (w *Where) WhereCb(f func(wb *Where)) *Where {
