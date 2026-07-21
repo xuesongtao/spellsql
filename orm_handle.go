@@ -241,7 +241,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 					columns = append(columns, col)
 					values = append(values, tmp.defaultVal)
 					continue
-				} else if op == internal.INSERT && needCols != nil { // db 中设置了默认值, 批量的时候
+				} else if needCols != nil { // 需要的列, 但是没有设置默认值, 则使用数据库默认值
 					columns = append(columns, col)
 					values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
 					continue

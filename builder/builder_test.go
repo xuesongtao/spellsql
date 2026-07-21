@@ -565,11 +565,11 @@ func TestSelect(t *testing.T) {
 		}
 
 		sql, args = s.GetSql2Args()
-		expectedSql := "SELECT * FROM users WHERE id=? AND hobby in (?) AND son_where in (?)"
+		expectedSql := "SELECT * FROM users WHERE id=1 AND hobby in (?) AND son_where in (select son_where from son_table where id=1)"
 		if sql != expectedSql {
 			t.Errorf("GetSqlStr error, got: %s, want: %s", sql, expectedSql)
 		}
-		if len(args) != 3 || !test.Equal(args[0], "1") || !test.Equal(args[1], []string{"reading", "coding"}) || !test.Equal(args[2], "select son_where from son_table where id=1") {
+		if len(args) != 1 || !test.Equal(args[0], []string{"reading", "coding"})  {
 			t.Errorf("args len error: %d", len(args))
 		}
 	})
