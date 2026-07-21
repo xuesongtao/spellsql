@@ -58,7 +58,7 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 		if isOnlyInsert { // insert 一个值的时候, 在解析列的时候跳过零值
 			needCols = nil
 		}
-		columns, values, err := t.getHandleTableCol2Val(insertObj, opType, needCols)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, internal.INSERT, needCols)
 		if err != nil {
 			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
 		}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
 // DBer
@@ -24,7 +26,7 @@ type Dialect interface {
 // TableMeter 表元信息, 为了适配不同数据库
 type TableMeter interface {
 	GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) // key: col
-	GetDefaultVal(col string, colInfo *TableColInfo) interface{}
+	GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql
 }
 
 var (

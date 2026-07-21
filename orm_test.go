@@ -73,6 +73,15 @@ const (
 // 	KEY `a` (`l_int`)
 // );
 
+// CREATE TABLE `test_insert` (
+//   `id` int NOT NULL AUTO_INCREMENT,
+//   `name` varchar(100) DEFAULT '',
+//   `test_default_null` varchar(100) DEFAULT NULL,
+//   `test_no_have_default` int,
+//   `created_time` datetime DEFAULT CURRENT_TIMESTAMP,
+//   PRIMARY KEY (`id`)
+// );
+
 type ManCopy struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
 	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
@@ -175,22 +184,27 @@ func TestCheckImplementation(t *testing.T) {
 	}
 }
 
-func TestInitTableName(t *testing.T) {
+func TestBatchInsertDefault(t *testing.T) {
 	// TestInsert
 	type TestInsert struct {
-		Id       int32  `json:"id"`
-		Name     string `json:"name"`
-		TestNull string `json:"test_null"`
+		Id                int32  `json:"id"`
+		Name              string `json:"name"`
+		TestDefaultNull   string `json:"test_default_null"`
+		TestNoHaveDefault int32  `json:"test_no_have_default"`
+		CreatedTime       string `json:"created_time"`
 	}
 	datas := make([]interface{}, 0)
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 2; i++ {
 		prepareMan := TestInsert{
-			Name:     sureName,
-			TestNull: "test",
+			Name:              sureName,
+			TestDefaultNull:   "1",
+			TestNoHaveDefault: 0,
+			CreatedTime:       "",
 		}
 		if i == 1 {
-			prepareMan.TestNull = ""
+			prepareMan.TestDefaultNull = ""
 		}
+
 		datas = append(datas, prepareMan)
 	}
 	_, err := NewTable(db, "test_insert").InsertsIg(datas...).Exec()

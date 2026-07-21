@@ -94,8 +94,14 @@ func (p *ParsePlaceholder) replace() *ParsePlaceholder {
 		func(curIndex, argIndex, sqlSqlLastIndex int) int {
 			if curIndex < sqlSqlLastIndex {
 				switch v := tmpArgs[argIndex].val.(type) {
+				case internal.RawSql: // 内部处理
+					if p.waitParse[curIndex+1] == 'v' { // 原样输出
+						p.buf.WriteString(string(v))
+						curIndex++
+						tmpArgs[argIndex].del = true
+						return curIndex
+					}
 				case string:
-					// 如果占位符?在最后一位时, 就不往下执行了防止 panic
 					// 判断下如果为 ?d 字符的话, 这里不需要加引号
 					// 如果包含字母的话, 就转为 0, 防止数字型注入
 					if p.waitParse[curIndex+1] == 'd' {
@@ -146,12 +152,10 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 	p.loopWaitParse(
 		func(curIndex, argIndex, sqlSqlLastIndex int) int {
 			switch val := p.args[argIndex].(type) {
+			case internal.RawSql:
+				p.buf.WriteString(string(val))
 			case string:
-				if val == internal.NULL || val == internal.DEFAULT {
-					p.buf.WriteString(val)
-				} else {
-					p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(val, gd.GetValueEscapeMap())))
-				}
+				p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(val, gd.GetValueEscapeMap())))
 			case []string:
 				lastIndex := len(val) - 1
 				for i1 := 0; i1 <= lastIndex; i1++ {

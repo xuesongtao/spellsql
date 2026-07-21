@@ -25,9 +25,10 @@ const (
 	RJI // 右连接
 )
 
+// 原样输入
 const (
-	NULL    = "NULL"
-	DEFAULT = "DEFAULT"
+	NULL    RawSql = "NULL"
+	DEFAULT RawSql = "DEFAULT"
 )
 
 const (
@@ -39,3 +40,10 @@ const (
 	DefaultTableTag        = "json"
 	DefaultBatchSelectSize = 10 // 批量查询默认条数
 )
+
+// RawSql 内部使用的原始 sql, 主要是为了在 insert/update 时, 直接原样输出, 不进行 sql 解析, 例如: DEFAULT, NULL 等
+type RawSql string
+
+func (r RawSql) Is(v RawSql) bool {
+	return r == v
+}

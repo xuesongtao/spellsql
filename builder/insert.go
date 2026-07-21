@@ -116,7 +116,7 @@ func (i *Insert) mergeSQL(b *Builder) {
 				if vIndex > 0 {
 					b.writeSql(", ")
 				}
-				if v, ok := val.(string); ok && (v == internal.DEFAULT || v == internal.NULL) {
+				if _, ok := val.(internal.RawSql); ok {
 					b.writeSql("?v")
 				} else {
 					b.writeSql("?")
