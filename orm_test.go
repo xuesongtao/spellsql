@@ -672,6 +672,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	InitTestMain(t, 10)
 	m := test.Man{
 		Name: "xue12",
 		Age:  20,
@@ -1201,25 +1202,46 @@ func TestFindForJoin(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	var (
-		total1, total2, total3 int32
-	)
-	err := NewTable(db, "man").SelectCount().FindWhere(&total1, "id>?", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Count(db, "man", &total2, "id>1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = NewTable(db, "man").SelectAll().Where("id>?", 1).Count(&total3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log("total: ", total2)
-	if total1 != total2 || total2 != total3 {
-		t.Error(test.NoEqErr)
-	}
+	size := 10
+	InitTestMain(t, size)
+	t.Run("count", func(t *testing.T) {
+		var (
+			total1, total2, total3 int32
+		)
+		err := NewTable(db, "man").SelectCount().FindWhere(&total1, "id>?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = Count(db, "man", &total2, "id>1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = NewTable(db, "man").SelectAll().Where("id>?", 1).Count(&total3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log("total: ", total2)
+		if total1 != total2 || total2 != total3 {
+			t.Error(test.NoEqErr)
+		}
+	})
+
+	t.Run("in where", func(t *testing.T) {
+		total2 := int32(0)
+		err := Count(db, "man", &total2, "name in (?)", []string{sureName})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var total3 int32
+		err = NewTable(db, "man").SelectAll().Where("name in (?)", []string{sureName}).Count(&total3)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if total3 != total2 {
+			t.Error(test.NoEqErr, total3, total2)
+		}
+	})
 }
 
 // FindOne 性能对比, 以下是在 mac11 pro m1 上测试

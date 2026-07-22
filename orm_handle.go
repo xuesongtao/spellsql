@@ -33,6 +33,12 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	return t
 }
 
+// InsertOfFields 批量新增, 指定新增列
+// Deprecated: InsertOfColumns 代替
+func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
+	return t.InsertOfColumns(cols, insertObjs...)
+}
+
 // InsertOfColumns 批量新增, 指定新增列
 func (t *Table) InsertOfColumns(cols []string, insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT, cols, insertObjs...); err != nil {

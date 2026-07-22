@@ -71,7 +71,7 @@ func (u *Update) mergeSQL(b *Builder) {
 			if i > 0 {
 				b.writeSql(", ")
 			}
-			b.writeSql2Args(u.warpCol(col)+" = "+Placeholders(), u.values[i])
+			b.writeSql2Args(u.warpCol(col)+" = "+dialect.Placeholders(), u.values[i])
 		}
 	}
 
