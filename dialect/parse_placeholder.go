@@ -108,12 +108,12 @@ func (p *ParsePlaceholder) unpackArgs() *ParsePlaceholder {
 				args = append(args, val[i1])
 			}
 			return curIndex
-		case []byte: // 不做任何处理
+		case []byte: // 将其转为 string
 			tmpBuf.WriteString(Placeholders())
 			args = append(args, string(val))
 			return curIndex
 		default:
-			reflectValue := reflect.ValueOf(val)
+			reflectValue := reflect.Indirect(reflect.ValueOf(val))
 			if reflectValue.Kind() == reflect.Slice || reflectValue.Kind() == reflect.Array {
 				vLen := reflectValue.Len()
 				tmpBuf.WriteString(Placeholders(vLen))
@@ -208,8 +208,6 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 				p.buf.WriteString(string(val))
 			case string:
 				p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(val, gd.GetValueEscapeMap())))
-			case []byte:
-				p.buf.WriteString(WarpValue(gd, internal.EscapeOfHasNum(string(val), gd.GetValueEscapeMap())))
 			case int:
 				p.buf.WriteString(utils.Int2Str(int64(val)))
 			case int32:
