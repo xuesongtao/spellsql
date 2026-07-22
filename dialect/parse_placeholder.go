@@ -109,6 +109,9 @@ func (p *ParsePlaceholder) unpackArgs() *ParsePlaceholder {
 			}
 			return curIndex
 		case []byte: // 不做任何处理
+			tmpBuf.WriteString(Placeholders())
+			args = append(args, string(val))
+			return curIndex
 		default:
 			reflectValue := reflect.ValueOf(val)
 			if reflectValue.Kind() == reflect.Slice || reflectValue.Kind() == reflect.Array {

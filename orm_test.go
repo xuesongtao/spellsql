@@ -498,12 +498,12 @@ func TestInsert(t *testing.T) {
 			Id    int32  `json:"id,omitempty"`
 			Name1 string `json:"name,omitempty"`
 			Age1  int32  `json:"age_1,omitempty"`
-			Addr1 string `json:"addr_1,omitempty"`
+			Addr1 []string `json:"addr_1,omitempty"`
 		}
 		m := Tmp{
 			Name1: "xue1234",
 			Age1:  18,
-			Addr1: "成都市",
+			Addr1: []string{""},
 		}
 		tableObj := NewTable(db, "man").TagAlias(map[string]string{"age_1": "age", "addr_1": "addr"})
 		res, err := tableObj.Insert(m).Exec()
