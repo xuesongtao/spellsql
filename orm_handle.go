@@ -140,9 +140,9 @@ func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 	return t
 }
 
-// InsertsReplace insert replace into xxx  新增批量替换
+// InsertsRp insert replace into xxx  新增批量替换
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) InsertsReplace(insertObjs ...interface{}) *Table {
+func (t *Table) InsertsRp(insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT_REPLACE, nil, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
