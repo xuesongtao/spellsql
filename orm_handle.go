@@ -108,6 +108,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
+// keys 为需要更新的列, 如果不传则默认更新所有列
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
 	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
@@ -243,11 +244,11 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		if isZero {
 			if op == internal.INSERT || op == internal.UPDATE {
 				// 判断下是否有设置了默认值
-				if tmp, ok := t.waitHandleStructFieldMap[tag]; ok && tmp.defaultVal != nil { // orm 中设置了默认值
+				if tmp, ok := t.waitHandleStructFieldMap[tag]; ok && tmp.defaultVal != nil { // orm 中设置了默认值, 需要解析
 					columns = append(columns, col)
 					values = append(values, tmp.defaultVal)
 					continue
-				} else if needCols != nil { // 需要的列, 但是没有设置默认值, 则使用数据库默认值
+				} else if needCols != nil && needCols[col] { // 需要的列, 使用数据库默认值
 					columns = append(columns, col)
 					values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
 					continue
