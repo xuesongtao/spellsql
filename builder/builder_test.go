@@ -78,16 +78,23 @@ func TestWhereGetSqlStr(t *testing.T) {
 			In("role", []int{1, 2, 3}).
 			In("age", []int{18, 20}).
 			In("age_str", []string{"18", "20"}).
+			And("age_int IN (?d)", []string{"18", "20"}).
 			Between("create_time", "2024-01-01", "2024-01-02")
 
 		sqlStr, args := w.GetSql2Args()
-		sureSql := "`role` IN (?, ?, ?) AND `age` IN (?, ?) AND `age_str` IN (?, ?) AND `create_time` (BETWEEN ? AND ?)"
+		sureSql := "`role` IN (?, ?, ?) AND `age` IN (?, ?) AND `age_str` IN (?, ?) AND age_int IN (18, 20) AND `create_time` (BETWEEN ? AND ?)"
 		t.Log(w.GetSqlStr())
 		if sqlStr != sureSql {
 			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
 		}
 		if len(args) != 9 {
 			t.Errorf("args len is not eq, got: %d, want: 9", len(args))
+		}
+
+		sqlStr = w.GetSqlStr()
+		sureSql = "`role` IN (1, 2, 3) AND `age` IN (18, 20) AND `age_str` IN (\"18\", \"20\") AND age_int IN (18, 20) AND `create_time` (BETWEEN \"2024-01-01\" AND \"2024-01-02\")"
+		if sqlStr != sureSql {
+			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
 		}
 	})
 
