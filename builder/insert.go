@@ -88,8 +88,7 @@ func (i *Insert) mergeSQL(b *Builder) {
 		} else {
 			b.writeSql("INSERT ")
 		}
-		switch i.insertType {
-		case internal.INSERT_IGNORE:
+		if i.insertType == internal.INSERT_IGNORE {
 			b.writeSql("IGNORE ")
 		}
 		b.writeSql("INTO " + i.tableName)

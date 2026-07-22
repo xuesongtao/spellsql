@@ -18,10 +18,6 @@ import (
 // 1. 可以多个通过逗号隔开
 // 2. 也可以直接添加
 func (t *Table) Select(fields ...string) *Table {
-	if len(fields) == 0 {
-		sLog.Error(t.ctx, "fields is null")
-		return t
-	}
 	if len(fields) == 1 { // 如果只有一个字段, 可能有多个字段拼接的字符串, 需要解析
 		return t.setSelect(t.parseCols(fields[0])...)
 	} else {
@@ -42,7 +38,8 @@ func (t *Table) parseCols(fields string) []string {
 
 func (t *Table) setSelect(col ...string) *Table {
 	if len(col) == 0 {
-		sLog.Error(t.ctx, "fields is null")
+		// sLog.Error(t.ctx, "fields is null")
+		t.err = errors.New("select cols is null")
 		return t
 	}
 
@@ -90,7 +87,7 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 			}
 		}
 		if err := t.initTableName(tv, tableName...).initCacheCol2InfoMap(); err != nil {
-			sLog.Error(t.ctx, "initCacheCol2InfoMap is failed, err:", err)
+			t.err = fmt.Errorf("initCacheCol2InfoMap is failed, err: %v", err)
 			return t
 		}
 
@@ -104,7 +101,8 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		}
 
 		if len(selectFields) == 0 {
-			sLog.Error(t.ctx, "parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
+			t.err = errors.New("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
+			return t
 		}
 		t.setSelect(selectFields...)
 	default:
@@ -420,9 +418,6 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 
 // QueryRowScan 单行多值查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
-	if err := t.prevCheck(); err != nil {
-		return err
-	}
 	t.printSqlCallSkip += 1
 
 	rows, err := t.Query()

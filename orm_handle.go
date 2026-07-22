@@ -27,8 +27,9 @@ func Slice2Interfaces(l int, to func(i int) interface{}) []interface{} {
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	// 默认插入全量字段
 	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	return t
 }
@@ -42,8 +43,9 @@ func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table 
 // InsertOfColumns 批量新增, 指定新增列
 func (t *Table) InsertOfColumns(cols []string, insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT, cols, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	return t
 }
@@ -55,7 +57,7 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 
 	var (
 		insertSql  *builder.Insert
-		needCols   = t.getNeedCols(cols)
+		needCols   = t.getNeedCols(insertObjs[0], cols)
 		handleCols []string
 		// isOnlyInsert = len(insertObjs) == 1 // 仅仅只有一个
 	)
@@ -88,9 +90,9 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 }
 
 // getNeedCols 获取需要 cols
-func (t *Table) getNeedCols(cols []string) map[string]bool {
+func (t *Table) getNeedCols(src interface{}, cols []string) map[string]bool {
 	if len(cols) == 0 {
-		cols = t.GetCols() // 获取全量字段
+		cols = t.GetSafeCols(src) // 获取全量字段
 	}
 
 	res := make(map[string]bool, len(cols))
@@ -111,8 +113,9 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // keys 为需要更新的列, 如果不传则默认更新所有列
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
 	if _, err := t.insert(internal.INSERT_ON_DUPLICATE, nil, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	t.builder.(*builder.Insert).DuplicateUpdate(keys)
 	return t
@@ -134,8 +137,9 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT_IGNORE, nil, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	return t
 }
@@ -144,8 +148,9 @@ func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsRp(insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT_REPLACE, nil, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	return t
 }
@@ -156,7 +161,8 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
 		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], internal.DELETE, nil)
 		if err != nil {
-			sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+			// sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+			t.err = err
 			return t
 		}
 
@@ -190,7 +196,8 @@ func (t *Table) DeleteWhere(where string, args ...interface{}) *Table {
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
 	columns, values, err := t.getHandleTableCol2Val(updateObj, internal.UPDATE, nil)
 	if err != nil {
-		sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+		// sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+		t.err = err
 		return t
 	}
 
@@ -310,6 +317,14 @@ func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interfac
 		return nil, nil, err
 	}
 	return columns, values, nil
+}
+
+// GetSafeCols 获取安全的列, 如果没有设置表名, 则会根据对象解析表名
+func (t *Table) GetSafeCols(src interface{}, skipCols ...string) []string {
+	if t.name == "" {
+		t.initTableName(reflect.ValueOf(src))
+	}
+	return t.GetCols(skipCols...)
 }
 
 // GetCols 获取所有列

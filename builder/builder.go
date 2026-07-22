@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
@@ -167,9 +168,14 @@ func (b *Builder) warpCol(col string) string {
 }
 
 func (b *Builder) warpJoinCols(fields ...string) string {
-	result := make([]string, len(fields))
+	buf := internal.GetTmpBuf()
+	defer internal.PutTmpBuf(buf)
+	
 	for i, field := range fields {
-		result[i] = b.warpCol(field)
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(b.warpCol(field))
 	}
-	return strings.Join(result, ", ")
+	return buf.String()
 }
