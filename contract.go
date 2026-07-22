@@ -19,7 +19,7 @@ const (
 
 	TABLE_NAME = "TableName"
 
-	NULL = internal.NULL
+	NULL = string(internal.NULL)
 )
 
 // DBer
