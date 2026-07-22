@@ -64,7 +64,7 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 		// if isOnlyInsert { // insert 一个值的时候, 在解析列的时候跳过零值
 		// 	needCols = nil
 		// }
-		columns, values, err := t.getHandleTableCol2Val(insertObj, internal.INSERT, needCols)
+		columns, values, err := t.getHandleTableCol2Val(insertObj, opType, needCols)
 		if err != nil {
 			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
 		}
@@ -233,16 +233,18 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		// 空值处理
 		val := tv.Field(i)
 		isZero := val.IsZero()
+		insertOp := internal.InArray(op, internal.INSERT, internal.INSERT_REPLACE, internal.INSERT_IGNORE, internal.INSERT_ON_DUPLICATE)
 		if tableField.IsPri() { // 主键, 防止更新
-			if (internal.Equal(op, internal.INSERT) && isZero) ||
+			if (insertOp && isZero) ||
 				(internal.Equal(op, internal.DELETE) && isZero) ||
-				internal.Equal(op, internal.UPDATE) {
+				internal.Equal(op, internal.UPDATE) ||
+				internal.Equal(op, internal.INSERT_ON_DUPLICATE) {
 				continue
 			}
 		}
 
 		if isZero {
-			if op == internal.INSERT || op == internal.UPDATE {
+			if insertOp || op == internal.UPDATE {
 				// 判断下是否有设置了默认值
 				if tmp, ok := t.waitHandleStructFieldMap[tag]; ok && tmp.defaultVal != nil { // orm 中设置了默认值, 需要解析
 					columns = append(columns, col)
