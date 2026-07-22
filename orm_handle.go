@@ -110,7 +110,7 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 // keys 为需要更新的列, 如果不传则默认更新所有列
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
-	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
+	if _, err := t.insert(internal.INSERT_ON_DUPLICATE, nil, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
 	}
@@ -134,6 +134,16 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT_IGNORE, nil, insertObjs...); err != nil {
+		sLog.Error(t.ctx, err)
+		return nil
+	}
+	return t
+}
+
+// InsertsReplace insert replace into xxx  新增批量替换
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertsReplace(insertObjs ...interface{}) *Table {
+	if _, err := t.insert(internal.INSERT_REPLACE, nil, insertObjs...); err != nil {
 		sLog.Error(t.ctx, err)
 		return nil
 	}
