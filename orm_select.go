@@ -321,7 +321,7 @@ func (t *Table) Count(total interface{}) error {
 	sqlStr, args := t.getSelectBuilder().GetTotalSql2Args()
 	err := t.db.QueryRowContext(t.ctx, sqlStr, args...).Scan(total)
 	if err != nil {
-		return err
+		return errors.New("err:" + err.Error() + "; sqlStr:" + t.getSelectBuilder().GetTotalSqlStr())
 	}
 	printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetTotalSqlStr(), t.isPrintSql)
 	return nil
