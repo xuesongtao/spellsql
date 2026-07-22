@@ -26,6 +26,15 @@ func Equal(a, b uint8) bool {
 	return a == b
 }
 
+func InArray(a uint8, arr ...uint8) bool {
+	for _, v := range arr {
+		if a == v {
+			return true
+		}
+	}
+	return false
+}
+
 func ToUpper(str string) string {
 	strByte := []byte(str)
 	l := len(strByte)
