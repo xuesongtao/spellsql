@@ -36,6 +36,7 @@ type Table struct {
 	ctx                      context.Context
 	db                       DBer
 	dbType                   dialect.DbType
+	err                      error                            // 错误信息
 	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
 	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
 	isPrintSql               bool                             // 标记是否打印 sql
@@ -124,8 +125,9 @@ func (t *Table) Clone() *Table {
 		Ctx(t.ctx).
 		DbType(t.dbType)
 	if t.builder == nil {
-		sLog.Error(t.ctx, internal.BuilderIsNilErr)
-		return nil
+		// sLog.Error(t.ctx, internal.BuilderIsNilErr)
+		t.err = internal.BuilderIsNilErr
+		return t
 	}
 	sqlStr, args := t.builder.GetNoParseSql2Args()
 	_, bld := parseSQLBuilder(t.dbType, sqlStr, args...)
@@ -147,7 +149,7 @@ func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
 		return t
 	}
 
-	// 尝试通过接口断言直接获取表名
+	// 原始类型, 如果是指针类型, 需要取值
 	if tv.CanInterface() {
 		if namer, ok := tv.Interface().(TableNamer); ok {
 			t.name = namer.TableName()
@@ -156,16 +158,13 @@ func (t *Table) initTableName(tv reflect.Value, tableName ...string) *Table {
 	}
 
 	v := utils.RemoveValuePtr(tv)
-	// 如果原始值没实现接口，尝试判断去指针后的值 (或取其指针)
-	if utils.Null(t.name) && v.IsValid() {
-		if v.CanInterface() {
-			if namer, ok := v.Interface().(TableNamer); ok {
-				t.name = namer.TableName()
-			}
+	// 值类型
+	if v.CanInterface() {
+		if namer, ok := v.Interface().(TableNamer); ok {
+			t.name = namer.TableName()
 		}
 	}
 
-	// 再尝试通过反射获取和调用方法
 	if utils.Null(t.name) && utils.CheckImplementation(v.Type(), tableNameType) {
 		method := tv.MethodByName(TABLE_NAME)
 		if !method.IsValid() {
@@ -441,7 +440,8 @@ func (t *Table) Raw(sql interface{}) *Table {
 	case *SqlStrObj:
 		_, t.builder = parseSQLBuilder(t.dbType, val.FmtSql())
 	default:
-		sLog.Error(t.ctx, "sql only support string/SQLBuilder")
+		// sLog.Error(t.ctx, )
+		t.err = errors.New("sql only support string/SQLBuilder")
 		return t
 	}
 	return t
@@ -449,6 +449,10 @@ func (t *Table) Raw(sql interface{}) *Table {
 
 // prevCheck 查询预检查
 func (t *Table) prevCheck(checkBuilder ...bool) error {
+	if t.err != nil {
+		return t.err
+	}
+
 	if t.db == nil {
 		return errors.New("db is nil")
 	}
@@ -506,6 +510,6 @@ func parseTableName(objName string) string {
 func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
 	cost := time.Since(st)
 	if len(printLog) > 0 && printLog[0] {
-		sLog.Info(ctx, printLogStr, "cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms;")
+		sLog.Info(ctx, "[cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms]", printLogStr)
 	}
 }

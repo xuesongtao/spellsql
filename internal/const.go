@@ -26,10 +26,6 @@ const (
 )
 
 const (
-	NULL = "NULL"
-)
-
-const (
 	PriFlag     = "PRI" // 主键标识
 	NotNullFlag = "NO"  // 非空标识
 )
@@ -38,3 +34,16 @@ const (
 	DefaultTableTag        = "json"
 	DefaultBatchSelectSize = 10 // 批量查询默认条数
 )
+
+// 原样输入
+const (
+	NULL    RawSql = "NULL"
+	DEFAULT RawSql = "DEFAULT"
+)
+
+// RawSql 内部使用的原始 sql, 主要是为了在 insert/update 时, 直接原样输出, 不进行 sql 解析, 例如: DEFAULT, NULL 等
+type RawSql string
+
+func (r RawSql) Is(v RawSql) bool {
+	return r == v
+}

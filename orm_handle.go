@@ -27,17 +27,25 @@ func Slice2Interfaces(l int, to func(i int) interface{}) []interface{} {
 func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	// 默认插入全量字段
 	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	return t
 }
 
-// InsertOfField 批量新增, 指定新增列
+// InsertOfFields 批量新增, 指定新增列
+// Deprecated: InsertOfColumns 代替
 func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
+	return t.InsertOfColumns(cols, insertObjs...)
+}
+
+// InsertOfColumns 批量新增, 指定新增列
+func (t *Table) InsertOfColumns(cols []string, insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT, cols, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	return t
 }
@@ -48,17 +56,17 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 	}
 
 	var (
-		insertSql    *builder.Insert
-		needCols     = t.getNeedCols(cols)
-		handleCols   []string
-		isOnlyInsert = len(insertObjs) == 1 // 仅仅只有一个
+		insertSql  *builder.Insert
+		needCols   = t.getNeedCols(insertObjs[0], cols)
+		handleCols []string
+		// isOnlyInsert = len(insertObjs) == 1 // 仅仅只有一个
 	)
 
 	for i, insertObj := range insertObjs {
-		if isOnlyInsert { // insert 一个值的时候, 在解析列的时候跳过零值
-			needCols = nil
-		}
-		columns, values, err := t.getHandleTableCol2Val(insertObj, opType, needCols, t.name)
+		// if isOnlyInsert { // insert 一个值的时候, 在解析列的时候跳过零值
+		// 	needCols = nil
+		// }
+		columns, values, err := t.getHandleTableCol2Val(insertObj, opType, needCols)
 		if err != nil {
 			return nil, errors.New("getHandleTableCol2Val is failed, err:" + err.Error())
 		}
@@ -82,9 +90,9 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 }
 
 // getNeedCols 获取需要 cols
-func (t *Table) getNeedCols(cols []string) map[string]bool {
+func (t *Table) getNeedCols(src interface{}, cols []string) map[string]bool {
 	if len(cols) == 0 {
-		cols = t.GetCols() // 获取全量字段
+		cols = t.GetSafeCols(src) // 获取全量字段
 	}
 
 	res := make(map[string]bool, len(cols))
@@ -102,10 +110,12 @@ func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
 
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
+// keys 为需要更新的列, 如果不传则默认更新所有列
 func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
-	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+	if _, err := t.insert(internal.INSERT_ON_DUPLICATE, nil, insertObjs...); err != nil {
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
 	t.builder.(*builder.Insert).DuplicateUpdate(keys)
 	return t
@@ -127,11 +137,21 @@ func (t *Table) InsertIg(insertObj interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 	if _, err := t.insert(internal.INSERT_IGNORE, nil, insertObjs...); err != nil {
-		sLog.Error(t.ctx, err)
-		return nil
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
 	}
-	// insertSqlStr := strings.Replace(t.tmpSqlObj.FmtSql(), "INSERT INTO", "INSERT IGNORE INTO", 1)
-	// t.tmpSqlObj = t.getSqlObj(insertSqlStr)
+	return t
+}
+
+// InsertsRp insert replace into xxx  新增批量替换
+// 如果要排除其他可以调用 Exclude 方法自定义排除
+func (t *Table) InsertsRp(insertObjs ...interface{}) *Table {
+	if _, err := t.insert(internal.INSERT_REPLACE, nil, insertObjs...); err != nil {
+		// sLog.Error(t.ctx, err)
+		t.err = err
+		return t
+	}
 	return t
 }
 
@@ -139,9 +159,10 @@ func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Delete(deleteObj ...interface{}) *Table {
 	if len(deleteObj) > 0 {
-		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], internal.DELETE, nil, t.name)
+		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], internal.DELETE, nil)
 		if err != nil {
-			sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+			// sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+			t.err = err
 			return t
 		}
 
@@ -173,9 +194,10 @@ func (t *Table) DeleteWhere(where string, args ...interface{}) *Table {
 // Update 会更新输入的值
 // 默认排除更新主键, 如果要排除其他可以调用 Exclude 方法自定义排除
 func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
-	columns, values, err := t.getHandleTableCol2Val(updateObj, internal.UPDATE, nil, t.name)
+	columns, values, err := t.getHandleTableCol2Val(updateObj, internal.UPDATE, nil)
 	if err != nil {
-		sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+		// sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
+		t.err = err
 		return t
 	}
 
@@ -196,14 +218,15 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 
 // getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
 // 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
-func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool, tableName ...string) (columns []string, values []interface{}, err error) {
-	tv := utils.RemoveValuePtr(reflect.ValueOf(v))
+func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool) (columns []string, values []interface{}, err error) {
+	oldTv := reflect.ValueOf(v)
+	tv := utils.RemoveValuePtr(oldTv)
 	if tv.Kind() != reflect.Struct {
 		err = errors.New("it must is struct")
 		return
 	}
 
-	if err := t.initTableName(tv, tableName...).initCacheCol2InfoMap(); err != nil {
+	if err := t.initTableName(oldTv).initCacheCol2InfoMap(); err != nil {
 		return nil, nil, err
 	}
 
@@ -220,36 +243,41 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 		// 判断下数据库字段是否存在
 		tableField, ok := t.cacheCol2InfoMap[col]
 		if !ok {
+			// sLog.Error(t.ctx, "cacheCol2InfoMap is not found col:", col)
 			continue
 		}
 
 		// 空值处理
 		val := tv.Field(i)
 		isZero := val.IsZero()
+		insertOp := internal.InArray(op, internal.INSERT, internal.INSERT_REPLACE, internal.INSERT_IGNORE, internal.INSERT_ON_DUPLICATE)
 		if tableField.IsPri() { // 主键, 防止更新
-			if (internal.Equal(op, internal.INSERT) && isZero) ||
+			if (insertOp && isZero) ||
 				(internal.Equal(op, internal.DELETE) && isZero) ||
-				internal.Equal(op, internal.UPDATE) {
+				internal.Equal(op, internal.UPDATE) ||
+				internal.Equal(op, internal.INSERT_ON_DUPLICATE) {
 				continue
 			}
 		}
 
 		if isZero {
-			if op == internal.INSERT || op == internal.UPDATE {
+			if insertOp || op == internal.UPDATE {
 				// 判断下是否有设置了默认值
-				tmp, ok := t.waitHandleStructFieldMap[tag]
-				if ok && tmp.defaultVal != nil { // orm 中设置了默认值
+				if tmp, ok := t.waitHandleStructFieldMap[tag]; ok && tmp.defaultVal != nil { // orm 中设置了默认值, 需要解析
 					columns = append(columns, col)
 					values = append(values, tmp.defaultVal)
+					continue
+				} else if needCols != nil && needCols[col] { // 需要的列, 使用数据库默认值
+					columns = append(columns, col)
+					values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
 					continue
 				}
 				// if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
 				// 	return nil, nil, fmt.Errorf("field %q should't null, you can first call TagDefault", col)
 				// }
-
 			}
 
-			if needCols == nil {
+			if needCols == nil { // 单行
 				continue
 			}
 		}
@@ -284,11 +312,19 @@ func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interfac
 	if len(op) > 0 {
 		defaultOp = op[0]
 	}
-	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, nil, t.name)
+	columns, values, err := t.getHandleTableCol2Val(src, defaultOp, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 	return columns, values, nil
+}
+
+// GetSafeCols 获取安全的列, 如果没有设置表名, 则会根据对象解析表名
+func (t *Table) GetSafeCols(src interface{}, skipCols ...string) []string {
+	if t.name == "" {
+		t.initTableName(reflect.ValueOf(src))
+	}
+	return t.GetCols(skipCols...)
 }
 
 // GetCols 获取所有列
@@ -329,8 +365,8 @@ func (t *Table) Exec() (sql.Result, error) {
 	sqlStr, args := t.builder.GetSql2Args()
 	res, err := t.db.ExecContext(t.ctx, sqlStr, args...)
 	if err != nil {
-		return res, errors.New("err:" + err.Error() + "; sqlStr:" + sqlStr)
+		return res, errors.New("err:" + err.Error() + "; sqlStr:" + t.builder.GetSqlStr())
 	}
-	defer printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
+	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return res, nil
 }

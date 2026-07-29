@@ -18,10 +18,6 @@ import (
 // 1. 可以多个通过逗号隔开
 // 2. 也可以直接添加
 func (t *Table) Select(fields ...string) *Table {
-	if len(fields) == 0 {
-		sLog.Error(t.ctx, "fields is null")
-		return t
-	}
 	if len(fields) == 1 { // 如果只有一个字段, 可能有多个字段拼接的字符串, 需要解析
 		return t.setSelect(t.parseCols(fields[0])...)
 	} else {
@@ -42,7 +38,8 @@ func (t *Table) parseCols(fields string) []string {
 
 func (t *Table) setSelect(col ...string) *Table {
 	if len(col) == 0 {
-		sLog.Error(t.ctx, "fields is null")
+		// sLog.Error(t.ctx, "fields is null")
+		t.err = errors.New("select cols is null")
 		return t
 	}
 
@@ -57,7 +54,8 @@ func (t *Table) setSelect(col ...string) *Table {
 // SelectAuto 根据输入类型进行自动推断要查询的字段值
 // src 如下:
 //  1. 为 string 的话会被直接解析成查询字段
-//  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名
+//  2. 为 struct/struct slice 会按 struct 进行解析, 查询字段为 struct 的 tag, 同时会过滤掉非当前表字段名;
+//     如果实现 TableNamer 接口, 会使用该方法返回的表名, 否则会按驼峰转下划线解析表名
 //  3. 其他情况会被解析为查询所有
 //
 // tableName 在 NewTable 时设置过了, 就不需要设置, 如果设置了优先级最高
@@ -76,15 +74,20 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 	selectFields := make([]string, 0, 5)
 	switch kind := ty.Kind(); kind {
 	case reflect.Struct, reflect.Slice:
+		tv := reflect.ValueOf(src)
 		if ty.Kind() == reflect.Slice {
 			ty = ty.Elem()
 			if ty.Kind() == reflect.Ptr {
 				ty = utils.RemoveTypePtr(ty)
 			}
+			if tv.Len() > 0 {
+				tv = tv.Index(0)
+			} else {
+				tv = reflect.New(ty)
+			}
 		}
-
-		if err := t.initTableName(reflect.ValueOf(src), tableName...).initCacheCol2InfoMap(); err != nil {
-			sLog.Error(t.ctx, "initCacheCol2InfoMap is failed, err:", err)
+		if err := t.initTableName(tv, tableName...).initCacheCol2InfoMap(); err != nil {
+			t.err = fmt.Errorf("initCacheCol2InfoMap is failed, err: %v", err)
 			return t
 		}
 
@@ -98,7 +101,8 @@ func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
 		}
 
 		if len(selectFields) == 0 {
-			sLog.Error(t.ctx, "parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
+			t.err = errors.New("parse col is failed, you need to confirm whether to add correct tag(defaultTag: json)")
+			return t
 		}
 		t.setSelect(selectFields...)
 	default:
@@ -315,9 +319,9 @@ func (t *Table) Count(total interface{}) error {
 	sqlStr, args := t.getSelectBuilder().GetTotalSql2Args()
 	err := t.db.QueryRowContext(t.ctx, sqlStr, args...).Scan(total)
 	if err != nil {
-		return err
+		return errors.New("err:" + err.Error() + "; sqlStr:" + t.getSelectBuilder().GetTotalSqlStr())
 	}
-	defer printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetTotalSqlStr(), t.isPrintSql)
+	printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetTotalSqlStr(), t.isPrintSql)
 	return nil
 }
 
@@ -329,8 +333,6 @@ func (t *Table) FindOne(dest ...interface{}) error {
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
-
-	t.getSelectBuilder().Limit(0, 1)
 
 	if len(dest) == 1 {
 		ty, err := t.getDestReflectType(dest[0], []reflect.Kind{reflect.Struct, reflect.Map}, internal.FindOneDestTypeErr)
@@ -351,8 +353,6 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
-
-	t.getSelectBuilder().Limit(0, 1)
 
 	ty, err := t.getDestReflectType(dest, []reflect.Kind{reflect.Struct, reflect.Map}, internal.FindOneDestTypeErr)
 	if err != nil && !utils.IsOneField(ty.Kind()) { // 需要排除单字段查询
@@ -418,9 +418,6 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 
 // QueryRowScan 单行多值查询
 func (t *Table) QueryRowScan(dest ...interface{}) error {
-	if err := t.prevCheck(); err != nil {
-		return err
-	}
 	t.printSqlCallSkip += 1
 
 	rows, err := t.Query()
@@ -471,9 +468,9 @@ func (t *Table) Query() (*sql.Rows, error) {
 	sqlStr, args := t.builder.GetSql2Args()
 	rows, err := t.db.QueryContext(t.ctx, sqlStr, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, sqlStr)
+		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, t.builder.GetSqlStr())
 	}
-	defer printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
+	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
 	return rows, nil
 }
 

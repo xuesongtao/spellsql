@@ -71,6 +71,15 @@ const (
 // 	KEY `a` (`l_int`)
 // );
 
+// CREATE TABLE `test_insert` (
+//   `id` int NOT NULL AUTO_INCREMENT,
+//   `name` varchar(100) DEFAULT '',
+//   `test_default_null` varchar(100) DEFAULT NULL,
+//   `test_no_have_default` int,
+//   `created_time` datetime DEFAULT CURRENT_TIMESTAMP,
+//   PRIMARY KEY (`id`)
+// );
+
 type ManCopy struct {
 	Id       int32  `json:"id,omitempty" gorm:"id" db:"id"`
 	Name     string `json:"name,omitempty" gorm:"name" db:"name"`
@@ -132,11 +141,11 @@ func InitTestMain(t *testing.T, size ...int) {
 	}
 	for i := 0; i < defaultSize; i++ {
 		prepareMan := test.Man{
-			Name:     sureName,
-			Age:      sureAge,
-			Addr:     "四川成都",
-			JsonTxt:  test.Tmp{Name: "json", Data: "test json marshal"},
-			XmlTxt:   test.Tmp{Name: "xml", Data: "test xml marshal"},
+			Name:    sureName,
+			Age:     sureAge,
+			Addr:    "四川成都",
+			JsonTxt: test.Tmp{Name: "json", Data: "test json marshal"},
+			// XmlTxt:   test.Tmp{Name: "xml", Data: "test xml marshal"},
 			Json1Txt: test.Tmp{Name: "json1", Data: "test json1 marshal"},
 		}
 
@@ -159,8 +168,37 @@ func TestCheckImplementation(t *testing.T) {
 	}
 }
 
+func TestBatchInsertDefault(t *testing.T) {
+	// TestInsert
+	type TestInsert struct {
+		Id                int32  `json:"id"`
+		Name              string `json:"name"`
+		TestDefaultNull   string `json:"test_default_null"`
+		TestNoHaveDefault int32  `json:"test_no_have_default"`
+		CreatedTime       string `json:"created_time"`
+	}
+	datas := make([]interface{}, 0)
+	for i := 0; i < 2; i++ {
+		prepareMan := TestInsert{
+			Name:              sureName,
+			TestDefaultNull:   "1",
+			TestNoHaveDefault: 0,
+			CreatedTime:       "",
+		}
+		if i == 1 {
+			prepareMan.TestDefaultNull = ""
+		}
+
+		datas = append(datas, prepareMan)
+	}
+	_, err := NewTable(db, "test_insert").InsertsIg(datas...).Exec()
+	if err != nil {
+		t.Fatal("prepare data failed:", err)
+	}
+}
+
 func TestTableName(t *testing.T) {
-	m := test.Man{
+	m := &test.Man{
 		Name: sureName,
 		Age:  sureAge,
 		Addr: sureAddr,
@@ -180,7 +218,7 @@ func TestTableName(t *testing.T) {
 	tableObj := NewTable(db)
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	res, err := tableObj.Insert(m).Exec()
+	res, err := tableObj.Insert(&m).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,10 +245,10 @@ func TestParseTable(t *testing.T) {
 		Addr:     "四川成都",
 		NickName: "a-tao",
 	}
-	c, v, e := NewTable(db).getHandleTableCol2Val(m, internal.INSERT, nil, "man")
+	c, v, e := NewTable(db).getHandleTableCol2Val(m, internal.INSERT, nil)
 	t.Log(c, v, e)
 
-	c, v, e = NewTable(db).getHandleTableCol2Val(m, internal.UPDATE, nil, "man")
+	c, v, e = NewTable(db).getHandleTableCol2Val(m, internal.UPDATE, nil)
 	t.Log(c, v, e)
 }
 
@@ -444,12 +482,12 @@ func TestInsert(t *testing.T) {
 			Id    int32  `json:"id,omitempty"`
 			Name1 string `json:"name,omitempty"`
 			Age1  int32  `json:"age_1,omitempty"`
-			Addr1 string `json:"addr_1,omitempty"`
+			Addr1 []string `json:"addr_1,omitempty"`
 		}
 		m := Tmp{
 			Name1: "xue1234",
 			Age1:  18,
-			Addr1: "成都市",
+			Addr1: []string{""},
 		}
 		tableObj := NewTable(db, "man").TagAlias(map[string]string{"age_1": "age", "addr_1": "addr"})
 		res, err := tableObj.Insert(m).Exec()
@@ -476,10 +514,41 @@ func TestInsert(t *testing.T) {
 		m := Tmp{
 			Name: "xue1234",
 			// Age:  18, // 如果不设置默认值会报错
-			Addr: "成都市",
+			// Addr: "成都市",
 		}
 		tableObj := NewTable(db, "man").TagDefault(map[string]interface{}{"age": 0, "test": "1"})
 		res, err := tableObj.Insert(m).Exec()
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := res.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r == 0 {
+			t.Error("insert is failed")
+		}
+	})
+
+	t.Run("insert auto default", func(t *testing.T) {
+		m := test.Man{
+			Id:    0,
+			Name:  sureName,
+			SName: sureName,
+			Age:   sureAge,
+			Addr:  sureAddr,
+			// Hobby:    "",
+			// NickName: "",
+			// JsonTxt:  test.Tmp{},
+			// XmlTxt:   test.Tmp{},
+			// Json1Txt: test.Tmp{},
+		}
+		mm := make([]interface{}, 0)
+		for i := 0; i < 10; i++ {
+			mm = append(mm, m)
+		}
+		tableObj := NewTable(db, "man")
+		res, err := tableObj.Insert(mm...).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -569,7 +638,7 @@ func TestInsert(t *testing.T) {
 		tableObj := NewTable(db, "man")
 		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-		res, err := tableObj.InsertOfFields(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
+		res, err := tableObj.InsertOfColumns(tableObj.GetCols("json_txt", "json1_txt"), m).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -603,6 +672,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	InitTestMain(t, 10)
 	m := test.Man{
 		Name: "xue12",
 		Age:  20,
@@ -1132,25 +1202,46 @@ func TestFindForJoin(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	var (
-		total1, total2, total3 int32
-	)
-	err := NewTable(db, "man").SelectCount().FindWhere(&total1, "id>?", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = Count(db, "man", &total2, "id>1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = NewTable(db, "man").SelectAll().Where("id>?", 1).Count(&total3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log("total: ", total2)
-	if total1 != total2 || total2 != total3 {
-		t.Error(test.NoEqErr)
-	}
+	size := 10
+	InitTestMain(t, size)
+	t.Run("count", func(t *testing.T) {
+		var (
+			total1, total2, total3 int32
+		)
+		err := NewTable(db, "man").SelectCount().FindWhere(&total1, "id>?", 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = Count(db, "man", &total2, "id>1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = NewTable(db, "man").SelectAll().Where("id>?", 1).Count(&total3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log("total: ", total2)
+		if total1 != total2 || total2 != total3 {
+			t.Error(test.NoEqErr)
+		}
+	})
+
+	t.Run("in where", func(t *testing.T) {
+		total2 := int32(0)
+		err := Count(db, "man", &total2, "name in (?)", []string{sureName})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var total3 int32
+		err = NewTable(db, "man").SelectAll().Where("name in (?)", []string{sureName}).Count(&total3)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if total3 != total2 {
+			t.Error(test.NoEqErr, total3, total2)
+		}
+	})
 }
 
 // FindOne 性能对比, 以下是在 mac11 pro m1 上测试

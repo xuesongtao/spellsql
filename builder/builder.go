@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/internal"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
@@ -11,7 +12,7 @@ type SQLBuilder interface {
 	InitSql2Args(s string, args ...interface{}) *Builder   // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
 	AppendSql2Args(s string, args ...interface{}) *Builder // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
 	GetNoParseSql2Args() (string, []interface{})           // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
-	GetSqlStr() string                                     // GetSqlStr 解析输入占位符后的 SQL 语句, 建议用于打印日志
+	GetSqlStr() string                                     // GetSqlStr 解析输入占位符后的 SQL 语句, 建议用于打印日志(sql占位符替换为对应的值)
 	GetSql2Args() (string, []interface{})                  // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 }
 
@@ -100,16 +101,20 @@ func (b *Builder) GetNoParseArgs() []interface{} {
 }
 
 func (b *Builder) HaveStr(field string) bool {
-	return utils.Index(strings.ToUpper(b.finalSql.String()), strings.ToUpper(field), false) > -1
+	return b.index(field) > -1
+}
+
+func (b *Builder) index(field string) int {
+	return utils.Index(strings.ToUpper(b.finalSql.String()), field, false)
 }
 
 func (b *Builder) mergeWhere(where *Where) {
 	sqlStr, args := where.GetNoParseSql2Args()
-	if i := utils.Index(strings.ToUpper(b.finalSql.String()), " WHERE", false); i == -1 {
+	if i := b.index(" WHERE"); i == -1 {
 		b.writeSql(" WHERE ")
-	} else if i+5+2 < b.len()-1 { // 如: "WHERE x", 需要加 AND
+	} else if i+5+2 <= b.len()-1 { // 如: " WHERE x", 需要加 AND
 		b.writeSql(" AND ")
-	} else if i+5 == b.len()-1 { // "WHERE" 后面没有内容, 直接追加
+	} else if i+5 == b.len()-1 { // " WHERE" 后面没有内容, 直接追加
 		b.writeSql(" ")
 	}
 	b.writeSql2Args(sqlStr, args...)
@@ -148,7 +153,10 @@ func (b *Builder) GetSqlStr() string {
 // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 func (b *Builder) GetSql2Args() (string, []interface{}) {
 	sqlStr, sqlArgs := b.getFinalNoPraseSql2Args()
-	return dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Replace().Result(), sqlArgs
+	// fmt.Println("======> before", sqlStr, sqlArgs)
+	pl := dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Replace()
+	// fmt.Println("======> after", pl.Result(), pl.Args())
+	return pl.Result(), pl.Args()
 }
 
 func (b *Builder) warpCol(col string) string {
@@ -160,17 +168,14 @@ func (b *Builder) warpCol(col string) string {
 }
 
 func (b *Builder) warpJoinCols(fields ...string) string {
-	result := make([]string, len(fields))
+	buf := internal.GetTmpBuf()
+	defer internal.PutTmpBuf(buf)
+	
 	for i, field := range fields {
-		result[i] = b.warpCol(field)
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(b.warpCol(field))
 	}
-	return strings.Join(result, ", ")
-}
-
-func Placeholders(n ...int) string {
-	nn := 1
-	if len(n) > 0 {
-		nn = n[0]
-	}
-	return strings.Repeat("?, ", nn-1) + "?"
+	return buf.String()
 }

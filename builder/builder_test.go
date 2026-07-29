@@ -15,7 +15,7 @@ func TestWhereGetExecArgs(t *testing.T) {
 		w.Eq("id", 100).
 			And("status IN (?)", []int{1, 2}).
 			AndNewGroup(func(wb *Where) {
-				wb.Eq("status", []int{1, 2}).
+				wb.Eq("status", 3).
 					Eq("age", 30)
 			}).
 			OrNotEq("name", "test").
@@ -29,14 +29,14 @@ func TestWhereGetExecArgs(t *testing.T) {
 			t.Errorf("placeholder count %d != args len %d", placeholderCount, len(args))
 		}
 
-		expectedArgs := []interface{}{100, []int{1, 2}, []int{1, 2}, 30, "test", 95.5, 30}
+		expectedArgs := []interface{}{100, 1, 2, 3, 30, "test", 95.5, 30}
 		for i, arg := range args {
 			if !test.Equal(arg, expectedArgs[i]) {
 				t.Errorf("arg at index %d error, got: %v, want: %v", i, arg, expectedArgs[i])
 			}
 		}
 
-		expectedSql := "`id` = ? AND status IN (?) AND (`status` = ? AND `age` = ?) OR `name` <> ? AND `score` > ? AND `age` <= ?"
+		expectedSql := "`id` = ? AND status IN (?, ?) AND (`status` = ? AND `age` = ?) OR `name` <> ? AND `score` > ? AND `age` <= ?"
 		if sqlStr != expectedSql {
 			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, expectedSql)
 		}
@@ -51,6 +51,7 @@ func TestWhereGetExecArgs(t *testing.T) {
 			t.Errorf("postgres placeholder error, got: %s", sqlStr)
 		}
 	})
+
 }
 
 func TestWhereGetSqlStr(t *testing.T) {
@@ -59,7 +60,7 @@ func TestWhereGetSqlStr(t *testing.T) {
 		w.Eq("id", 1).
 			OrEq("name", "xue").
 			And("age > ?", 18).
-			In("role", 1, 2, 3).
+			In("role", []int{1, 2, 3}).
 			Between("create_time", "2024-01-01", "2024-01-02")
 
 		sqlStr, args := w.GetSql2Args()
@@ -74,19 +75,26 @@ func TestWhereGetSqlStr(t *testing.T) {
 
 	t.Run("mysql base in", func(t *testing.T) {
 		w := NewWhere(dialect.MySQL).
-			In("role", 1, 2, 3).
+			In("role", []int{1, 2, 3}).
 			In("age", []int{18, 20}).
 			In("age_str", []string{"18", "20"}).
+			And("age_int IN (?d)", []string{"18", "20"}).
 			Between("create_time", "2024-01-01", "2024-01-02")
 
 		sqlStr, args := w.GetSql2Args()
-		sureSql := "`role` IN (?, ?, ?) AND `age` IN (?) AND `age_str` IN (?) AND `create_time` (BETWEEN ? AND ?)"
+		sureSql := "`role` IN (?, ?, ?) AND `age` IN (?, ?) AND `age_str` IN (?, ?) AND age_int IN (18, 20) AND `create_time` (BETWEEN ? AND ?)"
 		t.Log(w.GetSqlStr())
 		if sqlStr != sureSql {
 			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
 		}
-		if len(args) != 7 {
-			t.Errorf("args len is not eq, got: %d, want: 7", len(args))
+		if len(args) != 9 {
+			t.Errorf("args len is not eq, got: %d, want: 9", len(args))
+		}
+
+		sqlStr = w.GetSqlStr()
+		sureSql = "`role` IN (1, 2, 3) AND `age` IN (18, 20) AND `age_str` IN (\"18\", \"20\") AND age_int IN (18, 20) AND `create_time` (BETWEEN \"2024-01-01\" AND \"2024-01-02\")"
+		if sqlStr != sureSql {
+			t.Errorf("sqlStr is not eq, got: %s, want: %s", sqlStr, sureSql)
 		}
 	})
 
@@ -95,7 +103,7 @@ func TestWhereGetSqlStr(t *testing.T) {
 		w.Eq("id", 1).
 			OrEq("name", "xue").
 			In("age", []int{18, 20}).
-			In("age_1", 18, 20).
+			In("age_1", []int{18, 20}).
 			IsNull("deleted_at").
 			OrIsNull("deleted_at")
 
@@ -112,7 +120,7 @@ func TestWhereGetSqlStr(t *testing.T) {
 			OrNewGroup(func(wb *Where) {
 				wb.OrEq("name", "xue").
 					In("age", []int{18, 20}).
-					In("age_1", 18, 20).
+					In("age_1", []int{18, 20}).
 					IsNull("deleted_at")
 			})
 		sqlStr := w.GetSqlStr()
@@ -229,6 +237,28 @@ func TestInsert(t *testing.T) {
 		}
 	})
 
+	t.Run("insert init args no have values", func(t *testing.T) {
+		i := NewInsert(dialect.MySQL)
+		i.InitSql2Args("INSERT INTO user (name) VALUES")
+		i.Values("baz")
+		sql, _ := i.GetSql2Args()
+		expectedSql := "INSERT INTO user (name) VALUES (?)"
+		if sql != expectedSql {
+			t.Errorf("sql error, got: %s, want: %s", sql, expectedSql)
+		}
+	})
+
+	t.Run("insert init args have values", func(t *testing.T) {
+		i := NewInsert(dialect.MySQL)
+		i.InitSql2Args("INSERT INTO user (name) VALUES (\"foo\")")
+		i.Values("baz")
+		sql, _ := i.GetSql2Args()
+		expectedSql := "INSERT INTO user (name) VALUES (\"foo\"), (?)"
+		if sql != expectedSql {
+			t.Errorf("sql error, got: %s, want: %s", sql, expectedSql)
+		}
+	})
+
 	t.Run("mysql batch insert", func(t *testing.T) {
 		i := NewInsert(dialect.MySQL)
 		i.Into("user").Columns("name", "age").
@@ -240,6 +270,23 @@ func TestInsert(t *testing.T) {
 			t.Errorf("sql error, got: %s, want: %s", sql, expectedSql)
 		}
 		if len(args) != 4 || !test.Equal(args[0], "foo") || !test.Equal(args[2], "bar") {
+			t.Errorf("args error, got: %v", args)
+		}
+	})
+
+	t.Run("mysql batch insert have default", func(t *testing.T) {
+		i := NewInsert(dialect.MySQL)
+		i.Into("user").Columns("name", "age").
+			Values("foo", 18).
+			Values("bar", 20).
+			Values("test", internal.DEFAULT)
+		sql, args := i.GetSql2Args()
+		expectedSql := "INSERT INTO user(`name`, `age`) VALUES (?, ?), (?, ?), (?, DEFAULT)"
+		if sql != expectedSql {
+			t.Errorf("sql error, got: %s, want: %s", sql, expectedSql)
+		}
+		t.Logf("args: %v", args)
+		if len(args) != 5 || !test.Equal(args[0], "foo") || !test.Equal(args[2], "bar") {
 			t.Errorf("args error, got: %v", args)
 		}
 	})
@@ -548,12 +595,71 @@ func TestSelect(t *testing.T) {
 		}
 
 		sql, args = s.GetSql2Args()
-		expectedSql := "SELECT * FROM users WHERE id=? AND hobby in (?) AND son_where in (?)"
+		expectedSql := "SELECT * FROM users WHERE id=1 AND hobby in (?, ?) AND son_where in (select son_where from son_table where id=1)"
 		if sql != expectedSql {
 			t.Errorf("GetSqlStr error, got: %s, want: %s", sql, expectedSql)
 		}
-		if len(args) != 3 || !test.Equal(args[0], "1") || !test.Equal(args[1], []string{"reading", "coding"}) || !test.Equal(args[2], "select son_where from son_table where id=1") {
+		if len(args) != 2 || !test.Equal(args[0], "reading") || !test.Equal(args[1], "coding") {
 			t.Errorf("args len error: %d", len(args))
+		}
+	})
+
+	t.Run("get total", func(t *testing.T) {
+		s := NewSelect(dialect.MySQL)
+		s.Select("id", "name").From("users").Where().Eq("status", 1).In("age", []int{10, 20}).And("id in (?v)", "SELECT id from name='test'")
+
+		totalSql, totalArgs := s.GetTotalSql2Args()
+		expectedTotalSql := "SELECT COUNT(*) FROM users WHERE `status` = ? AND `age` IN (?, ?) AND id in (SELECT id from name='test')"
+		if totalSql != expectedTotalSql {
+			t.Errorf("GetTotalSql2Args error, got: %s, want: %s", totalSql, expectedTotalSql)
+		}
+		if len(totalArgs) != 3 || !test.Equal(totalArgs[0], 1) || !test.Equal(totalArgs[1], 10) || !test.Equal(totalArgs[2], 20) {
+			t.Errorf("total args error, got: %v", totalArgs)
+		}
+	})
+
+	t.Run("have init args have where", func(t *testing.T) {
+		w := NewSelect()
+		w.InitSql2Args("select * from man where")
+		w.Where().Eq("id", 1).OrEq("id", 2)
+
+		sqlStr, args := w.GetSql2Args()
+		sureSql := "select * from man where `id` = ? OR `id` = ?"
+		if sqlStr != sureSql {
+			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, sureSql)
+		}
+		if len(args) != 2 {
+			t.Errorf("args len is not eq, got: %d, want: 2", len(args))
+		}
+	})
+
+	t.Run("have init args no have where", func(t *testing.T) {
+		w := NewSelect()
+		w.InitSql2Args("select * from man")
+		w.Where().Eq("id", 1).OrEq("id", 2)
+
+		sqlStr, args := w.GetSql2Args()
+		sureSql := "select * from man WHERE `id` = ? OR `id` = ?"
+		if sqlStr != sureSql {
+			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, sureSql)
+		}
+		if len(args) != 2 {
+			t.Errorf("args len is not eq, got: %d, want: 2", len(args))
+		}
+	})
+
+	t.Run("have init args no have where 1=1", func(t *testing.T) {
+		w := NewSelect()
+		w.InitSql2Args("select * from man where 1")
+		w.Where().Eq("id", 1).OrEq("id", 2)
+
+		sqlStr, args := w.GetSql2Args()
+		sureSql := "select * from man where 1 AND `id` = ? OR `id` = ?"
+		if sqlStr != sureSql {
+			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, sureSql)
+		}
+		if len(args) != 2 {
+			t.Errorf("args len is not eq, got: %d, want: 2", len(args))
 		}
 	})
 }
