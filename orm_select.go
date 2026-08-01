@@ -148,10 +148,10 @@ func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
 	return t
 }
 
+// Deprecated: 使用 LeftJoin 替代, 单词拼写错误
 // LefJoin 连表查询
 // 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
 // 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
-// Deprecated: 使用 LeftJoin 替代, 单词拼写错误
 func (t *Table) LefJoin(joinTable, on string) *Table {
 	return t.LeftJoin(joinTable, on)
 }

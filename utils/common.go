@@ -12,10 +12,10 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
+// Deprecated: 推荐用 Index
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
 // isFont2End 是否从主串前向后遍历查找
 // 如果匹配的内容靠前建议 isFont2End=true, 反之 false
-// Deprecated 推荐用 Index
 func IndexForBF(isFont2End bool, s, substr string) int {
 	return Index(s, substr, isFont2End)
 }
@@ -266,4 +266,3 @@ func InitCallOnce(fn func()) func() {
 		once.Do(fn)
 	}
 }
-

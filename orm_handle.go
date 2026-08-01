@@ -34,7 +34,6 @@ func (t *Table) Insert(insertObjs ...any) *Table {
 	return t
 }
 
-// InsertOfFields 批量新增, 指定新增列
 // Deprecated: InsertOfColumns 代替
 func (t *Table) InsertOfFields(cols []string, insertObjs ...any) *Table {
 	return t.InsertOfColumns(cols, insertObjs...)
