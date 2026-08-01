@@ -22,22 +22,22 @@ func NewLogger() *defaultLogger {
 	}
 }
 
-func (d *defaultLogger) Info(ctx context.Context, v ...interface{}) {
-	d.log.Println(append([]interface{}{"[INFO] " + d.getPrefix(3)}, v...)...)
+func (d *defaultLogger) Info(ctx context.Context, v ...any) {
+	d.log.Println(append([]any{"[INFO] " + d.getPrefix(3)}, v...)...)
 	// slog.InfofWithTrace(ctx, d.getFormat(v...), v...)
 }
 
-func (d *defaultLogger) Error(ctx context.Context, v ...interface{}) {
-	d.log.Println(append([]interface{}{"[ERRO] " + d.getPrefix(3)}, v...)...)
+func (d *defaultLogger) Error(ctx context.Context, v ...any) {
+	d.log.Println(append([]any{"[ERRO] " + d.getPrefix(3)}, v...)...)
 	// slog.ErrorfWithTrace(ctx, errors.New("sql handle err"), d.getFormat(v...), v...)
 }
 
-func (d *defaultLogger) Warning(ctx context.Context, v ...interface{}) {
-	d.log.Println(append([]interface{}{"[WARN] " + d.getPrefix(3)}, v...)...)
+func (d *defaultLogger) Warning(ctx context.Context, v ...any) {
+	d.log.Println(append([]any{"[WARN] " + d.getPrefix(3)}, v...)...)
 	// slog.WarnfWithTrace(ctx, d.getFormat(v...), v...)
 }
 
-func (d *defaultLogger) getFormat(v ...interface{}) (formatStr string) {
+func (d *defaultLogger) getFormat(v ...any) (formatStr string) {
 	l := len(v)
 	for i := 0; i < l; i++ {
 		if formatStr == "" {

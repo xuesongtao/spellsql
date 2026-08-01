@@ -10,14 +10,14 @@ import (
 
 type arg struct {
 	del bool
-	val interface{}
+	val any
 }
 
 type ParsePlaceholder struct {
 	dbType    DbType
 	buf       *strings.Builder
 	waitParse string
-	args      []interface{}
+	args      []any
 }
 
 // NewParsePlaceholder 创建一个占位符解析器
@@ -28,7 +28,7 @@ type ParsePlaceholder struct {
 // ?: 常规占位符, 会根据数据库类型替换为对应数据库的占位符, 例如 mysql 为 ?, pg 为 $1, $2, ...
 // ?d: (特殊占位符)数字占位符, 会替换成数字参数, arg 支持 string/[]string
 // ?v: (特殊占位符)原样输出占位符, 会替换为原样参数, arg 支持 string
-func NewParsePlaceholder(dt DbType, sqlStr string, args ...interface{}) *ParsePlaceholder {
+func NewParsePlaceholder(dt DbType, sqlStr string, args ...any) *ParsePlaceholder {
 	obj := &ParsePlaceholder{
 		dbType:    dt,
 		waitParse: sqlStr,
@@ -84,7 +84,7 @@ func (p *ParsePlaceholder) toNum(v string) string {
 
 // unpackArgs 对 ? 占位符的参数进行拆解, 例如 ? => []int{1,2,3} 会被拆解为 ?,?,? => 1,2,3
 func (p *ParsePlaceholder) unpackArgs() *ParsePlaceholder {
-	args := make([]interface{}, 0, len(p.args)*2)
+	args := make([]any, 0, len(p.args)*2)
 	tmpBuf := internal.GetTmpBuf()
 	defer internal.PutTmpBuf(tmpBuf)
 
@@ -188,7 +188,7 @@ func (p *ParsePlaceholder) replaceInternalArgs() *ParsePlaceholder {
 		})
 
 	p.waitParse = tmpBuf.String()
-	p.args = make([]interface{}, 0)
+	p.args = make([]any, 0)
 	for _, v := range tmpArgs {
 		if v.del {
 			continue
@@ -261,6 +261,6 @@ func (p *ParsePlaceholder) Result() string {
 }
 
 // Args 获取最终的参数列表
-func (p *ParsePlaceholder) Args() []interface{} {
+func (p *ParsePlaceholder) Args() []any {
 	return p.args
 }

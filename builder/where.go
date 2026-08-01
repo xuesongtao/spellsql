@@ -18,11 +18,11 @@ func NewWhere(dt ...dialect.DbType) *Where {
 	return obj
 }
 
-func (w *Where) Eq(col string, arg interface{}) *Where {
+func (w *Where) Eq(col string, arg any) *Where {
 	return w.And(w.warpCol(col)+" = "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrEq(col string, arg interface{}) *Where {
+func (w *Where) OrEq(col string, arg any) *Where {
 	return w.Or(w.warpCol(col)+" = "+dialect.Placeholders(), arg)
 }
 
@@ -34,59 +34,59 @@ func (w *Where) OrIsNull(col string) *Where {
 	return w.Or(w.warpCol(col) + " IS NULL")
 }
 
-func (w *Where) NotEq(col string, arg interface{}) *Where {
+func (w *Where) NotEq(col string, arg any) *Where {
 	return w.And(w.warpCol(col)+" <> "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrNotEq(col string, arg interface{}) *Where {
+func (w *Where) OrNotEq(col string, arg any) *Where {
 	return w.Or(w.warpCol(col)+" <> "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Gt(col string, arg interface{}) *Where {
+func (w *Where) Gt(col string, arg any) *Where {
 	return w.And(w.warpCol(col)+" > "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrGt(col string, arg interface{}) *Where {
+func (w *Where) OrGt(col string, arg any) *Where {
 	return w.Or(w.warpCol(col)+" > "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Gte(col string, arg interface{}) *Where {
+func (w *Where) Gte(col string, arg any) *Where {
 	return w.And(w.warpCol(col)+" >= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrGte(col string, arg interface{}) *Where {
+func (w *Where) OrGte(col string, arg any) *Where {
 	return w.Or(w.warpCol(col)+" >= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Lt(col string, arg interface{}) *Where {
+func (w *Where) Lt(col string, arg any) *Where {
 	return w.And(w.warpCol(col)+" < "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrLt(col string, arg interface{}) *Where {
+func (w *Where) OrLt(col string, arg any) *Where {
 	return w.Or(w.warpCol(col)+" < "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Lte(col string, arg interface{}) *Where {
+func (w *Where) Lte(col string, arg any) *Where {
 	return w.And(w.warpCol(col)+" <= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) OrLte(col string, arg interface{}) *Where {
+func (w *Where) OrLte(col string, arg any) *Where {
 	return w.Or(w.warpCol(col)+" <= "+dialect.Placeholders(), arg)
 }
 
-func (w *Where) Between(col string, arg1, arg2 interface{}) *Where {
+func (w *Where) Between(col string, arg1, arg2 any) *Where {
 	return w.And(w.warpCol(col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
 }
 
-func (w *Where) OrBetween(col string, arg1, arg2 interface{}) *Where {
+func (w *Where) OrBetween(col string, arg1, arg2 any) *Where {
 	return w.Or(w.warpCol(col)+" (BETWEEN "+dialect.Placeholders()+" AND "+dialect.Placeholders()+")", arg1, arg2)
 }
 
-func (w *Where) In(col string, arg interface{}) *Where {
+func (w *Where) In(col string, arg any) *Where {
 	return w.And(w.warpCol(col)+" IN ("+dialect.Placeholders()+")", arg)
 }
 
-func (w *Where) OrIn(col string, arg interface{}) *Where {
+func (w *Where) OrIn(col string, arg any) *Where {
 	return w.Or(w.warpCol(col)+" IN ("+dialect.Placeholders()+")", arg)
 }
 
@@ -120,7 +120,7 @@ func (w *Where) WhereCb(f func(wb *Where)) *Where {
 }
 
 // And 添加 AND 条件, 如果已有条件, 则追加 AND
-func (w *Where) And(sqlStr string, args ...interface{}) *Where {
+func (w *Where) And(sqlStr string, args ...any) *Where {
 	if w.len() > 0 {
 		w.writeSql(" AND ")
 	}
@@ -145,7 +145,7 @@ func (w *Where) AndNewGroup(cb func(wb *Where)) *Where {
 }
 
 // Or 添加 OR 条件, 如果已有条件, 则追加 OR
-func (w *Where) Or(sqlStr string, args ...interface{}) *Where {
+func (w *Where) Or(sqlStr string, args ...any) *Where {
 	if w.len() > 0 {
 		w.writeSql(" OR ")
 	}

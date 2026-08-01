@@ -19,14 +19,14 @@ func TestSearchAfter(t *testing.T) {
 		SqlStr:   "select id,name from man",
 		Table:    "man",
 		Names:    []string{"id"},
-		Values:   []interface{}{0},
+		Values:   []any{0},
 		OrderBys: []string{},
 		Size:     20,
 		Dest:     &ManCopy{},
 	}
 	// 求总数
 	total := 0
-	obj.RowFn = func(_row interface{}) error {
+	obj.RowFn = func(_row any) error {
 		total++
 		return nil
 	}
@@ -53,14 +53,14 @@ func TestSearchAfterOfSelectBuilder(t *testing.T) {
 		// Table:  "", //  可以忽略
 		// 默认按 id asc 进行查询
 		// Names:    []string{},
-		// Values:   []interface{}{},
+		// Values:   []any{},
 		// OrderBys: []string{},
 		Size: 20,
 		Dest: &ManCopy{},
 	}
 	// 求总数
 	total := 0
-	obj.RowFn = func(_row interface{}) error {
+	obj.RowFn = func(_row any) error {
 		total++
 		return nil
 	}
@@ -81,7 +81,7 @@ func TestSearchAfter2ResultDemo(t *testing.T) {
 		SqlStr:   "select id,name from man",
 		Table:    "man",
 		Names:    []string{"id"},
-		Values:   []interface{}{0},
+		Values:   []any{0},
 		OrderBys: []string{},
 		Size:     0,
 		Dest:     &ManCopy{},
@@ -89,16 +89,16 @@ func TestSearchAfter2ResultDemo(t *testing.T) {
 	// 求总数
 	total := 0
 	results := NewSearchResults(10)
-	obj.RowFn = func(_row interface{}) error {
+	obj.RowFn = func(_row any) error {
 		v := _row.(*ManCopy)
 		total++
 		obj.Values[0] = v.Id
-		return results.Append(v).LenGte2Do(10, func(res []interface{}) error {
+		return results.Append(v).LenGte2Do(10, func(res []any) error {
 			fmt.Println("handle res:", res)
 			return nil
 		})
 	}
-	defer results.End2Do(func(res []interface{}) error {
+	defer results.End2Do(func(res []any) error {
 		fmt.Println("final res:", res)
 		return nil
 	})

@@ -9,22 +9,22 @@ import (
 )
 
 type SQLBuilder interface {
-	InitSql2Args(s string, args ...interface{}) *Builder   // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
-	AppendSql2Args(s string, args ...interface{}) *Builder // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
-	GetNoParseSql2Args() (string, []interface{})           // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
+	InitSql2Args(s string, args ...any) *Builder   // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
+	AppendSql2Args(s string, args ...any) *Builder // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
+	GetNoParseSql2Args() (string, []any)           // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
 	GetSqlStr() string                                     // GetSqlStr 解析输入占位符后的 SQL 语句, 建议用于打印日志(sql占位符替换为对应的值)
-	GetSql2Args() (string, []interface{})                  // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
+	GetSql2Args() (string, []any)                  // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 }
 
 type Builder struct {
 	dbType     dialect.DbType
 	finalSql   strings.Builder
-	finalArgs  []interface{}
+	finalArgs  []any
 	genFinalFn func(b *Builder)
 
 	// 用于 AppendSql2Args
 	extSql  strings.Builder
-	extArgs []interface{}
+	extArgs []any
 
 	callInitSql2Args bool // 标记是否调用 InitSql2Args
 }
@@ -46,7 +46,7 @@ func (b *Builder) setGenFinal(f func(b *Builder)) {
 	b.genFinalFn = f
 }
 
-func (b *Builder) writeSql2Args(s string, args ...interface{}) {
+func (b *Builder) writeSql2Args(s string, args ...any) {
 	b.writeSql(s)
 	b.writeArgs(args...)
 }
@@ -63,14 +63,14 @@ func (b *Builder) writeSql(s string) {
 	b.finalSql.WriteString(s)
 }
 
-func (b *Builder) writeArgs(args ...interface{}) {
+func (b *Builder) writeArgs(args ...any) {
 	if b.finalArgs == nil {
-		b.finalArgs = make([]interface{}, 0, len(args)*2)
+		b.finalArgs = make([]any, 0, len(args)*2)
 	}
 	b.finalArgs = append(b.finalArgs, args...)
 }
 
-func (b *Builder) getFinalNoPraseSql2Args() (string, []interface{}) {
+func (b *Builder) getFinalNoPraseSql2Args() (string, []any) {
 	if b.genFinalFn != nil {
 		b.genFinalFn(b)
 		b.genFinalFn = nil
@@ -95,7 +95,7 @@ func (b *Builder) GetNoParseSql() string {
 }
 
 // GetNoParseArgs 获取保留输入的占位符 SQL 参数
-func (b *Builder) GetNoParseArgs() []interface{} {
+func (b *Builder) GetNoParseArgs() []any {
 	_, args := b.getFinalNoPraseSql2Args()
 	return args
 }
@@ -121,16 +121,16 @@ func (b *Builder) mergeWhere(where *Where) {
 }
 
 // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
-func (b *Builder) InitSql2Args(sqlStr string, args ...interface{}) *Builder {
+func (b *Builder) InitSql2Args(sqlStr string, args ...any) *Builder {
 	b.callInitSql2Args = true
 	b.writeSql2Args(sqlStr, args...)
 	return b
 }
 
 // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
-func (b *Builder) AppendSql2Args(sqlStr string, args ...interface{}) *Builder {
+func (b *Builder) AppendSql2Args(sqlStr string, args ...any) *Builder {
 	if b.extArgs == nil {
-		b.extArgs = make([]interface{}, 0, len(args))
+		b.extArgs = make([]any, 0, len(args))
 	}
 	b.extSql.WriteString(" ")
 	b.extSql.WriteString(sqlStr)
@@ -139,7 +139,7 @@ func (b *Builder) AppendSql2Args(sqlStr string, args ...interface{}) *Builder {
 }
 
 // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
-func (b *Builder) GetNoParseSql2Args() (string, []interface{}) {
+func (b *Builder) GetNoParseSql2Args() (string, []any) {
 	return b.getFinalNoPraseSql2Args()
 }
 
@@ -151,7 +151,7 @@ func (b *Builder) GetSqlStr() string {
 }
 
 // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
-func (b *Builder) GetSql2Args() (string, []interface{}) {
+func (b *Builder) GetSql2Args() (string, []any) {
 	sqlStr, sqlArgs := b.getFinalNoPraseSql2Args()
 	// fmt.Println("======> before", sqlStr, sqlArgs)
 	pl := dialect.NewParsePlaceholder(b.dbType, sqlStr, sqlArgs...).Replace()

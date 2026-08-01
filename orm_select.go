@@ -61,7 +61,7 @@ func (t *Table) setSelect(col ...string) *Table {
 // tableName 在 NewTable 时设置过了, 就不需要设置, 如果设置了优先级最高
 // 如果实现了 TableName 方法, 使用该方法返回的表名,
 // 如果没有实现该方法, 会使用 struct 的类型名进行解析, 解析规则为: 驼峰转下划线
-func (t *Table) SelectAuto(src interface{}, tableName ...string) *Table {
+func (t *Table) SelectAuto(src any, tableName ...string) *Table {
 	if len(tableName) > 0 {
 		t.name = tableName[0]
 	}
@@ -148,10 +148,10 @@ func (t *Table) Join(joinTable, on string, joinType ...uint8) *Table {
 	return t
 }
 
+// Deprecated: 使用 LeftJoin 替代, 单词拼写错误
 // LefJoin 连表查询
 // 说明: 连表查询时, 如果两个表有相同字段名查询结果会出现错误
 // 解决方法: 1. 推荐使用别名来区分; 2. 使用 Query 对结果我们自己进行处理
-// Deprecated: 使用 LeftJoin 替代, 单词拼写错误
 func (t *Table) LefJoin(joinTable, on string) *Table {
 	return t.LeftJoin(joinTable, on)
 }
@@ -175,7 +175,7 @@ func (t *Table) RightJoin(joinTable, on string) *Table {
 // Where 支持占位符
 // 如: Where("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
-func (t *Table) Where(sqlStr string, args ...interface{}) *Table {
+func (t *Table) Where(sqlStr string, args ...any) *Table {
 	builder.WhereCb(t.builder, func(wb *builder.Where) {
 		wb.And(sqlStr, args...)
 	})
@@ -203,7 +203,7 @@ func (t *Table) WhereNewGroup(f func(wb *builder.Where)) *Table {
 // OrWhere 支持占位符
 // 如: OrWhere("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
-func (t *Table) OrWhere(sqlStr string, args ...interface{}) *Table {
+func (t *Table) OrWhere(sqlStr string, args ...any) *Table {
 	builder.WhereCb(t.builder, func(wb *builder.Where) {
 		wb.Or(sqlStr, args...)
 	})
@@ -264,7 +264,7 @@ func (t *Table) RightLike(filedName, value string) *Table {
 }
 
 // Between
-func (t *Table) Between(filedName string, leftVal, rightVal interface{}) *Table {
+func (t *Table) Between(filedName string, leftVal, rightVal any) *Table {
 	builder.WhereCb(t.builder, func(wb *builder.Where) {
 		wb.Between(filedName, leftVal, rightVal)
 	})
@@ -290,7 +290,7 @@ func (t *Table) OrderByDesc(fieldName string) *Table {
 // Limit 分页
 // 会对 page, size 进行校验处理
 // 注: page, size 只支持 int 系列类型
-func (t *Table) Limit(page, size interface{}) *Table {
+func (t *Table) Limit(page, size any) *Table {
 	t.getSelectBuilder().Limit(page, size)
 	return t
 }
@@ -302,13 +302,13 @@ func (t *Table) GroupBy(sqlStr string) *Table {
 }
 
 // Having
-func (t *Table) Having(sqlStr string, args ...interface{}) *Table {
+func (t *Table) Having(sqlStr string, args ...any) *Table {
 	t.getSelectBuilder().Having(sqlStr, args...)
 	return t
 }
 
 // Count 获取总数
-func (t *Table) Count(total interface{}) error {
+func (t *Table) Count(total any) error {
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func (t *Table) Count(total interface{}) error {
 // 注: 如果为空的话, 会返回 nullRowErr
 // dest 长度 > 1 时, 支持多个字段查询
 // dest 长度 == 1 时, 支持 struct/单字段/map
-func (t *Table) FindOne(dest ...interface{}) error {
+func (t *Table) FindOne(dest ...any) error {
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
@@ -349,7 +349,7 @@ func (t *Table) FindOne(dest ...interface{}) error {
 // 注: 如果为空的话, 会返回 nullRowErr
 // dest 支持 struct/单字段/map
 // fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
-func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) FindOneFn(dest any, fn ...SelectCallBackFn) error {
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
@@ -365,7 +365,7 @@ func (t *Table) FindOneFn(dest interface{}, fn ...SelectCallBackFn) error {
 // 注: 因为查询的结果集为多个, dest 不为切片, 所有这个结果是不准确的
 // dest 支持 struct/map
 // fn 支持将查询结果行进行修改, 需要修改的时候 fn 回调的 _row 需要类型断言为[指针]对象才能处理
-func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) FindOneIgnoreResult(dest any, fn ...SelectCallBackFn) error {
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
@@ -380,7 +380,7 @@ func (t *Table) FindOneIgnoreResult(dest interface{}, fn ...SelectCallBackFn) er
 // FindAll 多行查询
 // dest 支持(struct/单字段/map)切片
 // fn 支持将查询结果行进行处理, 需要处理每行内容时, fn 回调的 _row 需要类型断言为[切片中的类型]
-func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) FindAll(dest any, fn ...SelectCallBackFn) error {
 	if err := t.prevCheck(); err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func (t *Table) FindAll(dest interface{}, fn ...SelectCallBackFn) error {
 // 注: 如果为单行查询的话, 当为空的话, 会返回 nullRowErr
 // 如果没有指定查询条数, 默认 internal.DefaultBatchSelectSize
 // dest 支持 struct/slice/单字段/map
-func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) error {
+func (t *Table) FindWhere(dest any, where string, args ...any) error {
 	if t.builder == nil || t.getSelectBuilder().ColsEmpty() {
 		t.SelectAuto(dest)
 	}
@@ -417,7 +417,7 @@ func (t *Table) FindWhere(dest interface{}, where string, args ...interface{}) e
 }
 
 // QueryRowScan 单行多值查询
-func (t *Table) QueryRowScan(dest ...interface{}) error {
+func (t *Table) QueryRowScan(dest ...any) error {
 	t.printSqlCallSkip += 1
 
 	rows, err := t.Query()
@@ -438,10 +438,10 @@ func (t *Table) QueryRowScan(dest ...interface{}) error {
 	if colLen != len(dest) {
 		return fmt.Errorf("select res len %d, dest len %d", colLen, len(dest))
 	}
-	values := make([]interface{}, colLen)
+	values := make([]any, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	// 将 dest 转为 []dest
-	destReflectValues := reflect.ValueOf(append([]interface{}{}, dest...))
+	destReflectValues := reflect.ValueOf(append([]any{}, dest...))
 	t.loadDestType(destReflectValues.Type())
 	if err := t.getScanValues(destReflectValues, nil, fieldIndex2NullIndexMap, colTypes, values); err != nil {
 		return err
@@ -475,7 +475,7 @@ func (t *Table) Query() (*sql.Rows, error) {
 }
 
 // getDestReflectType 解析 dest kind
-func (t *Table) getDestReflectType(dest interface{}, shouldInKinds []reflect.Kind, outErr error) (ty reflect.Type, err error) {
+func (t *Table) getDestReflectType(dest any, shouldInKinds []reflect.Kind, outErr error) (ty reflect.Type, err error) {
 	ty = reflect.TypeOf(dest)
 	if ty.Kind() != reflect.Ptr {
 		err = errors.New("dest should is ptr")
@@ -517,7 +517,7 @@ func (t *Table) loadDestType(dest reflect.Type) {
 }
 
 // find 查询处理入口, 根据 dest 类型进行分配处理
-func (t *Table) find(dest interface{}, ty reflect.Type, ignoreRes bool, fn ...SelectCallBackFn) error {
+func (t *Table) find(dest any, ty reflect.Type, ignoreRes bool, fn ...SelectCallBackFn) error {
 	t.printSqlCallSkip += 2
 
 	rows, err := t.Query()
@@ -537,7 +537,7 @@ func (t *Table) find(dest interface{}, ty reflect.Type, ignoreRes bool, fn ...Se
 }
 
 // scanAll 处理多个结果集
-func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ...SelectCallBackFn) error {
+func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest any, fn ...SelectCallBackFn) error {
 	isPtr := ty.Kind() == reflect.Ptr
 	if isPtr {
 		ty = utils.RemoveTypePtr(ty) // 去指针
@@ -552,7 +552,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 	colLen := len(colTypes)
 	col2StructFieldMap, _ := t.parseCol2StructField(ty, false)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
-	values := make([]interface{}, colLen)
+	values := make([]any, colLen)
 	destReflectValue := utils.RemoveValuePtr(reflect.ValueOf(dest))
 	if destReflectValue.IsNil() {
 		destReflectValue.Set(reflect.MakeSlice(destReflectValue.Type(), 0, colLen))
@@ -593,7 +593,7 @@ func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest interface{}, fn ..
 }
 
 // scanOne 处理单个结果集
-func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignoreRes bool, fn ...SelectCallBackFn) error {
+func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest any, ignoreRes bool, fn ...SelectCallBackFn) error {
 	// t.loadDestType(ty) // 这里可以不用再处理
 	colTypes, err := rows.ColumnTypes()
 	if err != nil {
@@ -602,7 +602,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest interface{}, ignor
 
 	colLen := len(colTypes)
 	col2StructFieldMap, _ := t.parseCol2StructField(ty, false)
-	values := make([]interface{}, colLen)
+	values := make([]any, colLen)
 	fieldIndex2NullIndexMap := make(map[int]int, colLen) // 用于记录 NULL 值到 struct 的映射关系
 	destReflectValue := utils.RemoveValuePtr(reflect.ValueOf(dest))
 	haveNoData := true
@@ -655,7 +655,7 @@ func (t *Table) isDestType(typeNum uint8) bool {
 }
 
 // getScanValues 获取待 Scan 的内容
-func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []interface{}) error {
+func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, values []any) error {
 	var structMissFields []string
 	for i, colType := range colTypes {
 		var (
@@ -724,7 +724,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]
 		} else if t.isDestType(mapFlag) {
 			destValType := dest.Type().Elem()
 			if destValType.Kind() == reflect.Interface {
-				// 如果 map 的 value 为 interface{} 时, 数据库类型为字符串时 driver.Value 的类型为 RawBytes, 再经过 Scan 后, 会被处理为 []byte
+				// 如果 map 的 value 为 any 时, 数据库类型为字符串时 driver.Value 的类型为 RawBytes, 再经过 Scan 后, 会被处理为 []byte
 				// 为了避免这种就直接处理为字符串
 				values[i] = cacheNullString.Get().(*sql.NullString)
 				fieldIndex2NullIndexMap[i] = i
@@ -746,7 +746,7 @@ func (t *Table) getScanValues(dest reflect.Value, col2StructFieldMap map[string]
 }
 
 // nullScan 空值scan
-func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (err error) {
+func (t *Table) nullScan(dest, src any, needUnmarshalField ...string) (err error) {
 	switch val := src.(type) {
 	case *sql.NullString:
 		if len(needUnmarshalField) > 0 { // 判断下是否需要反序列化
@@ -776,7 +776,7 @@ func (t *Table) nullScan(dest, src interface{}, needUnmarshalField ...string) (e
 }
 
 // setNullDest 设置值
-func (t *Table) setNullDest(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, scanResult []interface{}) error {
+func (t *Table) setNullDest(dest reflect.Value, col2StructFieldMap map[string]structField, fieldIndex2NullIndexMap map[int]int, colTypes []*sql.ColumnType, scanResult []any) error {
 	if t.isDestType(structFlag) {
 		for fieldIndex, nullIndex := range fieldIndex2NullIndexMap {
 			col := colTypes[nullIndex].Name()

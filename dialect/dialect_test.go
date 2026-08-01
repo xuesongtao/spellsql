@@ -5,7 +5,7 @@ import "testing"
 func TestParsePlaceholder(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		sqlStr := "SELECT * FROM user WHERE id=? AND name=? AND age=?"
-		args := []interface{}{1, "test", 18}
+		args := []any{1, "test", 18}
 		// mysql
 		p := NewParsePlaceholder(MySQL, sqlStr, args...)
 		parseStr := p.Parse().Result()
@@ -21,7 +21,7 @@ func TestParsePlaceholder(t *testing.T) {
 
 	t.Run("?v in where", func(t *testing.T) {
 		sqlStr := "SELECT * FROM user WHERE id=? AND name=(?v)"
-		args := []interface{}{1, "select name from user where id=1"}
+		args := []any{1, "select name from user where id=1"}
 		// mysql
 		p := NewParsePlaceholder(MySQL, sqlStr, args...)
 		parseStr := p.Parse().Result()
@@ -37,7 +37,7 @@ func TestParsePlaceholder(t *testing.T) {
 
 	t.Run("?d in arr", func(t *testing.T) {
 		sqlStr := "SELECT * FROM user WHERE id=? AND name=(?v) AND age IN (?d) AND age in (?)"
-		args := []interface{}{1, "select name from user where id=1", []string{"18", "19", "20"}, []int{25}}
+		args := []any{1, "select name from user where id=1", []string{"18", "19", "20"}, []int{25}}
 		// mysql
 		p := NewParsePlaceholder(MySQL, sqlStr, args...)
 		parseStr := p.Parse().Result()

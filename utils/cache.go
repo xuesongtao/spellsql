@@ -15,9 +15,9 @@ type LRUCache struct {
 	rwMu             sync.RWMutex
 	maxSize          int
 	delMapCount      int // 记录 delete map 的次数, 当次数大于 2*lruSize 重建下 nodeMap, 防止 delete 没有释放内存
-	nodeMap          map[interface{}]*list.Element
+	nodeMap          map[any]*list.Element
 	list             *list.List
-	deleteCallBackFn func(key, value interface{}) // 删除回调
+	deleteCallBackFn func(key, value any) // 删除回调
 }
 
 func NewLRU(max ...int) *LRUCache {
@@ -28,16 +28,16 @@ func NewLRU(max ...int) *LRUCache {
 
 	return &LRUCache{
 		maxSize: defaultMax,
-		nodeMap: make(map[interface{}]*list.Element, defaultMax),
+		nodeMap: make(map[any]*list.Element, defaultMax),
 		list:    list.New(),
 	}
 }
 
-func (l *LRUCache) SetDelCallBackFn(f func(key, value interface{})) {
+func (l *LRUCache) SetDelCallBackFn(f func(key, value any)) {
 	l.deleteCallBackFn = f
 }
 
-func (l *LRUCache) Store(key, value interface{}) {
+func (l *LRUCache) Store(key, value any) {
 	l.rwMu.Lock()
 	defer l.rwMu.Unlock()
 
@@ -57,7 +57,7 @@ func (l *LRUCache) Store(key, value interface{}) {
 	}
 }
 
-func (l *LRUCache) Load(key interface{}) (data interface{}, ok bool) {
+func (l *LRUCache) Load(key any) (data any, ok bool) {
 	l.rwMu.Lock()
 	defer l.rwMu.Unlock()
 
@@ -70,7 +70,7 @@ func (l *LRUCache) Load(key interface{}) (data interface{}, ok bool) {
 	return
 }
 
-func (l *LRUCache) Delete(key interface{}) {
+func (l *LRUCache) Delete(key any) {
 	l.rwMu.Lock()
 	defer l.rwMu.Unlock()
 	node, ok := l.nodeMap[key]
@@ -80,7 +80,7 @@ func (l *LRUCache) Delete(key interface{}) {
 	l.delete(key, node)
 }
 
-func (l *LRUCache) delete(key interface{}, node *list.Element) {
+func (l *LRUCache) delete(key any, node *list.Element) {
 	if key == nil {
 		for k, v := range l.nodeMap {
 			if v == node {
@@ -99,7 +99,7 @@ func (l *LRUCache) delete(key interface{}, node *list.Element) {
 	// 重建 map
 	if l.delMapCount > 3*l.maxSize {
 		tmp := l.nodeMap
-		l.nodeMap = make(map[interface{}]*list.Element, len(tmp))
+		l.nodeMap = make(map[any]*list.Element, len(tmp))
 		for k, v := range tmp {
 			l.nodeMap[k] = v
 		}
