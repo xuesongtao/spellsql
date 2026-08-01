@@ -8,7 +8,7 @@ type Update struct {
 	*Builder
 	tableName string
 	columns   []string
-	values    []interface{}
+	values    []any
 	where     *Where
 }
 
@@ -26,12 +26,12 @@ func (u *Update) Table(tableName string) *Update {
 	return u
 }
 
-func (u *Update) Set(col string, value interface{}) *Update {
+func (u *Update) Set(col string, value any) *Update {
 	if u.columns == nil {
 		u.columns = make([]string, 0, 5)
 	}
 	if u.values == nil {
-		u.values = make([]interface{}, 0, 5)
+		u.values = make([]any, 0, 5)
 	}
 	u.columns = append(u.columns, col)
 	u.values = append(u.values, value)

@@ -177,7 +177,7 @@ func TestInsertForPg(t *testing.T) {
 		tableObj := spellsql.NewTable(pgDb, "man")
 		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-		var mm []interface{}
+		var mm []any
 		size := 3
 		for i := 0; i < size; i++ {
 			tmp := m

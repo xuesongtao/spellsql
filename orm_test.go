@@ -193,7 +193,7 @@ func TestBatchInsertDefault(t *testing.T) {
 		TestNoHaveDefault int32  `json:"test_no_have_default"`
 		CreatedTime       string `json:"created_time"`
 	}
-	datas := make([]interface{}, 0)
+	datas := make([]any, 0)
 	for i := 0; i < 2; i++ {
 		prepareMan := TestInsert{
 			Name:              sureName,
@@ -532,7 +532,7 @@ func TestInsert(t *testing.T) {
 			// Age:  18, // 如果不设置默认值会报错
 			// Addr: "成都市",
 		}
-		tableObj := NewTable(db, "man").TagDefault(map[string]interface{}{"age": 0, "test": "1"})
+		tableObj := NewTable(db, "man").TagDefault(map[string]any{"age": 0, "test": "1"})
 		res, err := tableObj.Insert(m).Exec()
 		if err != nil {
 			t.Fatal(err)
@@ -559,7 +559,7 @@ func TestInsert(t *testing.T) {
 			// XmlTxt:   test.Tmp{},
 			// Json1Txt: test.Tmp{},
 		}
-		mm := make([]interface{}, 0)
+		mm := make([]any, 0)
 		for i := 0; i < 10; i++ {
 			mm = append(mm, m)
 		}
@@ -589,7 +589,7 @@ func TestInsert(t *testing.T) {
 			Age:  18,
 			Addr: "成都市",
 		}
-		mm := make([]interface{}, 0)
+		mm := make([]any, 0)
 		for i := 0; i < 100; i++ {
 			mm = append(mm, m)
 		}
@@ -610,7 +610,7 @@ func TestInsert(t *testing.T) {
 			Age:  18,
 			Addr: "成都市",
 		}
-		mm := make([]interface{}, 0)
+		mm := make([]any, 0)
 		for i := 0; i < 10; i++ {
 			tmp := m
 			if i > 0 && i%3 == 0 {
@@ -636,7 +636,7 @@ func TestInsert(t *testing.T) {
 			Age:  18,
 			Addr: "成都市",
 		}
-		mm := make([]interface{}, 0)
+		mm := make([]any, 0)
 		for i := 0; i < 100; i++ {
 			tmp := m
 			if i > 0 && i%3 == 0 {
@@ -926,7 +926,7 @@ func TestFindOne(t *testing.T) {
 		var m test.Man
 		tmpName := "被修改了哦"
 		tmpAge := int32(1000)
-		err := FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row interface{}) error {
+		err := FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row any) error {
 			v := _row.(*test.Man)
 			v.Name = tmpName
 			v.Age = tmpAge
@@ -945,7 +945,7 @@ func TestFindOne(t *testing.T) {
 			name string
 			tmp  = "被修改了哦"
 		)
-		err := FindOneFn(db, NewCacheSql("SELECT name FROM man WHERE id=?", 1), &name, func(_row interface{}) error {
+		err := FindOneFn(db, NewCacheSql("SELECT name FROM man WHERE id=?", 1), &name, func(_row any) error {
 			v := _row.(*string)
 			*v = tmp
 			return nil
@@ -963,7 +963,7 @@ func TestFindOne(t *testing.T) {
 			tmp = "被修改了哦"
 		)
 		var b map[string]string
-		err := NewTable(db).SelectAuto(test.Man{}).Where("id=1").FindOneFn(&b, func(_row interface{}) error {
+		err := NewTable(db).SelectAuto(test.Man{}).Where("id=1").FindOneFn(&b, func(_row any) error {
 			v := _row.(map[string]string)
 			v["name"] = tmp
 			return nil
@@ -982,7 +982,7 @@ func TestFindOne(t *testing.T) {
 			tmp        = "被修改了哦"
 			m          test.Man
 		)
-		err := NewTable(db).Select("id,name,age").From("man").Where("id>0").Limit(0, 10).FindOneIgnoreResult(&m, func(_row interface{}) error {
+		err := NewTable(db).Select("id,name,age").From("man").Where("id>0").Limit(0, 10).FindOneIgnoreResult(&m, func(_row any) error {
 			v := _row.(*test.Man)
 			if v.Id == 1 {
 				v.Name = tmp
@@ -1443,7 +1443,7 @@ func TestFindAll(t *testing.T) {
 		t.Skip()
 		var m []*test.Man
 		tmp := "被修改了"
-		err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 0).FindAll(&m, func(_row interface{}) error {
+		err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 0).FindAll(&m, func(_row any) error {
 			v := _row.(*test.Man)
 			if v.Id == 1 {
 				v.Name = tmp
@@ -1467,7 +1467,7 @@ func TestFindAll(t *testing.T) {
 	t.Run("findAll selectCallBack map slice", func(t *testing.T) {
 		var b []map[string]string
 		tmp := "被修改了"
-		err := NewTable(db).SelectAuto(test.Man{}).Where("id>0").FindAll(&b, func(_row interface{}) error {
+		err := NewTable(db).SelectAuto(test.Man{}).Where("id>0").FindAll(&b, func(_row any) error {
 			v := _row.(map[string]string)
 			if v["id"] == "1" {
 				v["name"] = tmp

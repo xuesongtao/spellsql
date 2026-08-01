@@ -346,7 +346,7 @@ func TestConvert(t *testing.T) {
 	}
 }
 
-func CheckObj(t *testing.T, dest, src interface{}) {
+func CheckObj(t *testing.T, dest, src any) {
 	destBytes, _ := json.Marshal(dest)
 	srcBytes, _ := json.Marshal(src)
 	if bytes.Equal(destBytes, srcBytes) {

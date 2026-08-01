@@ -22,7 +22,7 @@ type handleStructField struct {
 	tagAlias    string      // 别名, 便于将数据库的字段映射到 struct
 	marshal     MarshalFn   // 序列化方法
 	unmarshal   UnmarshalFn // 反序列化方法
-	defaultVal  interface{} // 默认值
+	defaultVal  any // 默认值
 }
 
 // structField 结构体字段信息
@@ -272,7 +272,7 @@ func (t *Table) TagAlias(tag2AliasMap map[string]string) *Table {
 // TagDefault 设置 struct 字段默认值
 // 注: 调用必须优先 Insert/Update/Delete/SelectAuto 操作的方法, 防止通过对象解析字段时失效
 // tag2DefaultMap key: struct 的 tag 名, value: 字段默认值
-func (t *Table) TagDefault(tag2DefaultMap map[string]interface{}) *Table {
+func (t *Table) TagDefault(tag2DefaultMap map[string]any) *Table {
 	for tag, defaultVal := range tag2DefaultMap {
 		t.setWaitHandleStructFieldMap(tag, func(val *handleStructField) {
 			val.defaultVal = defaultVal
@@ -431,7 +431,7 @@ func (t *Table) GetBuilder() builder.SQLBuilder {
 // sql sqlStr 或 *SqlStrObj
 // 说明: 在使用时, 设置了 tableName 时查询性能更好, 因为在调用 getScanValues 前需要
 // 通过 tableName 获取表元信息, 再判断字段是否为 NULL, 在没有表元信息时会将所有查询结果都按 NULL 类型处理
-func (t *Table) Raw(sql interface{}) *Table {
+func (t *Table) Raw(sql any) *Table {
 	switch val := sql.(type) {
 	case string:
 		_, t.builder = parseSQLBuilder(t.dbType, val)

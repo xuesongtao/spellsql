@@ -12,7 +12,7 @@ type Insert struct {
 	insertType  internal.OpType
 	tableName   string
 	columns     []string
-	values      [][]interface{}
+	values      [][]any
 	conflictCol string
 	duplicate   []string // ON DUPLICATE KEY UPDATE
 }
@@ -61,9 +61,9 @@ func (i *Insert) Columns(cols ...string) *Insert {
 	return i
 }
 
-func (i *Insert) Values(vals ...interface{}) *Insert {
+func (i *Insert) Values(vals ...any) *Insert {
 	if i.values == nil {
-		i.values = make([][]interface{}, 0, len(vals))
+		i.values = make([][]any, 0, len(vals))
 	}
 	i.values = append(i.values, vals)
 	return i

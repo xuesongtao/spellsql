@@ -52,13 +52,13 @@ type SqlStrObj struct {
 //     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型
 //     如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123")
 //     => SELECT username, password FROM sys_user WHERE id = 123
-func NewCacheSql(sqlStr string, args ...interface{}) *SqlStrObj {
+func NewCacheSql(sqlStr string, args ...any) *SqlStrObj {
 	return NewSql(sqlStr, args...)
 }
 
 // NewSql 此函数与 NewCacheSql 功能一样, 此函数的使用场景: 1. 需要调用多次 GetSqlStr; 2. 需要调用 Clone
 // Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
-func NewSql(sqlStr string, args ...interface{}) *SqlStrObj {
+func NewSql(sqlStr string, args ...any) *SqlStrObj {
 	obj := new(SqlStrObj)
 	obj.initSql(sqlStr, args...)
 	return obj
@@ -74,7 +74,7 @@ func (s *SqlStrObj) SetCtx(ctx context.Context) *SqlStrObj {
 }
 
 // initSql 初始化需要的 buf
-func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
+func (s *SqlStrObj) initSql(sqlStr string, args ...any) {
 	s.init()
 	actionNum, bld := parseSQLBuilder(s.dbType, sqlStr, args...)
 	s.actionNum = actionNum
@@ -122,7 +122,7 @@ func (s *SqlStrObj) SetPrintLog(isPrint bool) *SqlStrObj {
 }
 
 // Append 将类型追加在最后
-func (s *SqlStrObj) Append(sqlStr string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) Append(sqlStr string, args ...any) *SqlStrObj {
 	s.builder.AppendSql2Args(sqlStr, args...)
 	return s
 }
@@ -197,7 +197,7 @@ func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
 }
 
 // parseSQLBuilder 初始化需要的 buf
-func parseSQLBuilder(dt dialect.DbType, sqlStr string, args ...interface{}) (actionNum internal.OpType, bld builder.SQLBuilder) {
+func parseSQLBuilder(dt dialect.DbType, sqlStr string, args ...any) (actionNum internal.OpType, bld builder.SQLBuilder) {
 	// INSERT, DELETE, SELECT, UPDATE
 	sqlLen := len(sqlStr)
 	if sqlLen > 6 { // 判断是什么操作

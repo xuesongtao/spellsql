@@ -29,7 +29,7 @@ func TestWhereGetExecArgs(t *testing.T) {
 			t.Errorf("placeholder count %d != args len %d", placeholderCount, len(args))
 		}
 
-		expectedArgs := []interface{}{100, 1, 2, 3, 30, "test", 95.5, 30}
+		expectedArgs := []any{100, 1, 2, 3, 30, "test", 95.5, 30}
 		for i, arg := range args {
 			if !test.Equal(arg, expectedArgs[i]) {
 				t.Errorf("arg at index %d error, got: %v, want: %v", i, arg, expectedArgs[i])
@@ -354,7 +354,7 @@ func TestDelete(t *testing.T) {
 		if sqlStr != expectedSql {
 			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, expectedSql)
 		}
-		if !test.Equal(args, []interface{}{1}) {
+		if !test.Equal(args, []any{1}) {
 			t.Errorf("args error, got: %v, want: [1]", args)
 		}
 	})
@@ -369,7 +369,7 @@ func TestDelete(t *testing.T) {
 		if sqlStr != expectedSql {
 			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, expectedSql)
 		}
-		if !test.Equal(args, []interface{}{1, "test"}) {
+		if !test.Equal(args, []any{1, "test"}) {
 			t.Errorf("args error, got: %v, want: [1 test]", args)
 		}
 	})
@@ -382,7 +382,7 @@ func TestDelete(t *testing.T) {
 		if sqlStr != expectedSql {
 			t.Errorf("sqlStr error, got: %s, want: %s", sqlStr, expectedSql)
 		}
-		if !test.Equal(args, []interface{}{1}) {
+		if !test.Equal(args, []any{1}) {
 			t.Errorf("args error, got: %v, want: [1]", args)
 		}
 	})
