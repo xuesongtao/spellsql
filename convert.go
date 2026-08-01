@@ -68,7 +68,7 @@ func (c *ConvStructObj) initFieldMap(tv reflect.Value, f func(tagVal string, fie
 }
 
 // Init 初始化
-func (c *ConvStructObj) Init(src, dest interface{}) error {
+func (c *ConvStructObj) Init(src, dest any) error {
 	err := c.initFieldMap(
 		reflect.ValueOf(src),
 		func(tagVal string, field *convFieldInfo) {

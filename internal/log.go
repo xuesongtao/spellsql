@@ -19,16 +19,16 @@ func NewLogger() *defaultLogger {
 	}
 }
 
-func (d *defaultLogger) Info(ctx context.Context, v ...interface{}) {
-	d.log.Println(append([]interface{}{"[INFO] " + d.getPrefix(3)}, v...)...)
+func (d *defaultLogger) Info(ctx context.Context, v ...any) {
+	d.log.Println(append([]any{"[INFO] " + d.getPrefix(3)}, v...)...)
 }
 
-func (d *defaultLogger) Error(ctx context.Context, v ...interface{}) {
-	d.log.Println(append([]interface{}{"[ERRO] " + d.getPrefix(3)}, v...)...)
+func (d *defaultLogger) Error(ctx context.Context, v ...any) {
+	d.log.Println(append([]any{"[ERRO] " + d.getPrefix(3)}, v...)...)
 }
 
-func (d *defaultLogger) Warning(ctx context.Context, v ...interface{}) {
-	d.log.Println(append([]interface{}{"[WARN] " + d.getPrefix(3)}, v...)...)
+func (d *defaultLogger) Warning(ctx context.Context, v ...any) {
+	d.log.Println(append([]any{"[WARN] " + d.getPrefix(3)}, v...)...)
 }
 
 func (d *defaultLogger) getPrefix(skip int) string {

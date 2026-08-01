@@ -103,8 +103,8 @@ func TestLRUDelete(t *testing.T) {
 
 	// 删除存在的
 	deletedKey := ""
-	deletedVal := interface{}(nil)
-	lru.SetDelCallBackFn(func(key, value interface{}) {
+	deletedVal := any(nil)
+	lru.SetDelCallBackFn(func(key, value any) {
 		deletedKey = key.(string)
 		deletedVal = value
 	})
@@ -235,7 +235,7 @@ func TestLRUReconstructMap(t *testing.T) {
 func TestSetDelCallBackFn(t *testing.T) {
 	lru := NewLRU(2)
 	called := false
-	lru.SetDelCallBackFn(func(key, value interface{}) {
+	lru.SetDelCallBackFn(func(key, value any) {
 		called = true
 	})
 	lru.Store("a", 1)

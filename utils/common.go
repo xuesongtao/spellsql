@@ -12,10 +12,10 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
+// Deprecated: 推荐用 Index
 // IndexForBF 查找, 通过 BF 算法来获取匹配的 index
 // isFont2End 是否从主串前向后遍历查找
 // 如果匹配的内容靠前建议 isFont2End=true, 反之 false
-// Deprecated 推荐用 Index
 func IndexForBF(isFont2End bool, s, substr string) int {
 	return Index(s, substr, isFont2End)
 }
@@ -42,7 +42,7 @@ func Index(s, substr string, isFont2End ...bool) int {
 }
 
 // Str 将内容转为 string
-func Str(src interface{}) string {
+func Str(src any) string {
 	if src == nil {
 		return ""
 	}
@@ -84,7 +84,7 @@ func Str(src interface{}) string {
 }
 
 // Int64 将数字型类型转为 int64
-func Int64(num interface{}) int64 {
+func Int64(num any) int64 {
 	switch v := num.(type) {
 	case int:
 		return int64(v)
@@ -231,7 +231,7 @@ func ParseTag2Col(tag string) (column string) {
 // GetOffset 根据分页获取 offset
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
-func GetOffset(page, size interface{}) (int64, int64) {
+func GetOffset(page, size any) (int64, int64) {
 	pageInt64, sizeInt64 := Int64(page), Int64(size)
 	if pageInt64 <= 0 {
 		pageInt64 = 1
@@ -250,7 +250,7 @@ func UInt2Str(i uint64) string {
 	return strconv.FormatUint(i, 10)
 }
 
-func MarshalNoEscape(v interface{}) ([]byte, error) {
+func MarshalNoEscape(v any) ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(false)
@@ -266,4 +266,3 @@ func InitCallOnce(fn func()) func() {
 		once.Do(fn)
 	}
 }
-

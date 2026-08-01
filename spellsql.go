@@ -12,7 +12,9 @@ import (
 )
 
 // SqlStrObj 拼接 sql 对象
-// Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
+// 对 builder.SQLBuilder 进行了封装, 主要是为了方便打印 sqlStr log
+// 注: 该对象不进行后续维护, 后续主要维护 builder
+// 原因: v2 版本原本想去掉此对象, 但是考虑到 v1 版本的兼容性, 所以保留此对象
 type SqlStrObj struct {
 	ctx           context.Context
 	isPrintSqlLog bool            // 标记是否打印 生成的 sqlStr log
@@ -22,8 +24,7 @@ type SqlStrObj struct {
 	builder       builder.SQLBuilder // builder 对象, 用于拼接 sql
 }
 
-// NewCacheSql 初始化, 支持占位符, 此函数比 NewSql 更加高效(有缓存)
-// Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
+// NewSql 初始化, 支持占位符
 //
 //  1. 注意:
 //     a. 此函数只支持调用一次 GetSqlStr 方法, 如果要调用多次需要使用 NewSql
@@ -52,16 +53,16 @@ type SqlStrObj struct {
 //     第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型
 //     如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123")
 //     => SELECT username, password FROM sys_user WHERE id = 123
-func NewCacheSql(sqlStr string, args ...interface{}) *SqlStrObj {
-	return NewSql(sqlStr, args...)
-}
-
-// NewSql 此函数与 NewCacheSql 功能一样, 此函数的使用场景: 1. 需要调用多次 GetSqlStr; 2. 需要调用 Clone
-// Deprecated: 该对象已被废弃, 请使用 builder.SQLBuilder 对象
-func NewSql(sqlStr string, args ...interface{}) *SqlStrObj {
+func NewSql(sqlStr string, args ...any) *SqlStrObj {
 	obj := new(SqlStrObj)
 	obj.initSql(sqlStr, args...)
 	return obj
+
+}
+
+// Deprecated: 此方法去掉了缓存, 因为底层用的 builder, 这里加缓存的意义不大, 推荐使用 NewSql 代替
+func NewCacheSql(sqlStr string, args ...any) *SqlStrObj {
+	return NewSql(sqlStr, args...)
 }
 
 // SetCtx 设置 context
@@ -74,7 +75,7 @@ func (s *SqlStrObj) SetCtx(ctx context.Context) *SqlStrObj {
 }
 
 // initSql 初始化需要的 buf
-func (s *SqlStrObj) initSql(sqlStr string, args ...interface{}) {
+func (s *SqlStrObj) initSql(sqlStr string, args ...any) {
 	s.init()
 	actionNum, bld := parseSQLBuilder(s.dbType, sqlStr, args...)
 	s.actionNum = actionNum
@@ -122,7 +123,7 @@ func (s *SqlStrObj) SetPrintLog(isPrint bool) *SqlStrObj {
 }
 
 // Append 将类型追加在最后
-func (s *SqlStrObj) Append(sqlStr string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) Append(sqlStr string, args ...any) *SqlStrObj {
 	s.builder.AppendSql2Args(sqlStr, args...)
 	return s
 }
@@ -139,7 +140,6 @@ func (s *SqlStrObj) FmtSql() string {
 }
 
 // GetSqlStr 获取最终 sqlStr, 默认打印 sqlStr, title[0] 为打印 log 的标题; title[1] 为 sqlStr 的结束符, 默认为 ";"
-// 注意: 通过 NewCacheSql 初始化对象的只能调用一次此函数, 因为调用后会清空所有buf; 通过 NewSql 初始化对象的可以调用多次此函数
 func (s *SqlStrObj) GetSqlStr(title ...string) (sqlStr string) {
 	argsLen := len(title)
 	// sqlStr 的结束符, 默认为 ";"
@@ -197,7 +197,7 @@ func (s *SqlStrObj) getLogTitle(title string) (finalTitle string) {
 }
 
 // parseSQLBuilder 初始化需要的 buf
-func parseSQLBuilder(dt dialect.DbType, sqlStr string, args ...interface{}) (actionNum internal.OpType, bld builder.SQLBuilder) {
+func parseSQLBuilder(dt dialect.DbType, sqlStr string, args ...any) (actionNum internal.OpType, bld builder.SQLBuilder) {
 	// INSERT, DELETE, SELECT, UPDATE
 	sqlLen := len(sqlStr)
 	if sqlLen > 6 { // 判断是什么操作

@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	tmpBuf = sync.Pool{New: func() interface{} { return new(strings.Builder) }}
+	tmpBuf = sync.Pool{New: func() any { return new(strings.Builder) }}
 )
 
 func GetTmpBuf(size ...int) *strings.Builder {

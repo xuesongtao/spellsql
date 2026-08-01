@@ -19,7 +19,7 @@ type Select struct {
 
 	groupBys   []string // GROUP BY
 	havingStr  string   // HAVING 条件
-	havingArgs []interface{}
+	havingArgs []any
 	orderBys   []string // ORDER BY
 	limit      int
 	offset     int
@@ -146,7 +146,7 @@ func (s *Select) OrderByDesc(col string) *Select {
 // Limit 设置分页
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
-func (s *Select) Limit(page, size interface{}) *Select {
+func (s *Select) Limit(page, size any) *Select {
 	sizeInt, offsetInt := utils.GetOffset(page, size)
 	s.limit = int(sizeInt)
 	s.offset = int(offsetInt)
@@ -163,9 +163,9 @@ func (s *Select) GroupBy(cols ...string) *Select {
 	return s
 }
 
-func (s *Select) Having(having string, args ...interface{}) *Select {
+func (s *Select) Having(having string, args ...any) *Select {
 	if s.havingArgs == nil {
-		s.havingArgs = make([]interface{}, 0, len(args))
+		s.havingArgs = make([]any, 0, len(args))
 	}
 	s.havingStr = having
 	s.havingArgs = append(s.havingArgs, args...)
@@ -195,7 +195,7 @@ func (s *Select) GetNewSelectOfUntilWhere() *Select {
 	return obj
 }
 
-func (s *Select) GetTotalNoParseSql2Args() (string, []interface{}) {
+func (s *Select) GetTotalNoParseSql2Args() (string, []any) {
 	tmpBuf := internal.GetTmpBuf(s.len())
 	defer internal.PutTmpBuf(tmpBuf)
 
@@ -238,7 +238,7 @@ func (s *Select) GetTotalSqlStr() string {
 	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Parse().Result()
 }
 
-func (s *Select) GetTotalSql2Args() (string, []interface{}) {
+func (s *Select) GetTotalSql2Args() (string, []any) {
 	sqlStr, args := s.GetTotalNoParseSql2Args()
 	pl := dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Replace()
 	return pl.Result(), pl.Args()

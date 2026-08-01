@@ -14,8 +14,8 @@ import (
 )
 
 // Slice2Interfaces 切片转 interfaces
-func Slice2Interfaces(l int, to func(i int) interface{}) []interface{} {
-	res := make([]interface{}, l)
+func Slice2Interfaces(l int, to func(i int) any) []any {
+	res := make([]any, l)
 	for i := 0; i < l; i++ {
 		res[i] = to(i)
 	}
@@ -24,7 +24,7 @@ func Slice2Interfaces(l int, to func(i int) interface{}) []interface{} {
 
 // Insert 提交, 支持批量提交
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) Insert(insertObjs ...interface{}) *Table {
+func (t *Table) Insert(insertObjs ...any) *Table {
 	// 默认插入全量字段
 	if _, err := t.insert(internal.INSERT, nil, insertObjs...); err != nil {
 		// sLog.Error(t.ctx, err)
@@ -34,14 +34,13 @@ func (t *Table) Insert(insertObjs ...interface{}) *Table {
 	return t
 }
 
-// InsertOfFields 批量新增, 指定新增列
 // Deprecated: InsertOfColumns 代替
-func (t *Table) InsertOfFields(cols []string, insertObjs ...interface{}) *Table {
+func (t *Table) InsertOfFields(cols []string, insertObjs ...any) *Table {
 	return t.InsertOfColumns(cols, insertObjs...)
 }
 
 // InsertOfColumns 批量新增, 指定新增列
-func (t *Table) InsertOfColumns(cols []string, insertObjs ...interface{}) *Table {
+func (t *Table) InsertOfColumns(cols []string, insertObjs ...any) *Table {
 	if _, err := t.insert(internal.INSERT, cols, insertObjs...); err != nil {
 		// sLog.Error(t.ctx, err)
 		t.err = err
@@ -50,7 +49,7 @@ func (t *Table) InsertOfColumns(cols []string, insertObjs ...interface{}) *Table
 	return t
 }
 
-func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...interface{}) ([]string, error) {
+func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...any) ([]string, error) {
 	if len(insertObjs) == 0 {
 		return nil, errors.New("insertObjs is empty")
 	}
@@ -90,7 +89,7 @@ func (t *Table) insert(opType internal.OpType, cols []string, insertObjs ...inte
 }
 
 // getNeedCols 获取需要 cols
-func (t *Table) getNeedCols(src interface{}, cols []string) map[string]bool {
+func (t *Table) getNeedCols(src any, cols []string) map[string]bool {
 	if len(cols) == 0 {
 		cols = t.GetSafeCols(src) // 获取全量字段
 	}
@@ -104,14 +103,14 @@ func (t *Table) getNeedCols(src interface{}, cols []string) map[string]bool {
 
 // InsertODKU insert 主键冲突更新
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) InsertODKU(insertObj interface{}, keys ...string) *Table {
-	return t.InsertsODKU([]interface{}{insertObj}, keys...)
+func (t *Table) InsertODKU(insertObj any, keys ...string) *Table {
+	return t.InsertsODKU([]any{insertObj}, keys...)
 }
 
 // InsertsODKU insert 主键冲突更新批量
 // 如果要排除其他可以调用 Exclude 方法自定义排除
 // keys 为需要更新的列, 如果不传则默认更新所有列
-func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
+func (t *Table) InsertsODKU(insertObjs []any, keys ...string) *Table {
 	if _, err := t.insert(internal.INSERT_ON_DUPLICATE, nil, insertObjs...); err != nil {
 		// sLog.Error(t.ctx, err)
 		t.err = err
@@ -122,20 +121,20 @@ func (t *Table) InsertsODKU(insertObjs []interface{}, keys ...string) *Table {
 }
 
 // AppendSql 对 sql 进行自定义追加
-func (t *Table) AppendSql(sqlStr string, args ...interface{}) *Table {
+func (t *Table) AppendSql(sqlStr string, args ...any) *Table {
 	t.builder.AppendSql2Args(sqlStr, args...)
 	return t
 }
 
 // InsertIg insert ignore into xxx  新增忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) InsertIg(insertObj interface{}) *Table {
+func (t *Table) InsertIg(insertObj any) *Table {
 	return t.InsertsIg(insertObj)
 }
 
 // InsertsIg insert ignore into xxx  新增批量忽略
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
+func (t *Table) InsertsIg(insertObjs ...any) *Table {
 	if _, err := t.insert(internal.INSERT_IGNORE, nil, insertObjs...); err != nil {
 		// sLog.Error(t.ctx, err)
 		t.err = err
@@ -146,7 +145,7 @@ func (t *Table) InsertsIg(insertObjs ...interface{}) *Table {
 
 // InsertsRp insert replace into xxx  新增批量替换
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) InsertsRp(insertObjs ...interface{}) *Table {
+func (t *Table) InsertsRp(insertObjs ...any) *Table {
 	if _, err := t.insert(internal.INSERT_REPLACE, nil, insertObjs...); err != nil {
 		// sLog.Error(t.ctx, err)
 		t.err = err
@@ -157,7 +156,7 @@ func (t *Table) InsertsRp(insertObjs ...interface{}) *Table {
 
 // Delete 会以对象中有值得为条件进行删除
 // 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) Delete(deleteObj ...interface{}) *Table {
+func (t *Table) Delete(deleteObj ...any) *Table {
 	if len(deleteObj) > 0 {
 		columns, values, err := t.getHandleTableCol2Val(deleteObj[0], internal.DELETE, nil)
 		if err != nil {
@@ -187,13 +186,13 @@ func (t *Table) Delete(deleteObj ...interface{}) *Table {
 }
 
 // DeleteWhere 根据条件删除
-func (t *Table) DeleteWhere(where string, args ...interface{}) *Table {
+func (t *Table) DeleteWhere(where string, args ...any) *Table {
 	return t.Delete().Where(where, args...)
 }
 
 // Update 会更新输入的值
 // 默认排除更新主键, 如果要排除其他可以调用 Exclude 方法自定义排除
-func (t *Table) Update(updateObj interface{}, where string, args ...interface{}) *Table {
+func (t *Table) Update(updateObj any, where string, args ...any) *Table {
 	columns, values, err := t.getHandleTableCol2Val(updateObj, internal.UPDATE, nil)
 	if err != nil {
 		// sLog.Error(t.ctx, "getHandleTableCol2Val is failed, err:", err)
@@ -218,7 +217,7 @@ func (t *Table) Update(updateObj interface{}, where string, args ...interface{})
 
 // getHandleTableCol2Val 用于Insert/Delete/Update时, 解析结构体中对应列名和值
 // 从对象中以 tag 做为 key, 值作为 value, 同时 key 会过滤掉不是表的字段名
-func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[string]bool) (columns []string, values []interface{}, err error) {
+func (t *Table) getHandleTableCol2Val(v any, op uint8, needCols map[string]bool) (columns []string, values []any, err error) {
 	oldTv := reflect.ValueOf(v)
 	tv := utils.RemoveValuePtr(oldTv)
 	if tv.Kind() != reflect.Struct {
@@ -233,7 +232,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 	ty := tv.Type()
 	fieldNum := ty.NumField()
 	columns = make([]string, 0, fieldNum)
-	values = make([]interface{}, 0, fieldNum)
+	values = make([]any, 0, fieldNum)
 	for i := 0; i < fieldNum; i++ {
 		col, tag, needMarshal := t.parseStructField(ty.Field(i), sureMarshal)
 		if utils.Null(col) {
@@ -307,7 +306,7 @@ func (t *Table) getHandleTableCol2Val(v interface{}, op uint8, needCols map[stri
 }
 
 // ParseCol2Val 根据对象解析表的 col 和 val
-func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interface{}, error) {
+func (t *Table) ParseCol2Val(src any, op ...uint8) ([]string, []any, error) {
 	defaultOp := internal.INSERT
 	if len(op) > 0 {
 		defaultOp = op[0]
@@ -320,7 +319,7 @@ func (t *Table) ParseCol2Val(src interface{}, op ...uint8) ([]string, []interfac
 }
 
 // GetSafeCols 获取安全的列, 如果没有设置表名, 则会根据对象解析表名
-func (t *Table) GetSafeCols(src interface{}, skipCols ...string) []string {
+func (t *Table) GetSafeCols(src any, skipCols ...string) []string {
 	if t.name == "" {
 		t.initTableName(reflect.ValueOf(src))
 	}

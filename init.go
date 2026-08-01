@@ -32,8 +32,8 @@ var (
 	cacheStructType2StructFieldMap = utils.NewLRU() // 缓存结构体 reflect.Type 对应的 field 信息, key: struct 的 reflect.Type, value: map[colName]structField
 
 	// 常用就缓存下
-	cacheNullString = sync.Pool{New: func() interface{} { return new(sql.NullString) }}
-	cacheNullInt64  = sync.Pool{New: func() interface{} { return new(sql.NullInt64) }}
+	cacheNullString = sync.Pool{New: func() any { return new(sql.NullString) }}
+	cacheNullInt64  = sync.Pool{New: func() any { return new(sql.NullInt64) }}
 
 	// null 类型
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})

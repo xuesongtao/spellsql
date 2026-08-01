@@ -8,7 +8,7 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/test"
 )
 
-func myPrint(v interface{}, isStruct bool) {
+func myPrint(v any, isStruct bool) {
 	if !isStruct {
 		fmt.Println(v)
 		return
@@ -30,7 +30,7 @@ func ExampleFindAll() {
 		res   = make([]*ManCopy, 0, 10)
 	)
 	_ = table.Count(&total)
-	_ = table.FindAll(&res, func(_row interface{}) error {
+	_ = table.FindAll(&res, func(_row any) error {
 		v := _row.(*ManCopy)
 		if v.Id == 1 {
 			v.Name = "被修改为 test"
@@ -193,7 +193,7 @@ func ExampleSelectFindOne() {
 func ExampleSelectFindOneFn() {
 	InitTestMain(&testing.T{})
 	var m test.Man
-	_ = SelectFindOneFn(db, "name,age", "man", "id=1", &m, func(_row interface{}) error {
+	_ = SelectFindOneFn(db, "name,age", "man", "id=1", &m, func(_row any) error {
 		v := _row.(*test.Man)
 		v.Name = "被修改了哦"
 		return nil
@@ -208,7 +208,7 @@ func ExampleSelectFindOneFn() {
 func ExampleSelectFindOneIgnoreResult() {
 	var m test.Man
 	var idMap = make(map[int32]string, 10)
-	_ = SelectFindOneIgnoreResult(db, "id,name", "man", "id<10", &m, func(_row interface{}) error {
+	_ = SelectFindOneIgnoreResult(db, "id,name", "man", "id<10", &m, func(_row any) error {
 		v := _row.(*test.Man)
 		idMap[v.Id] = v.Name
 		return nil

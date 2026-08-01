@@ -208,7 +208,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
-		if !test.Equal(args, []interface{}{}) {
+		if !test.Equal(args, []any{}) {
 			t.Error(test.NoEqErr)
 		}
 	})
@@ -224,7 +224,7 @@ func TestNewCacheSql_Select(t *testing.T) {
 		if !test.Equal(sqlStr, sureSql) {
 			t.Error(test.NoEqErr)
 		}
-		if !test.Equal(args, []interface{}{}) {
+		if !test.Equal(args, []any{}) {
 			t.Error(test.NoEqErr)
 		}
 	})

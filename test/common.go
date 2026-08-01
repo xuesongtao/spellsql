@@ -32,7 +32,7 @@ type Tmp struct {
 	Data string `json:"data,omitempty" xml:"data"`
 }
 
-func StructValEqual(dest, src interface{}) bool {
+func StructValEqual(dest, src any) bool {
 	destVal := reflect.ValueOf(dest)
 	srcVal := reflect.ValueOf(src)
 	if destVal.NumField() != srcVal.NumField() {
@@ -48,7 +48,7 @@ func StructValEqual(dest, src interface{}) bool {
 	return true
 }
 
-func Equal(dest, src interface{}) bool {
+func Equal(dest, src any) bool {
 	ok := reflect.DeepEqual(dest, src)
 	if !ok {
 		fmt.Printf("dest: %v\n", dest)

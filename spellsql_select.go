@@ -40,22 +40,22 @@ func (s *SqlStrObj) SetRightJoin(tableName string, on string) *SqlStrObj {
 // SetWhere 设置过滤条件, 连接符为 AND
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SqlStrObj) SetWhere(fieldName string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetWhere(fieldName string, args ...any) *SqlStrObj {
 	return s.setWhere(internal.SELECT, fieldName, args...)
 }
 
 // SetOrWhere 设置过滤条件, 连接符为 OR
 // 如果 len = 1 的时候, 会拼接成: filed = arg
 // 如果 len = 2 的时候, 会拼接成: filed arg[0] arg[1]
-func (s *SqlStrObj) SetOrWhere(fieldName string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetOrWhere(fieldName string, args ...any) *SqlStrObj {
 	return s.setWhere(internal.SELECT_OR, fieldName, args...)
 }
 
 // setWhere 转换参数
-func (s *SqlStrObj) setWhere(opType internal.OpType, fieldName string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) setWhere(opType internal.OpType, fieldName string, args ...any) *SqlStrObj {
 	argsLen := len(args)
 	if argsLen == 0 {
-		args = []interface{}{internal.NULL}
+		args = []any{internal.NULL}
 	}
 
 	// 默认操作符为 "="
@@ -124,14 +124,14 @@ func (s *SqlStrObj) SetAllLike(fieldName string, val string) *SqlStrObj {
 }
 
 // SetBetween 设置 BETWEEN ? AND ?
-func (s *SqlStrObj) SetBetween(fieldName string, leftVal, rightVal interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetBetween(fieldName string, leftVal, rightVal any) *SqlStrObj {
 	return s.SetWhereArgs("(?v BETWEEN ? AND ?)", fieldName, leftVal, rightVal)
 }
 
 // SetWhereArgs 支持占位符
 // 如: SetWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx AND "username = "test" AND password = 123
-func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...any) *SqlStrObj {
 	builder.WhereCb(s.builder, func(wb *builder.Where) {
 		wb.And(sqlStr, args...)
 	})
@@ -141,7 +141,7 @@ func (s *SqlStrObj) SetWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj 
 // SetOrWhereArgs 支持占位符
 // 如: SetOrWhereArgs("username = ? AND password = ?d", "test", "123")
 // => xxx OR "username = "test" AND password = 123
-func (s *SqlStrObj) SetOrWhereArgs(sqlStr string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetOrWhereArgs(sqlStr string, args ...any) *SqlStrObj {
 	builder.WhereCb(s.builder, func(wb *builder.Where) {
 		wb.Or(" "+sqlStr, args...)
 	})
@@ -159,14 +159,14 @@ func (s *SqlStrObj) SetOrderByStr(orderByStr string) *SqlStrObj {
 
 // GetOffset 根据分页获取 offset
 // 注: page, size 只支持 int 系列类型
-func (s *SqlStrObj) GetOffset(page, size interface{}) (int64, int64) {
+func (s *SqlStrObj) GetOffset(page, size any) (int64, int64) {
 	return utils.GetOffset(page, size)
 }
 
 // SetLimit 设置分页
 // page 从 1 开始
 // 注: page, size 只支持 int 系列类型
-func (s *SqlStrObj) SetLimit(page, size interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetLimit(page, size any) *SqlStrObj {
 	s.getSelectBuilder().Limit(page, size)
 	return s
 }
@@ -178,7 +178,7 @@ func (s *SqlStrObj) SetGroupByStr(groupByStr string) *SqlStrObj {
 }
 
 // SetHaving 设置 Having
-func (s *SqlStrObj) SetHaving(having string, args ...interface{}) *SqlStrObj {
+func (s *SqlStrObj) SetHaving(having string, args ...any) *SqlStrObj {
 	s.getSelectBuilder().Having(having, args...)
 	return s
 }
