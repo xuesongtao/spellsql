@@ -183,21 +183,22 @@ _ = NewTable(db).Delete(User{Id: 1}).Exec()
 
 该项目结构清晰，主要分为以下几个核心模块：
 
-- **`builder/`**: SQL 语法构建核心。
+- **`builder/`**: SQL 语法构建核心(推荐使用进行sql拼接)。
   - 包含 `Insert`, `Delete`, `Update`, `Select` 和 `Where` 的构建逻辑。
   - 使用 `Builder` 模式将参数安全地拼接成 SQL 字符串。
 - **`dialect/`**: 数据库方言适配器。
   - 定义了 `Dialect` 接口，支持 MySQL 和 PostgreSQL。
   - 负责处理特定数据库的语法差异（如占位符、转义字符、LIMIT 语法）。
-- **`orm_*`**: 对象关系映射层。
-  - 提供了 `NewTable`, `Insert`, `Update`, `Delete`, `Select` 等高级 API。
-  - 自动处理 `struct` 到 `table` 的映射，支持自定义 Tag 和序列化。
 - **`internal/`**: 内部工具包。
   - **Cache**: 使用 LRU 算法缓存表结构信息，提高反射性能。
   - **Scan**: 高效处理数据库返回的 `NULL` 类型（`sql.NullString`, `sql.NullInt64` 等）。
   - **Escape**: SQL 字符转义处理。
 - **`utils/`**: 通用工具函数。
   - 包含字符串处理、切片去重、类型转换等辅助函数。
+- **`orm_*`**: 对象关系映射层。
+  - 提供了 `NewTable`, `Insert`, `Update`, `Delete`, `Select` 等高级 API。
+  - 自动处理 `struct` 到 `table` 的映射，支持自定义 Tag 和序列化。
+- **`spellsql_*`**: 轻量级 ORM 模块，封装了常用的 CRUD 操作。
 
 ## 其他功能
 
