@@ -1,376 +1,219 @@
-# [spellsql](https://gitee.com/xuesongtao/spellsql/v2)
 
-#### 🚀🚀🚀 项目背景
 
-* 公司选择了一波 `orm` 框架, 大多数框架都比较重, 重和性能相互, 最终放弃 `orm`;
-* 决定用原生 `database/sql`, 优势: 性能好, bug容易定位, 使用成本低等; 劣势: 代码拼接, 代码量很多, NULL处理等;
+# Spellsql
 
-* 为了解决 `sql` 拼接实现了 `spellsql`:
-    > 1.使用 `sync.Pool`, `strings.Builder` 等提高 `sql` 拼接工具的性能  
-    > 2.💯覆盖使用场景  
-    > 3.支持 可控打印 `sql` 最终的 `log`; 非法字符自动转义; 支持格式化 `sql` 等  
+🚀🚀🚀 **Spellsql** 是一个高性能的 SQL 生成器与轻量级 ORM 解决方案。它旨在解决原生 `database/sql` 使用繁琐的问题，同时避免大多数 ORM 框架带来的性能损耗和复杂性。
 
-* 为了解决满足性能和释放双手添加了 `orm` 功能, 支持: **mysql|pg**
-    > 1.新增/更新: 支持通过 `struct` 解析值进行操作; 支持对字段进行 **序列化** 操作; 支持设置**别名, 设置默认值**等  
-    > 2.删除: 支持通过 `struct` 解析值进行  
-    > 3.查询: 支持单表/多表查询; 支持对结果进行回调处理; 查询性能接近原生; 支持对结果映射到 `struct/map/slice/单字段`等
+## 核心特性
 
-#### 1. 使用介绍
+- **高性能**: 基于 `sync.Pool` 和 `strings.Builder` 进行 SQL 拼接，充分利用对象池减少 GC 压力。
+- **原生兼容**: 完全兼容 `database/sql` 接口，不依赖特定的数据库驱动。
+- **安全拼接**: 支持智能占位符（`?`, `?d`, `?v`），自动处理转义，有效防止 SQL 注入。
+- **轻量 ORM**: 提供简洁的结构体映射，支持单表/多表查询，性能接近原生查询。
+- **多数据库支持**: 原生支持 MySQL 和 PostgreSQL (通过 `dialect` 模块)。
 
-* 安装:  
+## 背景
 
-```go
+在公司技术选型中，大多数 ORM 框架比较重，且性能与重量成正比。为了追求极致性能（接近原生 `database/sql`）和开发效率，我们开发了 Spellsql：
+1.  提供了灵活且安全的 SQL 拼接工具。
+2.  在此基础上封装了轻量级的 ORM 功能，满足大部分业务场景的需求。
+
+## 安装
+
+```bash
 go get -u gitee.com/xuesongtao/spellsql/v2
 ```
 
-#### 2. 占位符
+## 快速开始
 
-* 目前支持占位符 `?, ?d, ?v`, 说明如下:
+### 1. 占位符使用
 
-##### 2.1 占位符 ?
+Spellsql 提供了三种占位符来满足不同的 SQL 拼接需求：
 
-* 直接根据 args 中类型来自动推动 arg 的类型, 使用如下:
+*   **`?`**: 直接根据参数类型自动填充。
+    ```go
+    // 自动推导类型
+    sql := NewCacheSql("SELECT * FROM user WHERE name = ? AND age = ?", "test", 20).GetSqlStr()
+    // => SELECT * FROM user WHERE name = "test" AND age = 20
+    
+    // 支持切片展开
+    sql := NewCacheSql("SELECT * FROM user WHERE id IN (?)", []int{1, 2, 3}).GetSqlStr()
+    // => SELECT * FROM user WHERE id IN (1,2,3)
+    ```
 
-1.第一种用法: 根据 args 中类型来自动推动 arg 的类型  
+*   **`?d`**: 将数字型字符串转为数字，其他类型转义为 0。常用于表名或明确的数字字段。
+    ```go
+    sql := NewCacheSql("SELECT * FROM user WHERE id = ?d", "123").GetSqlStr()
+    // => SELECT * FROM user WHERE id = 123
+    ```
+
+*   **`?v`**: 原样输出字符串（不加引号），适用于表名、列名或子查询。
+    ```go
+    // 危险！请确保参数完全可控
+    sql := NewCacheSql("SELECT * FROM ?v WHERE id = ?d", "my_table", "100").GetSqlStr()
+    // => SELECT * FROM my_table WHERE id = 100
+    ```
+    > ⚠️ **注意**: `?v` 不会进行转义处理，请勿直接用于外部用户输入，以避免 SQL 注入风险。
+
+### 2. 基础 CRUD (SQL 构建器)
+
+#### 插入 (Insert)
 
 ```go
-如: NewCacheSql("SELECT username, password FROM sys_user WHERE username = ? AND password = ?", "test", 123).GetSqlStr()
-=> SELECT username, password FROM sys_user WHERE username = "test" AND password = 123
-```
-
-2.第二种用法: 当 arg 为 []int8/int 等
-  
-```go  
-如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?)", []int{1, 2, 3}).GetSqlStr()
-=> SELECT username, password FROM sys_user WHERE id IN (1,2,3)
-```
-
-##### 2.2 占位符 ?d
-
-* 只会把数字型的字符串转为数字型, 如果是字母的话会被转义为 **0**, 如: `"123" => 123`; `[]string{"1", "2", "3"} => 1,2,3`, 如下:
-第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个  
-
-```go  
-如: NewCacheSql("SELECT username, password FROM sys_user WHERE id = ?d", "123").GetSqlStr()
-=> SELECT username, password FROM sys_user WHERE id = 123
-```
-
-第二种用法: 当 arg 为 []string, 又想把解析后的单个元素不加引号  
-
-```go  
-如: NewCacheSql("SELECT username, password FROM sys_user WHERE id IN (?d)", []string{"1", "2", "3"}).GetSqlStr()
-=> SELECT username, password FROM sys_user WHERE id IN (1,2,3)
-```
-
-##### 2.3 占位符为: ?v
-
-* 这样会让字符串类型不加引号, 原样输出, 如: "test" => test;
-第一种用法: 当 arg 为字符串时, 又想不加双引号就用这个, 注: 只支持 arg 为字符串类型  
-
-```go  
-如: NewCacheSql("SELECT username, password FROM ?v WHERE id = ?d", "sys_user", "123").GetSqlStr()
-=> SELECT username, password FROM sys_user WHERE id = 123
-```
-
-第二种用法: 子查询  
-
-```go  
-如: NewCacheSql("SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (?v)", FmtSqlStr("SELECT id FROM user WHERE name=?", "test").GetSqlStr()
-=> SELECT u.username, u.password FROM sys_user su LEFT JOIN user u ON su.id = u.id WHERE u.id IN (SELECT id FROM user WHERE name="test");
-```
-
-* **注:** 由于 `?v` 这种不会进行转义处理, 所有这种不推荐直接用于请求输入(外部非法输入)的内容, 会出现 **SQL 注入风险**; 当我们明确知道参数是干什么的可以使用会简化我们代码, 这里就不进行演示.
-
-#### 3. spellsql 使用
-
-* 可以参考 `getsqlstr_test.go` 和 `example_spellsql_test.go` 里的测试方法
-
-##### 3.1 新增  
-
-```go  
-s := NewCacheSql("INSERT INTO sys_user (username, password, name)")
-s.SetInsertValues("xuesongtao", "123456", "阿桃")
-s.SetInsertValues("xuesongtao", "123456", "阿桃")
-s.GetSqlStr()
-
-// Output:
-// INSERT INTO sys_user (username, password, name) VALUES ("test", 123456, "阿涛"), ("xuesongtao", "123456", "阿桃"), ("xuesongtao", "123456", "阿桃");
-```
-
-##### 3.2 删除  
-
-```go  
-s := NewCacheSql("DELETE FROM sys_user WHERE id = ?", 123)
-if true {
-    s.SetWhere("name", "test")
-}
+s := NewCacheSql("INSERT INTO sys_user (username, password)")
+s.SetInsertValues("xuesongtao", "123456")
+s.SetInsertValues("admin", "654321")
 s.GetSqlStr()
 // Output:
-// DELETE FROM sys_user WHERE id = 123 AND name = "test";
+// INSERT INTO sys_user (username, password) VALUES ("xuesongtao", "123456"), ("admin", "654321");
 ```
 
-##### 3.3 查询  
+#### 查询 (Select)
 
-```go  
+```go
 s := NewCacheSql("SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id")
-s.SetOrWhere("u.name", "xue")
-s.SetOrWhereArgs("(r.id IN (?d))", []string{"1", "2"})
-s.SetWhere("u.age", ">", 20)
-s.SetWhereArgs("u.addr = ?", "南部")
-s.GetTotalSqlStr()
-s.SetLimit(1, 10)
+s.SetWhere("u.age > ?", 18)
+s.SetOrWhere("u.status = ?", 1)
+s.GetTotalSqlStr() // 获取统计 SQL
+s.SetLimit(0, 10)
 s.GetSqlStr()
-
 // Output:
-// sqlTotalStr: SELECT COUNT(*) FROM user u LEFT JOIN role r ON u.id = r.user_id WHERE u.name = "xue" OR (r.id IN (1,2)) AND u.age > 20 AND u.addr = "南部";
-// sqlStr: SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id WHERE u.name = "xue" OR (r.id IN (1,2)) AND u.age > 20 AND u.addr = "南部" LIMIT 0, 10;
+// SELECT COUNT(*) FROM user u LEFT JOIN role r ON u.id = r.user_id WHERE u.age > 18 OR u.status = 1;
+// SELECT * FROM user u LEFT JOIN role r ON u.id = r.user_id WHERE u.age > 18 OR u.status = 1 LIMIT 0, 10;
 ```
 
-##### 3.4 修改  
+#### 更新 (Update)
 
-```go  
+```go
 s := NewCacheSql("UPDATE sys_user SET")
-idsStr := []string{"1", "2", "3", "4", "5"}
-s.SetUpdateValue("name", "xue")
-s.SetUpdateValueArgs("age = ?, score = ?", 18, 90.5)
-s.SetWhereArgs("id IN (?d) AND name = ?", idsStr, "tao")
+s.SetUpdateValue("login_count", 1)
+s.SetUpdateValueArgs("last_login = ?", time.Now())
+s.SetWhereArgs("id = ?", 123)
 s.GetSqlStr()
-
 // Output:
-// UPDATE sys_user SET name = "xue", age = 18, score = 90.50 WHERE id IN (1,2,3,4,5) AND name = "tao";
+// UPDATE sys_user SET login_count = 1, last_login = "2023-10-27 10:00:00" WHERE id = 123;
 ```
 
-#### 3.5 追加  
+#### 删除 (Delete)
 
-```go  
-s := NewCacheSql("INSERT INTO sys_user (username, password, age)")
-s.SetInsertValuesArgs("?, ?, ?d", "xuesongtao", "123", "20")
-s.Append("ON DUPLICATE KEY UPDATE username=VALUES(username)")
+```go
+s := NewCacheSql("DELETE FROM sys_user")
+s.SetWhere("status = ?", -1)
 s.GetSqlStr()
-
 // Output:
-// INSERT INTO sys_user (username, password, age) VALUES ("xuesongtao", "123", 20) ON DUPLICATE KEY UPDATE username=VALUES(username);
+// DELETE FROM sys_user WHERE status = -1;
 ```
 
-##### 3.6 复用
+### 3. ORM 功能 (对象关系映射)
 
-* 1.  `NewCacheSql()` 获取的对象在调用 `GetSqlStr()` 后会重置并放入内存池, 是不能对结果进行再进行 `GetSqlStr()`, 当然你是可以对结果作为 `NewCacheSql()` 的入参进行使用以此达到复用, 这样代码看起来不是多优雅, 分页处理案例如下:  
+Spellsql 提供了一个轻量级的 ORM 模块 `spellsql_orm`，用于将数据库记录映射到 Go 结构体。
 
-```go  
-sqlObj := NewCacheSql("SELECT * FROM user_info WHERE status = 1")
-handleFn := func(obj *SqlStrObj, page, size int32) {
-    // 业务代码
-    fmt.Println(obj.SetLimit(page, size).SetPrintLog(false).GetSqlStr())
-}
+#### 定义结构体
 
-// 每次同步大小
-var (
-    totalNum int32 = 30
-    page int32 = 1
-    size int32 = 10
-    totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
-)
-
-sqlStr := sqlObj.SetPrintLog(false).GetSqlStr("", "")
-for page <= totalPage {
-    handleFn(NewCacheSql(sqlStr), page, size)
-    page++
-}
-
-// Output:
-// SELECT * FROM user_info WHERE u_status = 1 LIMIT 0, 10;
-// SELECT * FROM user_info WHERE u_status = 1 LIMIT 10, 10;
-// SELECT * FROM user_info WHERE u_status = 1 LIMIT 20, 10;
-```
-
-* `NewSql()` 的产生的对象不会放入内存池, 可以进行多次调用 `GetSqlStr()`, 对应上面的示例可以使用 `NewSql()` 再调用 `Clone()` 进行处理, 如下:  
-
-```go  
-sqlObj := NewSql("SELECT u_name, phone, account_id FROM user_info WHERE u_status = 1")
-handleFn := func(obj *SqlStrObj, page, size int32) {
-    // 业务代码
-    fmt.Println(obj.SetLimit(page, size).SetPrintLog(false).GetSqlStr())
-}
-
-// 每次同步大小
-var (
-    totalNum int32 = 30
-    page int32 = 1
-    size int32 = 10
-    totalPage int32 = int32(math.Ceil(float64(totalNum / size)))
-)
-
-for page <= totalPage {
-    handleFn(sqlObj.Clone(), page, size)
-    page++
-}
-
-// Output:
-// SELECT * FROM user_info WHERE u_status = 1 LIMIT 0, 10;
-// SELECT * FROM user_info WHERE u_status = 1 LIMIT 10, 10;
-// SELECT * FROM user_info WHERE u_status = 1 LIMIT 20, 10;
-```
-
-#### 4 orm使用介绍
-
-* `spellsql_orm` 能够高效的处理单表 `CURD`. 在查询方面的性能接近原生(orm_test.go 里有测试数据), 可以在 `dev` 分支上测试
-* 支持自定义 `tag`, 默认 `json`  
-
-```go  
-type Man struct {
-    Id int32 `json:"id,omitempty"`
-    Name string `json:"name,omitempty"`
-    Age int32 `json:"age,omitempty"`
-    Addr string `json:"addr,omitempty"`
-}
-
-```
-
-##### 4.1 新增  
-
-```go  
-m := Man{
-    Name: "xue1234",
-    Age: 18,
-    Addr: "成都市",
-}
-
-// 1
-rows, _ = InsertForObj(db, "man", m)
-t.Log(rows.LastInsertId())
-
-// 3
-sqlObj := NewCacheSql("INSERT INTO man (name,age,addr) VALUES (?, ?, ?)", m.Name, m.Age, m.Addr)
-rows, _ = ExecForSql(db, sqlObj)
-t.Log(rows.LastInsertId())
-```
-
-##### 4.2 删除  
-
-```go  
-m := Man{
-    Id: 9,
-}
-
-// 1
-rows, _ := NewTable(db).Delete(m).Exec()
-t.Log(rows.LastInsertId())
-
-// 2
-rows, _ = DeleteWhere(db, "man", "id=?", 9)
-t.Log(rows.LastInsertId())
-
-// 3
-sqlObj := NewCacheSql("DELETE FROM man WHERE id=?", 9)
-rows, _ = ExecForSql(db, sqlObj)
-t.Log(rows.LastInsertId())
-```
-
-##### 4.3 修改  
-
-```go  
-m := Man{
-    Name: "xue12",
-    Age: 20,
-    Addr: "测试",
-}
-
-// 1
-rows, _ := NewTable(db).Update(m, "id=?", 7).Exec()
-t.Log(rows.LastInsertId())
-
-// 2
-sqlObj := NewCacheSql("UPDATE man SET name=?,age=?,addr=? WHERE id=?", m.Name, m.Age, m.Addr, 7)
-rows, _ = ExecForSql(db, sqlObj)
-t.Log(rows.LastInsertId())
-```
-
-##### 4.4 查询
-
-###### 4.4.1 单查询  
-
-```go  
-var m Man
-// 1
-_ = NewTable(db, "man").Select("name,age").Where("id=?", 1).FindOne(&m)
-t.Log(m)
-
-// 2
-_ = NewTable(db).SelectAuto("name,age", "man").Where("id=?", 1).FindOne(&m)
-t.Log(m)
-
-// 3
-_ = FindOne(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m)
-t.Log(m)
-
-// 4, 对查询结果进行内容修改
-_ = FindOneFn(db, NewCacheSql("SELECT name,age FROM man WHERE id=?", 1), &m, func(_row interface{}) error {
-    v := _row.(*Man)
-    v.Name = "被修改了哦"
-    v.Age = 100000
-    return nil
-})
-t.Log(m)
-
-// 5
-_ = FindWhere(db, "man", &m, "id=?", 1)
-t.Log(m)
-
-// 6
-var b map[string]string
-_ = FindWhere(db, "man", &b, "id=?", 1)
-t.Log(b)
-```
-
-* 查询结果支持: `struct`, `map`, `单字段`
-* 数据库返回的 `NULL` 类型, 不需要处理, `orm` 会自行处理, 如果传入空类型值会报错(如: sql.NullString)
-
-###### 4.4.2 多条记录查询
-
-```go  
-var m []*Man
-err := NewTable(db, "man").Select("id,name,age,addr").Where("id>?", 1).FindAll(&m, func(_row interface{}) error {
-    v := _row.(*Man)
-    if v.Id == 5 {
-        v.Name = "test"
-    }
-    fmt.Println(v.Id, v.Name, v.Age)
-    return nil
-})
-if err != nil {
-    t.Fatal(err)
-}
-t.Logf("%+v", m)
-```
-
-* 查询结果支持的切片类型: `struct`, `map`, `单字段`
-* 数据库返回的 `NULL` 类型, 不需要处理, `orm` 会自行处理, 如果传入空类型值会报错(如: sql.NullString)
-
-###### 4.4.3 别名查询
-
-```go  
-type Tmp struct {
-    Name1 string `json:"name_1,omitempty"`
-    Age1 int32 `json:"age_1,omitempty"`
-}
-
-var m Tmp
-err := NewTable(db).
-TagAlias(map[string]string{"name_1": "name", "age_1": "age"}).
-Select("name,age").
-From("man").
-FindWhere(&m, "id=?", 1)
-if err != nil {
-    t.Fatal(err)
+```go
+type User struct {
+    Id      int32  `json:"id,omitempty"`
+    Name    string `json:"name,omitempty"`
+    Age     int32  `json:"age,omitempty"`
+    Address string `json:"address,omitempty"`
 }
 ```
 
-###### 4.4.3 其他
+#### 插入数据
 
-* 使用可以参考 `orm_test.go` 和 `example_orm_test.go`
-* 在连表查询时, 如果两个表的列名相同查询结果会出现错误, 我们可以通过根据别名来区分, 或者直接调用 `Query` 来自行对结果进行处理(注: 调用 `Query` 时需要处理 `Null` 类型)
+```go
+// 方式一：自动解析结构体
+user := User{Name: "test", Age: 20}
+rows, err := InsertForObj(db, "user_table", user)
 
-#### 其他
+// 方式二：使用构建器
+sqlObj := NewCacheSql("INSERT INTO user_table (name, age) VALUES (?, ?)", user.Name, user.Age)
+rows, err := ExecForSql(db, sqlObj)
+```
 
-* 欢迎大佬们指正, 希望大佬给❤️，to [gitee](https://gitee.com/xuesongtao/spellsql) [github](https://github.com/xuesongtao/spellsql)
-* 在线 SQL 转 GO [gotool](https://gotool.top): sql to gorm/xorm/ent/struct; json to struct
+#### 查询数据
+
+**单条查询:**
+
+```go
+var user User
+// 自动映射到结构体
+err := NewTable(db, "user_table").
+    Select("id, name, age").
+    Where("id = ?", 1).
+    FindOne(&user)
+
+// 如果字段名与数据库不一致，可以使用 TagAlias
+```
+
+**多条查询:**
+
+```go
+var users []*User
+err := NewTable(db, "user_table").
+    Where("age > ?", 18).
+    FindAll(&users, func(row interface{}) error {
+        u := row.(*User)
+        // 可选：在此处修改查询结果（闭包回调）
+        return nil
+    })
+```
+
+**高级查询 (原SQL映射):**
+
+```go
+var userMap map[string]interface{}
+sqlObj := NewCacheSql("SELECT name, age FROM user WHERE id = ?", 1)
+err := FindOne(db, sqlObj, &userMap)
+```
+
+#### 更新与删除
+
+```go
+// 更新
+user := User{Id: 1, Name: "updated_name"}
+_ = NewTable(db).Update(user, "id=?", 1).Exec()
+
+// 删除
+_ = NewTable(db).Delete(User{Id: 1}).Exec()
+```
+
+## 项目结构
+
+该项目结构清晰，主要分为以下几个核心模块：
+
+*   **`builder/`**: SQL 语法构建核心。
+    *   包含 `Insert`, `Delete`, `Update`, `Select` 和 `Where` 的构建逻辑。
+    *   使用 `Builder` 模式将参数安全地拼接成 SQL 字符串。
+*   **`dialect/`**: 数据库方言适配器。
+    *   定义了 `Dialect` 接口，支持 MySQL 和 PostgreSQL。
+    *   负责处理特定数据库的语法差异（如占位符、转义字符、LIMIT 语法）。
+*   **`orm/`**: 对象关系映射层。
+    *   提供了 `NewTable`, `Insert`, `Update`, `Delete`, `Select` 等高级 API。
+    *   自动处理 `struct` 到 `table` 的映射，支持自定义 Tag 和序列化。
+*   **`internal/`**: 内部工具包。
+    *   **Cache**: 使用 LRU 算法缓存表结构信息，提高反射性能。
+    *   **Scan**: 高效处理数据库返回的 `NULL` 类型（`sql.NullString`, `sql.NullInt64` 等）。
+    *   **Escape**: SQL 字符转义处理。
+*   **`utils/`**: 通用工具函数。
+    *   包含字符串处理、切片去重、类型转换等辅助函数。
+
+## 进阶功能
+
+### 1. 复用与性能优化
+
+*   **`NewCacheSql`**: 生成的 SQL 对象在调用 `GetSqlStr()` 后会被重置并放入内存池，适合在循环或分页中重复创建类似 SQL 的场景，减少内存分配。
+*   **`NewSql`**: 不会放入内存池，适合需要多次修改同一个 SQL 对象的场景。
+
+### 2. Scroll Search (深分页/游标查询)
+
+项目中包含了一个 `searchafter` 模块，专门用于处理深分页场景（如 ES 的 Scroll Search），支持基于上一次查询结果的下一页拉取，避免大数据量下的 offset 性能衰减。
+
+## 致谢
+
+感谢所有开源贡献者的支持。
+
+*   **Gitee**: [https://gitee.com/xuesongtao/spellsql](https://gitee.com/xuesongtao/spellsql)
+*   **GitHub**: [https://github.com/xuesongtao/spellsql](https://github.com/xuesongtao/spellsql)
+
+欢迎大家提 Issue 或 Pull Request 共同完善该项目。
