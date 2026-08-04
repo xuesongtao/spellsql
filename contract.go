@@ -3,7 +3,9 @@ package spellsql
 import (
 	"context"
 	"reflect"
+	"time"
 
+	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
@@ -45,3 +47,9 @@ type SelectCallBackFn func(_row any) error
 type MarshalFn func(v any) ([]byte, error)
 
 type UnmarshalFn func(data []byte, v any) error
+
+type AfterHook struct {
+	St       time.Time          // 执行开始时间
+	Builder  builder.SQLBuilder // 查询 sqlBuilder
+	CallInfo []string           // 调用的位置
+}
