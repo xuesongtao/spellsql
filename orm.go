@@ -22,7 +22,7 @@ type handleStructField struct {
 	tagAlias    string      // 别名, 便于将数据库的字段映射到 struct
 	marshal     MarshalFn   // 序列化方法
 	unmarshal   UnmarshalFn // 反序列化方法
-	defaultVal  any // 默认值
+	defaultVal  any         // 默认值
 }
 
 // structField 结构体字段信息
@@ -62,6 +62,11 @@ func NewTable(db DBer, args ...string) *Table {
 	t.Reset()
 	t.initDb(db, args...)
 	return t
+}
+
+// NewTableWithCtx 创建一个带有 context 的 Table 对象
+func NewTableWithCtx(ctx context.Context, db DBer, args ...string) *Table {
+	return NewTable(db, args...).Ctx(ctx)
 }
 
 // init 初始化
