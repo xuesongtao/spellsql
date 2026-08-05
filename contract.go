@@ -3,11 +3,13 @@ package spellsql
 import (
 	"context"
 	"reflect"
+	"runtime"
 	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 const (
@@ -51,5 +53,10 @@ type UnmarshalFn func(data []byte, v any) error
 type AfterHook struct {
 	St       time.Time          // 执行开始时间
 	Builder  builder.SQLBuilder // 查询 sqlBuilder
-	CallInfo []string           // 调用的位置
+	CallInfo []string           // 调用的位置, 长度为 2, 第一个为文件名, 第二个为行号
+}
+
+func getCallInfo(skip int) []string {
+	_, file, line, _ := runtime.Caller(skip + 1)
+	return []string{file, utils.Int2Str(int64(line))}
 }

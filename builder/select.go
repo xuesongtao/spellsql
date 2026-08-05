@@ -195,42 +195,14 @@ func (s *Select) GetNewSelectOfUntilWhere() *Select {
 	return obj
 }
 
+func (s *Select) GetCountSelect() *Select {
+	obj := s.GetNewSelectOfUntilWhere()
+	obj.columns = []string{"COUNT(*)"}
+	return obj
+}
+
 func (s *Select) GetTotalNoParseSql2Args() (string, []any) {
-	tmpBuf := internal.GetTmpBuf(s.len())
-	defer internal.PutTmpBuf(tmpBuf)
-
-	sqlStr, args := s.GetNewSelectOfUntilWhere().GetNoParseSql2Args()
-	isAddCountStr := false // 标记是否添加 COUNT(*)
-	isAppend := false      // 标记是否直接添加
-	for i := 0; i < len(sqlStr); i++ {
-		v := sqlStr[i]
-
-		// 直接添加, 如果为 true 就不向下执行了
-		if isAppend {
-			tmpBuf.WriteByte(v)
-			continue
-		}
-
-		if i < 6 { // SELECT/select
-			tmpBuf.WriteByte(v)
-			continue
-		}
-
-		if !isAddCountStr {
-			tmpBuf.WriteString(" COUNT(*) ")
-			isAddCountStr = true
-		}
-
-		// 判断遇到第一个 FROM 就直接将后面所有 sql 追加到 tmpBuf
-		if v == 'f' || v == 'F' {
-			formStr := sqlStr[i : i+4]
-			if formStr == "FROM" || formStr == "from" {
-				tmpBuf.WriteByte(v)
-				isAppend = true
-			}
-		}
-	}
-	return tmpBuf.String(), args
+	return s.GetCountSelect().GetNoParseSql2Args()
 }
 
 func (s *Select) GetTotalSqlStr() string {

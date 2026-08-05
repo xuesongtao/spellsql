@@ -51,7 +51,6 @@ func TestWhereGetExecArgs(t *testing.T) {
 			t.Errorf("postgres placeholder error, got: %s", sqlStr)
 		}
 	})
-
 }
 
 func TestWhereGetSqlStr(t *testing.T) {
