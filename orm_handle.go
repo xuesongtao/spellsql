@@ -360,12 +360,16 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	st := time.Now()
+	after := &AfterHook{
+		St:       time.Now(),
+		Builder:  t.builder,
+		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+	}
 	sqlStr, args := t.builder.GetSql2Args()
 	res, err := t.db.ExecContext(t.ctx, sqlStr, args...)
 	if err != nil {
 		return res, errors.New("err:" + err.Error() + "; sqlStr:" + t.builder.GetSqlStr())
 	}
-	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
+	t.afterHook(after)
 	return res, nil
 }

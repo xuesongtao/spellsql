@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
@@ -22,7 +21,7 @@ type handleStructField struct {
 	tagAlias    string      // 别名, 便于将数据库的字段映射到 struct
 	marshal     MarshalFn   // 序列化方法
 	unmarshal   UnmarshalFn // 反序列化方法
-	defaultVal  any // 默认值
+	defaultVal  any         // 默认值
 }
 
 // structField 结构体字段信息
@@ -46,6 +45,7 @@ type Table struct {
 	builder                  builder.SQLBuilder               // 暂存 SqlStrObj 对象
 	cacheCol2InfoMap         map[string]*dialect.TableColInfo // 记录该表的所有字段名
 	waitHandleStructFieldMap map[string]*handleStructField    // 处理 struct 字段的方法, key: tag, value: 处理方法集
+	afterHook                func(ah *AfterHook)              // 执行 Query/Exec 后回调
 }
 
 // NewTable 初始化
@@ -62,6 +62,11 @@ func NewTable(db DBer, args ...string) *Table {
 	t.Reset()
 	t.initDb(db, args...)
 	return t
+}
+
+// NewTableWithCtx 创建一个带有 context 的 Table 对象
+func NewTableWithCtx(ctx context.Context, db DBer, args ...string) *Table {
+	return NewTable(db, args...).Ctx(ctx)
 }
 
 // init 初始化
@@ -91,6 +96,7 @@ func (t *Table) Reset() {
 	t.builder = nil
 	t.cacheCol2InfoMap = nil
 	t.waitHandleStructFieldMap = nil
+	t.AfterHook(globalAfterHook)
 }
 
 // Ctx 设置 context
@@ -99,6 +105,16 @@ func (t *Table) Ctx(ctx context.Context) *Table {
 		return t
 	}
 	t.ctx = ctx
+	return t
+}
+
+// AfterHook 设置执行 Query/Exec 后回调
+func (t *Table) AfterHook(f func(context.Context, *AfterHook)) *Table {
+	t.afterHook = func(ah *AfterHook) {
+		if t.isPrintSql {
+			f(t.ctx, ah)
+		}
+	}
 	return t
 }
 
@@ -505,11 +521,4 @@ func parseTableName(objName string) string {
 		res.WriteRune(v)
 	}
 	return res.String()
-}
-
-func printCostTimeLog(ctx context.Context, st time.Time, printLogStr string, printLog ...bool) {
-	cost := time.Since(st)
-	if len(printLog) > 0 && printLog[0] {
-		sLog.Info(ctx, "[cost: "+fmt.Sprintf("%.3f", float64(cost.Nanoseconds())/1e6)+"ms]", printLogStr)
-	}
 }

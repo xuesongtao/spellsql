@@ -479,9 +479,9 @@ func TestInsert(t *testing.T) {
 
 	t.Run("insert tag alias", func(t *testing.T) {
 		type Tmp struct {
-			Id    int32  `json:"id,omitempty"`
-			Name1 string `json:"name,omitempty"`
-			Age1  int32  `json:"age_1,omitempty"`
+			Id    int32    `json:"id,omitempty"`
+			Name1 string   `json:"name,omitempty"`
+			Age1  int32    `json:"age_1,omitempty"`
 			Addr1 []string `json:"addr_1,omitempty"`
 		}
 		m := Tmp{
@@ -569,7 +569,8 @@ func TestInsert(t *testing.T) {
 			Addr string `json:"addr,omitempty"`
 			Test string `json:"test,omitempty"`
 		}
-		m := Tmp{Name: "xue1234",
+		m := Tmp{
+			Name: "xue1234",
 			Age:  18,
 			Addr: "成都市",
 		}
@@ -590,7 +591,8 @@ func TestInsert(t *testing.T) {
 			Addr string `json:"addr,omitempty"`
 			Test string `json:"test,omitempty"`
 		}
-		m := Tmp{Name: "xue1234",
+		m := Tmp{
+			Name: "xue1234",
 			Age:  18,
 			Addr: "成都市",
 		}
@@ -616,7 +618,8 @@ func TestInsert(t *testing.T) {
 			Addr string `json:"addr,omitempty"`
 			Test string `json:"test,omitempty"`
 		}
-		m := Tmp{Name: "xue1234",
+		m := Tmp{
+			Name: "xue1234",
 			Age:  18,
 			Addr: "成都市",
 		}
@@ -943,9 +946,7 @@ func TestFindOne(t *testing.T) {
 	})
 
 	t.Run("findOne selectCallBack map", func(t *testing.T) {
-		var (
-			tmp = "被修改了哦"
-		)
+		tmp := "被修改了哦"
 		var b map[string]string
 		err := NewTable(db).SelectAuto(test.Man{}).Where("id=1").FindOneFn(&b, func(_row any) error {
 			v := _row.(map[string]string)
@@ -1205,9 +1206,7 @@ func TestCount(t *testing.T) {
 	size := 10
 	InitTestMain(t, size)
 	t.Run("count", func(t *testing.T) {
-		var (
-			total1, total2, total3 int32
-		)
+		var total1, total2, total3 int32
 		err := NewTable(db, "man").SelectCount().FindWhere(&total1, "id>?", 1)
 		if err != nil {
 			t.Fatal(err)
@@ -1431,7 +1430,6 @@ func TestFindAll(t *testing.T) {
 			v := _row.(*test.Man)
 			if v.Id == 1 {
 				v.Name = tmp
-
 			}
 			return nil
 		})
@@ -1541,12 +1539,12 @@ func TestFindAll(t *testing.T) {
 			t.Error("count is no ok")
 		}
 		sureSql := "SELECT COUNT(*) FROM man WHERE (`id` >= 1)"
-		getSql := tab.GetBuilder().(*builder.Select).GetTotalSqlStr()
+		getSql := tab.GetBuilder().(*builder.Select).GetCountSelect().GetSqlStr()
 		if !test.Equal(getSql, sureSql) {
 			t.Error("sql is not ok,", getSql)
 		}
 
-		var datas = make([]*test.Man, 0, total)
+		datas := make([]*test.Man, 0, total)
 		tab.OrderBy("id asc").Limit(1, 10).FindAll(&datas)
 		if len(datas) < 1 {
 			t.Error("select res is no ok")
