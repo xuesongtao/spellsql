@@ -2,6 +2,8 @@ package spellsql
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"time"
@@ -57,7 +59,18 @@ type AfterHook struct {
 	CallInfo []string           // 调用的位置, 长度为 2, 第一个为文件名, 第二个为行号
 }
 
+func (a *AfterHook) GetCall() string {
+	if len(a.CallInfo) != 2 {
+		return ""
+	}
+	return filepath.Base(a.CallInfo[0]) + ":" + a.CallInfo[1]
+}
+
+func defaultAfterHook(ctx context.Context, ah *AfterHook) {
+	sLog.Info(ctx, "("+ah.GetCall()+")", "[cost: "+fmt.Sprintf("%.3f", float64(time.Since(ah.St).Nanoseconds())/1e6)+"ms]", ah.Builder.GetSqlStr())
+}
+
 func getCallInfo(skip int) []string {
-	_, file, line, _ := runtime.Caller(skip + 1)
+	_, file, line, _ := runtime.Caller(skip)
 	return []string{file, utils.Int2Str(int64(line))}
 }

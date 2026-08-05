@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
@@ -46,7 +45,7 @@ type Table struct {
 	builder                  builder.SQLBuilder               // 暂存 SqlStrObj 对象
 	cacheCol2InfoMap         map[string]*dialect.TableColInfo // 记录该表的所有字段名
 	waitHandleStructFieldMap map[string]*handleStructField    // 处理 struct 字段的方法, key: tag, value: 处理方法集
-	afterHook                func(*AfterHook)                 // 执行 Query/Exec 后回调
+	afterHook                func(ah *AfterHook)              // 执行 Query/Exec 后回调
 }
 
 // NewTable 初始化
@@ -97,11 +96,7 @@ func (t *Table) Reset() {
 	t.builder = nil
 	t.cacheCol2InfoMap = nil
 	t.waitHandleStructFieldMap = nil
-	t.afterHook = func(ah *AfterHook) {
-		if t.isPrintSql {
-			sLog.Info(t.ctx, "[cost: "+fmt.Sprintf("%.3f", float64(time.Since(ah.St).Nanoseconds())/1e6)+"ms]", ah.Builder.GetSqlStr())
-		}
-	}
+	t.AfterHook(globalAfterHook)
 }
 
 // Ctx 设置 context
@@ -114,8 +109,12 @@ func (t *Table) Ctx(ctx context.Context) *Table {
 }
 
 // AfterHook 设置执行 Query/Exec 后回调
-func (t *Table) AfterHook(f func(*AfterHook)) *Table {
-	t.afterHook = f
+func (t *Table) AfterHook(f func(context.Context, *AfterHook)) *Table {
+	t.afterHook = func(ah *AfterHook) {
+		if t.isPrintSql {
+			f(t.ctx, ah)
+		}
+	}
 	return t
 }
 
