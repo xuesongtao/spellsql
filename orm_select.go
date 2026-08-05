@@ -321,10 +321,10 @@ func (t *Table) Count(total any) error {
 		Builder:  bld,
 		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
 	}
-	sqlStr, args := bld.GetTotalSql2Args()
+	sqlStr, args := bld.GetSql2Args()
 	err := t.db.QueryRowContext(t.ctx, sqlStr, args...).Scan(total)
 	if err != nil {
-		return errors.New("err:" + err.Error() + "; sqlStr:" + t.getSelectBuilder().GetTotalSqlStr())
+		return errors.New("err:" + err.Error() + "; sqlStr:" + bld.GetSqlStr())
 	}
 	t.afterHook(after)
 	return nil

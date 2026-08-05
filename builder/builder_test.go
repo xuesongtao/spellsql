@@ -554,7 +554,7 @@ func TestSelect(t *testing.T) {
 			t.Errorf("GetSqlStr error, got: %s, want: %s", finalSql, expected)
 		}
 
-		finalSql, args := s.GetTotalNoParseSql2Args()
+		finalSql, args := s.GetCountSelect().GetNoParseSql2Args()
 		expected = "SELECT COUNT(*) FROM users WHERE `id` = ?"
 		if finalSql != expected {
 			t.Errorf("GetTotalNoParseSql2Args error, got: %s, want: %s", finalSql, expected)
@@ -607,7 +607,7 @@ func TestSelect(t *testing.T) {
 		s := NewSelect(dialect.MySQL)
 		s.Select("id", "name").From("users").Where().Eq("status", 1).In("age", []int{10, 20}).And("id in (?v)", "SELECT id from name='test'")
 
-		totalSql, totalArgs := s.GetTotalSql2Args()
+		totalSql, totalArgs := s.GetCountSelect().GetSql2Args()
 		expectedTotalSql := "SELECT COUNT(*) FROM users WHERE `status` = ? AND `age` IN (?, ?) AND id in (SELECT id from name='test')"
 		if totalSql != expectedTotalSql {
 			t.Errorf("GetTotalSql2Args error, got: %s, want: %s", totalSql, expectedTotalSql)

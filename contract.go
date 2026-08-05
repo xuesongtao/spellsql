@@ -50,6 +50,7 @@ type MarshalFn func(v any) ([]byte, error)
 
 type UnmarshalFn func(data []byte, v any) error
 
+// AfterHook 执行完的 hook
 type AfterHook struct {
 	St       time.Time          // 执行开始时间
 	Builder  builder.SQLBuilder // 查询 sqlBuilder

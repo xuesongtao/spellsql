@@ -51,10 +51,7 @@ func (s *Select) ColsEmpty() bool {
 }
 
 func (s *Select) Count() *Select {
-	if s.columns == nil {
-		s.columns = make([]string, 0, 1)
-	}
-	s.columns = append(s.columns, "COUNT(*)")
+	s.columns = []string{"COUNT(*)"}
 	return s
 }
 
@@ -179,16 +176,20 @@ func (s *Select) GetNewSelectOfUntilWhere() *Select {
 		obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
 	}
 
-	obj.columns = make([]string, len(s.columns))
-	copy(obj.columns, s.columns)
+	if len(s.columns) > 0 {
+		obj.columns = make([]string, len(s.columns))
+		copy(obj.columns, s.columns)
+	}
 
 	obj.tableName = s.tableName
 
-	obj.joins = make([]string, len(s.joins))
-	copy(obj.joins, s.joins)
+	if len(s.joins) > 0 {
+		obj.joins = make([]string, len(s.joins))
+		copy(obj.joins, s.joins)
+	}
 
-	obj.where = NewWhere(s.dbType)
 	if s.where != nil {
+		obj.where = NewWhere(s.dbType)
 		sqlStr, args := s.where.GetNoParseSql2Args()
 		obj.where.InitSql2Args(sqlStr, args...)
 	}
@@ -196,24 +197,49 @@ func (s *Select) GetNewSelectOfUntilWhere() *Select {
 }
 
 func (s *Select) GetCountSelect() *Select {
-	obj := s.GetNewSelectOfUntilWhere()
-	obj.columns = []string{"COUNT(*)"}
+	totalSqlStr, args := s.getTotalNoParseSql2Args()
+	obj := NewSelect(s.dbType)
+	obj.InitSql2Args(totalSqlStr, args...)
 	return obj
 }
 
-func (s *Select) GetTotalNoParseSql2Args() (string, []any) {
-	return s.GetCountSelect().GetNoParseSql2Args()
-}
+func (s *Select) getTotalNoParseSql2Args() (string, []any) {
+	tmpBuf := internal.GetTmpBuf(s.len())
+	defer internal.PutTmpBuf(tmpBuf)
 
-func (s *Select) GetTotalSqlStr() string {
-	sqlStr, args := s.GetTotalNoParseSql2Args()
-	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Parse().Result()
-}
+	// 注: 这里必须解析 sqlStr, 需要注意有 InitSql2Args 的情况
+	sqlStr, args := s.GetNewSelectOfUntilWhere().GetNoParseSql2Args()
+	isAddCountStr := false // 标记是否添加 COUNT(*)
+	isAppend := false      // 标记是否直接添加
+	for i := 0; i < len(sqlStr); i++ {
+		v := sqlStr[i]
 
-func (s *Select) GetTotalSql2Args() (string, []any) {
-	sqlStr, args := s.GetTotalNoParseSql2Args()
-	pl := dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Replace()
-	return pl.Result(), pl.Args()
+		// 直接添加, 如果为 true 就不向下执行了
+		if isAppend {
+			tmpBuf.WriteByte(v)
+			continue
+		}
+
+		if i < 6 { // SELECT/select
+			tmpBuf.WriteByte(v)
+			continue
+		}
+
+		if !isAddCountStr {
+			tmpBuf.WriteString(" COUNT(*) ")
+			isAddCountStr = true
+		}
+
+		// 判断遇到第一个 FROM 就直接将后面所有 sql 追加到 tmpBuf
+		if v == 'f' || v == 'F' {
+			formStr := sqlStr[i : i+4]
+			if formStr == "FROM" || formStr == "from" {
+				tmpBuf.WriteByte(v)
+				isAppend = true
+			}
+		}
+	}
+	return tmpBuf.String(), args
 }
 
 func (s *Select) mergeSQL(b *Builder) {

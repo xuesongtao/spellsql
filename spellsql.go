@@ -57,7 +57,6 @@ func NewSql(sqlStr string, args ...any) *SqlStrObj {
 	obj := new(SqlStrObj)
 	obj.initSql(sqlStr, args...)
 	return obj
-
 }
 
 // Deprecated: 此方法去掉了缓存, 因为底层用的 builder, 这里加缓存的意义不大, 推荐使用 NewSql 代替
@@ -174,7 +173,7 @@ func (s *SqlStrObj) GetTotalSqlStr(title ...string) (findSqlStr string) {
 			endMarkStr = ""
 		}
 	}
-	findSqlStr = s.getSelectBuilder().GetTotalSqlStr() + endMarkStr
+	findSqlStr = s.getSelectBuilder().GetCountSelect().GetSqlStr() + endMarkStr
 	if s.isPrintSqlLog {
 		defTitle := "sqlTotalStr"
 		if argsLen > 0 {
