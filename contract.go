@@ -2,10 +2,16 @@ package spellsql
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"reflect"
+	"runtime"
+	"time"
 
+	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
 const (
@@ -45,3 +51,26 @@ type SelectCallBackFn func(_row any) error
 type MarshalFn func(v any) ([]byte, error)
 
 type UnmarshalFn func(data []byte, v any) error
+
+// AfterHook 执行完的 hook
+type AfterHook struct {
+	St       time.Time          // 执行开始时间
+	Builder  builder.SQLBuilder // 查询 sqlBuilder
+	CallInfo []string           // 调用的位置, 长度为 2, 第一个为文件名, 第二个为行号
+}
+
+func (a *AfterHook) GetCall() string {
+	if len(a.CallInfo) != 2 {
+		return ""
+	}
+	return filepath.Base(a.CallInfo[0]) + ":" + a.CallInfo[1]
+}
+
+func defaultAfterHook(ctx context.Context, ah *AfterHook) {
+	sLog.Info(ctx, "("+ah.GetCall()+")", "[cost: "+fmt.Sprintf("%.3f", float64(time.Since(ah.St).Nanoseconds())/1e6)+"ms]", ah.Builder.GetSqlStr())
+}
+
+func getCallInfo(skip int) []string {
+	_, file, line, _ := runtime.Caller(skip)
+	return []string{file, utils.Int2Str(int64(line))}
+}

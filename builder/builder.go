@@ -12,7 +12,7 @@ type SQLBuilder interface {
 	InitSql2Args(s string, args ...any) *Builder   // InitSql2Args 初始化 SQL 语句和参数, 用于拼接 SQL 语句
 	AppendSql2Args(s string, args ...any) *Builder // AppendSql2Args 追加 SQL 语句和参数, 用于拼接 SQL 语句
 	GetNoParseSql2Args() (string, []any)           // GetNoParseSql2Args 保留输入的占位符 SQL 语句和参数, spellsql 内部使用
-	GetSqlStr() string                                     // GetSqlStr 解析输入占位符后的 SQL 语句, 建议用于打印日志(sql占位符替换为对应的值)
+	GetSqlStr() string                             // GetSqlStr 解析输入占位符后的 SQL 语句, 建议用于打印日志(sql占位符替换为对应的值)
 	GetSql2Args() (string, []any)                  // GetSql2Args 根据不同数据库, 解析占位符后的 SQL 语句和参数, 用于执行 SQL 语句
 }
 
@@ -170,7 +170,7 @@ func (b *Builder) warpCol(col string) string {
 func (b *Builder) warpJoinCols(fields ...string) string {
 	buf := internal.GetTmpBuf()
 	defer internal.PutTmpBuf(buf)
-	
+
 	for i, field := range fields {
 		if i > 0 {
 			buf.WriteString(", ")

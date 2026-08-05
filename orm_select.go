@@ -315,13 +315,18 @@ func (t *Table) Count(total any) error {
 
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
-	st := time.Now()
-	sqlStr, args := t.getSelectBuilder().GetTotalSql2Args()
+	bld := t.getSelectBuilder().GetCountSelect()
+	after := &AfterHook{
+		St:       time.Now(),
+		Builder:  bld,
+		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+	}
+	sqlStr, args := bld.GetSql2Args()
 	err := t.db.QueryRowContext(t.ctx, sqlStr, args...).Scan(total)
 	if err != nil {
-		return errors.New("err:" + err.Error() + "; sqlStr:" + t.getSelectBuilder().GetTotalSqlStr())
+		return errors.New("err:" + err.Error() + "; sqlStr:" + bld.GetSqlStr())
 	}
-	printCostTimeLog(t.ctx, st, t.getSelectBuilder().GetTotalSqlStr(), t.isPrintSql)
+	t.afterHook(after)
 	return nil
 }
 
@@ -464,13 +469,17 @@ func (t *Table) Query() (*sql.Rows, error) {
 		return nil, err
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
-	st := time.Now()
+	after := &AfterHook{
+		St:       time.Now(),
+		Builder:  t.builder,
+		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+	}
 	sqlStr, args := t.builder.GetSql2Args()
 	rows, err := t.db.QueryContext(t.ctx, sqlStr, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, t.builder.GetSqlStr())
 	}
-	printCostTimeLog(t.ctx, st, t.builder.GetSqlStr(), t.isPrintSql)
+	t.afterHook(after)
 	return rows, nil
 }
 

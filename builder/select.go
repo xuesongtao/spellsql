@@ -51,10 +51,7 @@ func (s *Select) ColsEmpty() bool {
 }
 
 func (s *Select) Count() *Select {
-	if s.columns == nil {
-		s.columns = make([]string, 0, 1)
-	}
-	s.columns = append(s.columns, "COUNT(*)")
+	s.columns = []string{"COUNT(*)"}
 	return s
 }
 
@@ -179,26 +176,38 @@ func (s *Select) GetNewSelectOfUntilWhere() *Select {
 		obj.InitSql2Args(s.finalSql.String(), s.finalArgs...)
 	}
 
-	obj.columns = make([]string, len(s.columns))
-	copy(obj.columns, s.columns)
+	if len(s.columns) > 0 {
+		obj.columns = make([]string, len(s.columns))
+		copy(obj.columns, s.columns)
+	}
 
 	obj.tableName = s.tableName
 
-	obj.joins = make([]string, len(s.joins))
-	copy(obj.joins, s.joins)
+	if len(s.joins) > 0 {
+		obj.joins = make([]string, len(s.joins))
+		copy(obj.joins, s.joins)
+	}
 
-	obj.where = NewWhere(s.dbType)
 	if s.where != nil {
+		obj.where = NewWhere(s.dbType)
 		sqlStr, args := s.where.GetNoParseSql2Args()
 		obj.where.InitSql2Args(sqlStr, args...)
 	}
 	return obj
 }
 
-func (s *Select) GetTotalNoParseSql2Args() (string, []any) {
+func (s *Select) GetCountSelect() *Select {
+	totalSqlStr, args := s.getTotalNoParseSql2Args()
+	obj := NewSelect(s.dbType)
+	obj.InitSql2Args(totalSqlStr, args...)
+	return obj
+}
+
+func (s *Select) getTotalNoParseSql2Args() (string, []any) {
 	tmpBuf := internal.GetTmpBuf(s.len())
 	defer internal.PutTmpBuf(tmpBuf)
 
+	// 注: 这里必须解析 sqlStr, 需要注意有 InitSql2Args 的情况
 	sqlStr, args := s.GetNewSelectOfUntilWhere().GetNoParseSql2Args()
 	isAddCountStr := false // 标记是否添加 COUNT(*)
 	isAppend := false      // 标记是否直接添加
@@ -231,17 +240,6 @@ func (s *Select) GetTotalNoParseSql2Args() (string, []any) {
 		}
 	}
 	return tmpBuf.String(), args
-}
-
-func (s *Select) GetTotalSqlStr() string {
-	sqlStr, args := s.GetTotalNoParseSql2Args()
-	return dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Parse().Result()
-}
-
-func (s *Select) GetTotalSql2Args() (string, []any) {
-	sqlStr, args := s.GetTotalNoParseSql2Args()
-	pl := dialect.NewParsePlaceholder(s.dbType, sqlStr, args...).Replace()
-	return pl.Result(), pl.Args()
 }
 
 func (s *Select) mergeSQL(b *Builder) {
