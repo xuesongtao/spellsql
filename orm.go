@@ -454,7 +454,7 @@ func (t *Table) Raw(sql any) *Table {
 	case builder.SQLBuilder:
 		t.builder = val
 	case *SqlStrObj:
-		_, t.builder = parseSQLBuilder(t.dbType, val.FmtSql())
+		t.builder = val.builder
 	default:
 		// sLog.Error(t.ctx, )
 		t.err = errors.New("sql only support string/SQLBuilder")
