@@ -62,11 +62,12 @@ type UnmarshalFn func(data []byte, v any) error
 
 // HookEvent sql 执行前后 hook 事件
 type HookEvent struct {
-	ctx      context.Context
-	St       time.Time          // 执行开始时间
-	Builder  builder.SQLBuilder // 查询 sqlBuilder
-	CallInfo []string           // 调用的位置, 长度为 2, 第一个为文件名, 第二个为行号
-	Err      error              // 执行的错误
+	ctx          context.Context
+	NeedPrintSql bool               // 是否需要打印 sql
+	St           time.Time          // 执行开始时间
+	Builder      builder.SQLBuilder // 查询 sqlBuilder
+	CallInfo     []string           // 调用的位置, 长度为 2, 第一个为文件名, 第二个为行号
+	Err          error              // 执行的错误
 }
 
 func (a *HookEvent) GetCall() string {
@@ -86,6 +87,9 @@ func (d *DefaultHook) AfterHook(ctx context.Context, event *HookEvent) {
 	prefix := "[" + event.GetCall() + " " + "cost:" + fmt.Sprintf("%.3f", float64(time.Since(event.St).Nanoseconds())/1e6) + "ms]"
 	if event.Err != nil {
 		sLog.Error(ctx, prefix, "err:", event.Err.Error()+";", "sql:", event.Builder.GetSqlStr())
+		return
+	}
+	if !event.NeedPrintSql {
 		return
 	}
 	sLog.Info(ctx, prefix, event.Builder.GetSqlStr())

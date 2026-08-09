@@ -361,9 +361,10 @@ func (t *Table) Exec() (sql.Result, error) {
 		return nil, err
 	}
 	event := &HookEvent{
-		St:       time.Now(),
-		Builder:  t.builder,
-		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+		NeedPrintSql: t.isPrintSql,
+		St:           time.Now(),
+		Builder:      t.builder,
+		CallInfo:     getCallInfo(int(t.printSqlCallSkip)),
 	}
 	defer t.hook.AfterHook(event.ctx, event)
 

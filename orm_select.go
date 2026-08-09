@@ -316,9 +316,10 @@ func (t *Table) Count(total any) error {
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
 	event := &HookEvent{
-		St:       time.Now(),
-		Builder:  t.getSelectBuilder().GetCountSelect(),
-		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+		NeedPrintSql: t.isPrintSql,
+		St:           time.Now(),
+		Builder:      t.getSelectBuilder().GetCountSelect(),
+		CallInfo:     getCallInfo(int(t.printSqlCallSkip)),
 	}
 	defer t.hook.AfterHook(event.ctx, event)
 
@@ -475,9 +476,10 @@ func (t *Table) Query() (*sql.Rows, error) {
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
 	event := &HookEvent{
-		St:       time.Now(),
-		Builder:  t.builder,
-		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+		NeedPrintSql: t.isPrintSql,
+		St:           time.Now(),
+		Builder:      t.builder,
+		CallInfo:     getCallInfo(int(t.printSqlCallSkip)),
 	}
 	defer t.hook.AfterHook(event.ctx, event)
 

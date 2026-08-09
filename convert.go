@@ -219,7 +219,7 @@ func (c *ConvStructObj) Convert() error {
 				continue
 			}
 			l := srcVal.Len()
-			sliceDstValType := destVal.Type().Elem()       // 取 slice 值的类型
+			sliceDstValType := destVal.Type().Elem()           // 取 slice 值的类型
 			isPtr := sliceDstValType.Kind() == reflect.Pointer // 注: 这里只处理 struct ptr
 			if isPtr {
 				sliceDstValType = utils.RemoveTypePtr(sliceDstValType) // 去 ptr

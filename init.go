@@ -39,8 +39,8 @@ var (
 	nullInt64Type   = reflect.TypeOf(sql.NullInt64{})
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 
-	globalDbTypeOnce    = sync.Once{}
-	globalHookOnce = sync.Once{}
+	globalDbTypeOnce = sync.Once{}
+	globalHookOnce   = sync.Once{}
 
 	globalHook Hooker = &DefaultHook{}
 )
