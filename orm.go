@@ -45,7 +45,7 @@ type Table struct {
 	builder                  builder.SQLBuilder               // 暂存 SqlStrObj 对象
 	cacheCol2InfoMap         map[string]*dialect.TableColInfo // 记录该表的所有字段名
 	waitHandleStructFieldMap map[string]*handleStructField    // 处理 struct 字段的方法, key: tag, value: 处理方法集
-	afterHook                func(ah *AfterHook)              // 执行 Query/Exec 后回调
+	hook                     Hooker                           // 执行 Query/Exec 后回调
 }
 
 // NewTable 初始化
@@ -96,7 +96,7 @@ func (t *Table) Reset() {
 	t.builder = nil
 	t.cacheCol2InfoMap = nil
 	t.waitHandleStructFieldMap = nil
-	t.AfterHook(globalAfterHook)
+	t.Hook(globalHook)
 }
 
 // Ctx 设置 context
@@ -108,13 +108,9 @@ func (t *Table) Ctx(ctx context.Context) *Table {
 	return t
 }
 
-// AfterHook 设置执行 Query/Exec 后回调
-func (t *Table) AfterHook(f func(context.Context, *AfterHook)) *Table {
-	t.afterHook = func(ah *AfterHook) {
-		if t.isPrintSql {
-			f(t.ctx, ah)
-		}
-	}
+// Hook 设置执行 Query/Exec 后回调
+func (t *Table) Hook(h Hooker) *Table {
+	t.hook = h
 	return t
 }
 
@@ -432,7 +428,7 @@ func (t *Table) parseStructField(fieldInfo reflect.StructField, args ...uint8) (
 // needSkipObj 默认不处理嵌套对象
 func (t *Table) needSkipObj(kind reflect.Kind) bool {
 	switch kind {
-	case reflect.Struct, reflect.Ptr, reflect.Slice, reflect.Array:
+	case reflect.Struct, reflect.Pointer, reflect.Slice, reflect.Array:
 		return true
 	}
 	return false

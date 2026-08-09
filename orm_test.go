@@ -1700,3 +1700,13 @@ func BenchmarkFindAllOrmForRawHaveNoTableName(b *testing.B) {
 	// BenchmarkFindAllOrmForRawHaveNoTableName-8         20769             61357 ns/op            3580 B/op        133 allocs/op
 	// BenchmarkFindAllOrmForRawHaveNoTableName-8         20109             58092 ns/op            3580 B/op        133 allocs/op
 }
+
+func TestHook(t *testing.T) {
+    t.Run("find", func(t *testing.T) {
+		var m test.Man
+		err := NewTable(db, "man").Select("id1,name,age").Where("id=?", 1).FindOne(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+}

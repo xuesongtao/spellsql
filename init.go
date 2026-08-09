@@ -1,7 +1,6 @@
 package spellsql
 
 import (
-	"context"
 	"database/sql"
 	"reflect"
 	"sync"
@@ -41,9 +40,9 @@ var (
 	nullFloat64Type = reflect.TypeOf(sql.NullFloat64{})
 
 	globalDbTypeOnce    = sync.Once{}
-	globalAfterHookOnce = sync.Once{}
+	globalHookOnce = sync.Once{}
 
-	globalAfterHook = defaultAfterHook
+	globalHook Hooker = &DefaultHook{}
 )
 
 func GlobalDbType(dt dialect.DbType) {
@@ -52,9 +51,9 @@ func GlobalDbType(dt dialect.DbType) {
 	})
 }
 
-func GlobalAfterHook(f func(ctx context.Context, ah *AfterHook)) {
-	globalAfterHookOnce.Do(func() {
-		globalAfterHook = f
+func GlobalHook(h Hooker) {
+	globalHookOnce.Do(func() {
+		globalHook = h
 	})
 }
 
