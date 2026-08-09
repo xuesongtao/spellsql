@@ -16,3 +16,4 @@ tmp/
 .idea
 .vscode
 *.log
+/.codegraph/codegraph.db

@@ -193,7 +193,7 @@ func (c *ConvStructObj) Convert() error {
 			}
 		} else if srcKind == reflect.Struct { // src: struct => dest: struct
 			destValType := destVal.Type()
-			isPtr := destValType.Kind() == reflect.Ptr
+			isPtr := destValType.Kind() == reflect.Pointer
 			if isPtr {
 				destValType = destValType.Elem()
 			}
@@ -219,8 +219,8 @@ func (c *ConvStructObj) Convert() error {
 				continue
 			}
 			l := srcVal.Len()
-			sliceDstValType := destVal.Type().Elem()       // 取 slice 值的类型
-			isPtr := sliceDstValType.Kind() == reflect.Ptr // 注: 这里只处理 struct ptr
+			sliceDstValType := destVal.Type().Elem()           // 取 slice 值的类型
+			isPtr := sliceDstValType.Kind() == reflect.Pointer // 注: 这里只处理 struct ptr
 			if isPtr {
 				sliceDstValType = utils.RemoveTypePtr(sliceDstValType) // 去 ptr
 			}

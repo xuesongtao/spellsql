@@ -153,7 +153,7 @@ func ConvertAssign(dest, src any) error {
 	}
 
 	dpv := reflect.ValueOf(dest)
-	if dpv.Kind() != reflect.Ptr {
+	if dpv.Kind() != reflect.Pointer {
 		return errors.New("destination not a pointer")
 	}
 	if dpv.IsNil() {

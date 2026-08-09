@@ -53,7 +53,7 @@ func CheckImplementation(ty reflect.Type, targetInterface reflect.Type) bool {
 	if ty.Implements(targetInterface) {
 		return true
 	}
-	if ty.Kind() != reflect.Ptr {
+	if ty.Kind() != reflect.Pointer {
 		if reflect.PointerTo(ty).Implements(targetInterface) {
 			return true
 		}

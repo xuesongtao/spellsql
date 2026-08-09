@@ -360,16 +360,24 @@ func (t *Table) Exec() (sql.Result, error) {
 	if err := t.prevCheck(); err != nil {
 		return nil, err
 	}
-	after := &AfterHook{
-		St:       time.Now(),
-		Builder:  t.builder,
-		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+	event := &HookEvent{
+		NeedPrintSql: t.isPrintSql,
+		St:           time.Now(),
+		Builder:      t.builder,
+		CallInfo:     getCallInfo(int(t.printSqlCallSkip)),
 	}
-	sqlStr, args := t.builder.GetSql2Args()
-	res, err := t.db.ExecContext(t.ctx, sqlStr, args...)
-	if err != nil {
-		return res, errors.New("err:" + err.Error() + "; sqlStr:" + t.builder.GetSqlStr())
+	defer t.hook.AfterHook(event.ctx, event)
+
+	event.ctx, event.Err = t.hook.BeforeHook(t.ctx, event)
+	if event.Err != nil {
+		return nil, event.Err
 	}
-	t.afterHook(after)
+
+	var res sql.Result
+	sqlStr, args := event.Builder.GetSql2Args()
+	res, event.Err = t.db.ExecContext(event.ctx, sqlStr, args...)
+	if event.Err != nil {
+		return res, event.Err
+	}
 	return res, nil
 }
