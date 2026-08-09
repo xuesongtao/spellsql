@@ -201,7 +201,8 @@ func (p *ParsePlaceholder) replaceInternalArgs() *ParsePlaceholder {
 // Parse 将占位符进行解析, 将占位符替换为对应的值
 func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 	gd := GetDialect(p.dbType)
-	p.loopWaitParse(p.buf,
+	p.loopWaitParse(
+		p.buf,
 		func(curIndex, argIndex, sqlSqlLastIndex int) int {
 			switch val := p.args[argIndex].(type) {
 			case internal.RawSql:
@@ -240,7 +241,8 @@ func (p *ParsePlaceholder) Parse() *ParsePlaceholder {
 
 // Replace 将占位符 "?" 替换为对应的数据库占位符, 例如 mysql 为 ?, pg 为 $1, $2, ...
 func (p *ParsePlaceholder) Replace() *ParsePlaceholder {
-	p.loopWaitParse(p.buf,
+	p.loopWaitParse(
+		p.buf,
 		func(curIndex, argIndex, lastIndex int) int {
 			switch p.dbType {
 			case Postgres:

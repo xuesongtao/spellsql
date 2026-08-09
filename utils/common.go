@@ -169,7 +169,7 @@ func DistinctIds(ids []string) []string {
 // RemoveValuePtr 移除多指针
 func RemoveValuePtr(v reflect.Value) reflect.Value {
 	last := v
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		// 如果最外层是未初始化的指针类型, 就不要再处理了, 直接返回未初始的类型就可以了, 防止 panic Zero Value
 		if v.IsNil() {
 			v = last
@@ -183,7 +183,7 @@ func RemoveValuePtr(v reflect.Value) reflect.Value {
 
 // removeTypePtr 移除多指针
 func RemoveTypePtr(t reflect.Type) reflect.Type {
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	return t

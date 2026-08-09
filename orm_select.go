@@ -77,7 +77,7 @@ func (t *Table) SelectAuto(src any, tableName ...string) *Table {
 		tv := reflect.ValueOf(src)
 		if ty.Kind() == reflect.Slice {
 			ty = ty.Elem()
-			if ty.Kind() == reflect.Ptr {
+			if ty.Kind() == reflect.Pointer {
 				ty = utils.RemoveTypePtr(ty)
 			}
 			if tv.Len() > 0 {
@@ -315,18 +315,24 @@ func (t *Table) Count(total any) error {
 
 	// 这里不要释放, 如果是列表查询的话, 还会再进行查询内容操作
 	// defer t.free()
-	bld := t.getSelectBuilder().GetCountSelect()
-	after := &AfterHook{
-		St:       time.Now(),
-		Builder:  bld,
-		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+	event := &HookEvent{
+		NeedPrintSql: t.isPrintSql,
+		St:           time.Now(),
+		Builder:      t.getSelectBuilder().GetCountSelect(),
+		CallInfo:     getCallInfo(int(t.printSqlCallSkip)),
 	}
-	sqlStr, args := bld.GetSql2Args()
-	err := t.db.QueryRowContext(t.ctx, sqlStr, args...).Scan(total)
-	if err != nil {
-		return errors.New("err:" + err.Error() + "; sqlStr:" + bld.GetSqlStr())
+	defer t.hook.AfterHook(event.ctx, event)
+
+	event.ctx, event.Err = t.hook.BeforeHook(t.ctx, event)
+	if event.Err != nil {
+		return event.Err
 	}
-	t.afterHook(after)
+
+	sqlStr, args := event.Builder.GetSql2Args()
+	event.Err = t.db.QueryRowContext(event.ctx, sqlStr, args...).Scan(total)
+	if event.Err != nil {
+		return event.Err
+	}
 	return nil
 }
 
@@ -469,24 +475,32 @@ func (t *Table) Query() (*sql.Rows, error) {
 		return nil, err
 	}
 	_ = t.initCacheCol2InfoMap() // 为 getScanValues 解析 NULL 值做准备, 由于调用 Raw 时, 可能会出现没有表名, 所有需要忽略错误
-	after := &AfterHook{
-		St:       time.Now(),
-		Builder:  t.builder,
-		CallInfo: getCallInfo(int(t.printSqlCallSkip)),
+	event := &HookEvent{
+		NeedPrintSql: t.isPrintSql,
+		St:           time.Now(),
+		Builder:      t.builder,
+		CallInfo:     getCallInfo(int(t.printSqlCallSkip)),
 	}
-	sqlStr, args := t.builder.GetSql2Args()
-	rows, err := t.db.QueryContext(t.ctx, sqlStr, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query is failed, err: %v, sqlStr: %v", err, t.builder.GetSqlStr())
+	defer t.hook.AfterHook(event.ctx, event)
+
+	event.ctx, event.Err = t.hook.BeforeHook(t.ctx, event)
+	if event.Err != nil {
+		return nil, event.Err
 	}
-	t.afterHook(after)
+
+	var rows *sql.Rows
+	sqlStr, args := event.Builder.GetSql2Args()
+	rows, event.Err = t.db.QueryContext(event.ctx, sqlStr, args...)
+	if event.Err != nil {
+		return nil, event.Err
+	}
 	return rows, nil
 }
 
 // getDestReflectType 解析 dest kind
 func (t *Table) getDestReflectType(dest any, shouldInKinds []reflect.Kind, outErr error) (ty reflect.Type, err error) {
 	ty = reflect.TypeOf(dest)
-	if ty.Kind() != reflect.Ptr {
+	if ty.Kind() != reflect.Pointer {
 		err = errors.New("dest should is ptr")
 		return
 	}
@@ -547,7 +561,7 @@ func (t *Table) find(dest any, ty reflect.Type, ignoreRes bool, fn ...SelectCall
 
 // scanAll 处理多个结果集
 func (t *Table) scanAll(rows *sql.Rows, ty reflect.Type, dest any, fn ...SelectCallBackFn) error {
-	isPtr := ty.Kind() == reflect.Ptr
+	isPtr := ty.Kind() == reflect.Pointer
 	if isPtr {
 		ty = utils.RemoveTypePtr(ty) // 去指针
 	}
@@ -643,7 +657,7 @@ func (t *Table) scanOne(rows *sql.Rows, ty reflect.Type, dest any, ignoreRes boo
 		}
 
 		if !ignoreRes { // 不忽略结果, 那只能出现在单行查询
-			if destReflectValue.Kind() == reflect.Ptr {
+			if destReflectValue.Kind() == reflect.Pointer {
 				destReflectValue.Set(base.Addr())
 			} else {
 				destReflectValue.Set(base)

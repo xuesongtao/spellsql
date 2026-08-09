@@ -43,6 +43,14 @@ type TableNamer interface {
 	TableName() string
 }
 
+type Hooker interface {
+	// BeforeHook 执行前的 hook
+	BeforeHook(ctx context.Context, event *HookEvent) (context.Context, error)
+
+	// AfterHook 执行完的 hook
+	AfterHook(ctx context.Context, event *HookEvent)
+}
+
 var tableNameType = reflect.TypeFor[TableNamer]()
 
 // SelectCallBackFn 对每行查询结果进行取出处理
@@ -52,22 +60,39 @@ type MarshalFn func(v any) ([]byte, error)
 
 type UnmarshalFn func(data []byte, v any) error
 
-// AfterHook 执行完的 hook
-type AfterHook struct {
-	St       time.Time          // 执行开始时间
-	Builder  builder.SQLBuilder // 查询 sqlBuilder
-	CallInfo []string           // 调用的位置, 长度为 2, 第一个为文件名, 第二个为行号
+// HookEvent sql 执行前后 hook 事件
+type HookEvent struct {
+	ctx          context.Context
+	NeedPrintSql bool               // 是否需要打印 sql
+	St           time.Time          // 执行开始时间
+	Builder      builder.SQLBuilder // 查询 sqlBuilder
+	CallInfo     []string           // 调用的位置, 长度为 2, 第一个为文件名, 第二个为行号
+	Err          error              // 执行的错误
 }
 
-func (a *AfterHook) GetCall() string {
+func (a *HookEvent) GetCall() string {
 	if len(a.CallInfo) != 2 {
 		return ""
 	}
 	return filepath.Base(a.CallInfo[0]) + ":" + a.CallInfo[1]
 }
 
-func defaultAfterHook(ctx context.Context, ah *AfterHook) {
-	sLog.Info(ctx, "("+ah.GetCall()+")", "[cost: "+fmt.Sprintf("%.3f", float64(time.Since(ah.St).Nanoseconds())/1e6)+"ms]", ah.Builder.GetSqlStr())
+type DefaultHook struct{}
+
+func (d *DefaultHook) BeforeHook(ctx context.Context, event *HookEvent) (context.Context, error) {
+	return ctx, nil
+}
+
+func (d *DefaultHook) AfterHook(ctx context.Context, event *HookEvent) {
+	prefix := "[" + event.GetCall() + " " + "cost:" + fmt.Sprintf("%.3f", float64(time.Since(event.St).Nanoseconds())/1e6) + "ms]"
+	if event.Err != nil {
+		sLog.Error(ctx, prefix, "err:", event.Err.Error()+";", "sql:", event.Builder.GetSqlStr())
+		return
+	}
+	if !event.NeedPrintSql {
+		return
+	}
+	sLog.Info(ctx, prefix, event.Builder.GetSqlStr())
 }
 
 func getCallInfo(skip int) []string {
