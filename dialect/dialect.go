@@ -33,10 +33,12 @@ var (
 	dialectMap = map[DbType]Dialect{
 		MySQL:    Mysql(),
 		Postgres: Pg(),
+		SQLite:   Sqlite(),
 	}
 	tableMeterMap = map[DbType]func() TableMeter{
 		MySQL:    func() TableMeter { return Mysql() },
 		Postgres: func() TableMeter { return Pg() },
+		SQLite:   func() TableMeter { return Sqlite() },
 	}
 )
 
@@ -73,3 +75,5 @@ func Placeholders(n ...int) string {
 	}
 	return strings.Repeat("?, ", nn-1) + "?"
 }
+
+

@@ -18,6 +18,7 @@ const (
 const (
 	MySQL DbType = iota
 	Postgres
+	SQLite
 )
 
 var DefaultDbType = MySQL

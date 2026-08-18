@@ -8,8 +8,7 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
-type MysqlTable struct {
-}
+type MysqlTable struct{}
 
 // Mysql
 func Mysql() *MysqlTable {
@@ -31,10 +30,6 @@ func (m *MysqlTable) GetValueEscapeMap() map[byte][]byte {
 // GetLimitSql implements [Dialect].
 func (m *MysqlTable) GetLimitSql(limit int, offset int) string {
 	return "LIMIT " + utils.Int2Str(int64(limit)) + " OFFSET " + utils.Int2Str(int64(offset))
-}
-
-func (m *MysqlTable) GetAdapterName() string {
-	return "mysql"
 }
 
 func (m *MysqlTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {

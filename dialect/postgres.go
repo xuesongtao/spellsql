@@ -43,10 +43,6 @@ func (p *PgTable) GetWarpValueStrSymbol() string {
 	return `'`
 }
 
-func (p *PgTable) GetAdapterName() string {
-	return "pg"
-}
-
 // GetLimitSql implements [Dialect].
 func (p *PgTable) GetLimitSql(limit int, offset int) string {
 	return "LIMIT " + utils.Int2Str(int64(limit)) + " OFFSET " + utils.Int2Str(int64(offset))
@@ -87,7 +83,8 @@ func (p *PgTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) 
             AND a.attnum > 0                   
             AND NOT a.attisdropped              
         ORDER BY a.attnum;
-		`, p.initArgs[0], tableName)
+		`, p.initArgs[0], tableName,
+	)
 	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("pg query is failed, err: %v, sqlStr: %v", err, sqlStr)
