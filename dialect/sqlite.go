@@ -68,9 +68,13 @@ func (m *SqliteTable) GetColInfoMap(ctx context.Context, db DBer, tableName stri
 }
 
 func (m *SqliteTable) GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql {
-	val := colInfo.Default.String
+	val := internal.RawSql(colInfo.Default.String)
 	if val == "" {
-		val = "''"
+		if colInfo.Null == NotNullFlag {
+			val = "''"
+		} else {
+			val = internal.NULL
+		}
 	}
-	return internal.RawSql(val)
+	return val
 }

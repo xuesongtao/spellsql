@@ -47,3 +47,7 @@ type RawSql string
 func (r RawSql) Is(v RawSql) bool {
 	return r == v
 }
+
+func (r RawSql) Str() string {
+	return string(r)
+}
