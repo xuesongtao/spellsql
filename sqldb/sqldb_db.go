@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 )
 
@@ -22,8 +23,6 @@ func Open(dbType dialect.DbType, dsn string) (*DB, error) {
 	return &DB{DB: db, DbType: dbType}, nil
 }
 
-func (d *DB) GetDB() *sql.DB { return d.DB }
-
 // ExecContext implements [DBer].
 func (d *DB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	return d.DB.ExecContext(ctx, query, args...)
@@ -37,4 +36,20 @@ func (d *DB) QueryContext(ctx context.Context, query string, args ...any) (*sql.
 // QueryRowContext implements [DBer].
 func (d *DB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
 	return d.DB.QueryRowContext(ctx, query, args...)
+}
+
+func (d *DB) SelectBuilder() *builder.Select {
+	return builder.NewSelect(d.DbType)
+}
+
+func (d *DB) InsertBuilder() *builder.Insert {
+	return builder.NewInsert(d.DbType)
+}
+
+func (d *DB) UpdateBuilder() *builder.Update {
+	return builder.NewUpdate(d.DbType)
+}
+
+func (d *DB) DeleteBuilder() *builder.Delete {
+	return builder.NewDelete(d.DbType)
 }
