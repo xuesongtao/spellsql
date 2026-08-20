@@ -4,19 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
-func init() {
-    dialect.RegisterTabaleMeter(dialect.MySQL, func() dialect.TableMeter {
-		return &MySql{}
-	})
-}
+type MySQL struct{}
 
-type MySql struct{}
-
-func (m *MySql) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName string) (map[string]*dialect.TableColInfo, error) {
+func (m *MySQL) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {
 	sqlStr := fmt.Sprintf("SHOW COLUMNS FROM %s", tableName)
 	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
@@ -24,10 +17,10 @@ func (m *MySql) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName st
 	}
 	defer rows.Close()
 
-	cacheCol2InfoMap := make(map[string]*dialect.TableColInfo)
+	cacheCol2InfoMap := make(map[string]*TableColInfo)
 	var index int
 	for rows.Next() {
-		var info dialect.TableColInfo
+		var info TableColInfo
 		err = rows.Scan(&info.Field, &info.Type, &info.Null, &info.Key, &info.Default, &info.Extra)
 		if err != nil {
 			return nil, fmt.Errorf("mysql scan is failed, err: %v", err)
@@ -39,6 +32,6 @@ func (m *MySql) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName st
 	return cacheCol2InfoMap, nil
 }
 
-func (m *MySql) GetDefaultVal(col string, colInfo *dialect.TableColInfo) internal.RawSql {
+func (m *MySQL) GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql {
 	return internal.DEFAULT
 }

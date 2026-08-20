@@ -1,18 +1,16 @@
 package dialect
 
 import (
-	"context"
-	"database/sql"
 	"strings"
 
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
-// DBer
-type DBer interface {
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+var dialectMap = map[DbType]Dialect{
+	MySQL:    &mysql{},
+	Postgres: &pgsql{},
+	SQLite:   &sqlite{},
 }
 
 // Dialect 数据库方言接口, 适配不同数据库, 不变的部分
@@ -23,25 +21,7 @@ type Dialect interface {
 	GetLimitSql(limit, offset int) string // 获取 limit sql 语句
 }
 
-// TableMeter 表元信息, 为了适配不同数据库
-type TableMeter interface {
-	GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) // key: col
-	GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql
-}
-
-var (
-	dialectMap = map[DbType]Dialect{
-		MySQL:    Mysql(),
-		Postgres: Pg(),
-		SQLite:   Sqlite(),
-	}
-	tableMeterMap = map[DbType]func() TableMeter{}
-)
-
-func RegisterTabaleMeter(dbType DbType, fn func() TableMeter) {
-	tableMeterMap[dbType] = fn
-}
-
+// WarpValue 将值进行包裹, 如果已经包裹过了, 则不再包裹
 func WarpValue(d Dialect, value string) string {
 	if strings.HasPrefix(value, d.GetWarpValueStrSymbol()) {
 		return value
@@ -49,14 +29,7 @@ func WarpValue(d Dialect, value string) string {
 	return d.GetWarpValueStrSymbol() + value + d.GetWarpValueStrSymbol()
 }
 
-func GetTableMeter(dbType DbType) TableMeter {
-	fn, ok := tableMeterMap[dbType]
-	if ok {
-		return fn()
-	}
-	return tableMeterMap[DefaultDbType]()
-}
-
+// GetDialect 获取数据库方言, 如果没有匹配到, 则返回默认的数据库方言
 func GetDialect(dbType DbType) Dialect {
 	dialect, ok := dialectMap[dbType]
 	if ok {
@@ -65,6 +38,7 @@ func GetDialect(dbType DbType) Dialect {
 	return dialectMap[DefaultDbType]
 }
 
+// Placeholders 获取占位符字符串, 例如: "?, ?, ?"
 func Placeholders(n ...int) string {
 	nn := 1
 	if len(n) > 0 {
@@ -75,3 +49,77 @@ func Placeholders(n ...int) string {
 	}
 	return strings.Repeat("?, ", nn-1) + "?"
 }
+
+// ================= mysql start=====================
+type mysql struct{}
+
+func (m *mysql) GetWarpColSymbol() string {
+	return "`"
+}
+
+func (m *mysql) GetWarpValueStrSymbol() string {
+	return "\""
+}
+
+func (m *mysql) GetValueEscapeMap() map[byte][]byte {
+	return internal.GetValueEscapeMap()
+}
+
+// GetLimitSql implements [Dialect].
+func (m *mysql) GetLimitSql(limit int, offset int) string {
+	return "LIMIT " + utils.Int2Str(int64(limit)) + " OFFSET " + utils.Int2Str(int64(offset))
+}
+
+// ================= mysql end=====================
+
+// ================= postgres start=====================
+type pgsql struct{}
+
+// GetWarpColSymbol implements [Dialect].
+func (p *pgsql) GetWarpColSymbol() string {
+	return `"`
+}
+
+// GetWarpValueStrSymbol implements [Dialect].
+func (p *pgsql) GetWarpValueStrSymbol() string {
+	return `'`
+}
+
+// GetLimitSql implements [Dialect].
+func (p *pgsql) GetLimitSql(limit int, offset int) string {
+	return "LIMIT " + utils.Int2Str(int64(limit)) + " OFFSET " + utils.Int2Str(int64(offset))
+}
+
+func (p *pgsql) GetValueEscapeMap() map[byte][]byte {
+	escapeMap := internal.GetValueEscapeMap()
+	// 将 "'" 进行转义
+	escapeMap['\''] = []byte{'\'', '\''}
+	return escapeMap
+}
+
+// ================= postgres end=====================
+
+// ================ sqlite start=====================
+type sqlite struct{}
+
+func (m *sqlite) GetWarpColSymbol() string {
+	return "\""
+}
+
+func (m *sqlite) GetWarpValueStrSymbol() string {
+	return "'"
+}
+
+func (m *sqlite) GetValueEscapeMap() map[byte][]byte {
+	escapeMap := internal.GetValueEscapeMap()
+	// 将 "'" 进行转义
+	escapeMap['\''] = []byte{'\'', '\''}
+	return escapeMap
+}
+
+// GetLimitSql implements [Dialect].
+func (m *sqlite) GetLimitSql(limit int, offset int) string {
+	return "LIMIT " + utils.Int2Str(int64(limit)) + " OFFSET " + utils.Int2Str(int64(offset))
+}
+
+// ================ sqlite end=====================

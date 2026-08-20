@@ -1,7 +1,6 @@
 package test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -10,11 +9,12 @@ import (
 
 	"gitee.com/xuesongtao/spellsql/v2"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/sqldb"
 	_ "github.com/glebarez/go-sqlite"
 )
 
 // 测试表
-var sqliteDb *sql.DB
+var sqliteDb *sqldb.DB
 
 // CREATE TABLE man (
 // 	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,7 +30,7 @@ var sqliteDb *sql.DB
 
 func init() {
 	var err error
-	sqliteDb, err = sql.Open("sqlite", "file:sqlite.db?cache=shared&mode=rwc")
+	sqliteDb, err = sqldb.Open(dialect.SQLite, "file:sqlite.db?cache=shared&mode=rwc")
 	if err != nil {
 		panic(err)
 	}

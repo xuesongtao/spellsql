@@ -5,19 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 
-	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 )
 
-func init() {
-    dialect.RegisterTabaleMeter(dialect.Postgres, func() dialect.TableMeter {
-		return &Pg{}	
-	})
-}
+type PgSQL struct{}
 
-type Pg struct{}
-
-func (p *Pg) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName string) (map[string]*dialect.TableColInfo, error) {
+func (p *PgSQL) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {
 	sqlStr := fmt.Sprintf(
 		`
 		SELECT 
@@ -41,7 +34,7 @@ func (p *Pg) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName strin
             AND a.attnum > 0                   
             AND NOT a.attisdropped              
         ORDER BY a.attnum;
-		`,  tableName,
+		`, tableName,
 	)
 	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
@@ -49,11 +42,11 @@ func (p *Pg) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName strin
 	}
 	defer rows.Close()
 
-	cacheCol2InfoMap := make(map[string]*dialect.TableColInfo)
+	cacheCol2InfoMap := make(map[string]*TableColInfo)
 	var index int
 	for rows.Next() {
 		var (
-			info dialect.TableColInfo
+			info TableColInfo
 			key  sql.NullString
 		)
 		err = rows.Scan(&info.Field, &info.Type, &info.Null, &info.Default, &key)
@@ -61,10 +54,10 @@ func (p *Pg) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName strin
 			return nil, fmt.Errorf("pg scan is failed, err: %v", err)
 		}
 		if key.String == "np" {
-			info.Key = dialect.PriFlag
+			info.Key = PriFlag
 		}
 		if info.Null == "[v]" {
-			info.Null = dialect.NotNullFlag
+			info.Null = NotNullFlag
 		}
 		info.Index = index
 		cacheCol2InfoMap[info.Field] = &info
@@ -73,6 +66,6 @@ func (p *Pg) GetColInfoMap(ctx context.Context, db dialect.DBer, tableName strin
 	return cacheCol2InfoMap, nil
 }
 
-func (p *Pg) GetDefaultVal(col string, colInfo *dialect.TableColInfo) internal.RawSql {
+func (p *PgSQL) GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql {
 	return internal.DEFAULT
 }

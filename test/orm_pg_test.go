@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 
 	"gitee.com/xuesongtao/spellsql/v2"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
+	"gitee.com/xuesongtao/spellsql/v2/sqldb"
 	_ "github.com/lib/pq"
 )
 
@@ -35,13 +35,11 @@ const (
 //   ALTER TABLE "public"."man"
 // 	OWNER TO "postgres";
 
-var (
-	pgDb *sql.DB
-)
+var pgDb *sqldb.DB
 
 func init() {
 	var err error
-	pgDb, err = sql.Open("postgres", "host=localhost port=5432 user=postgres password=123456 dbname=postgres sslmode=disable")
+	pgDb, err = sqldb.Open(dialect.Postgres, "host=localhost port=5432 user=postgres password=123456 dbname=postgres sslmode=disable")
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +51,7 @@ func init() {
 	pgDb.SetMaxIdleConns(1)
 
 	// 初始化 pg tmer
-	spellsql.GlobalDbType(dialect.Postgres)
+	// spellsql.GlobalDbType(dialect.Postgres)
 	pgDb.ExecContext(context.Background(), "TRUNCATE TABLE man RESTART IDENTITY")
 }
 
