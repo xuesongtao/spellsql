@@ -46,6 +46,52 @@ func FmtSqlStrOfDbType(dbType dialect.DbType, sqlStr string, args ...any) string
 	return b.GetSqlStr()
 }
 
+// GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
+// 如: obj := GetLikeSqlStr(ALK, "SELECT id, username FROM sys_user", "name", "xue")
+//
+//	=> SELECT id, username FROM sys_user WHERE name LIKE "%xue%"
+func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
+	sqlObj := NewCacheSql(sqlStr)
+	switch likeType {
+	case internal.ALK:
+		sqlObj.SetAllLike(fieldName, value)
+	case internal.RLK:
+		sqlObj.SetRightLike(fieldName, value)
+	case internal.LLK:
+		sqlObj.SetLeftLike(fieldName, value)
+	}
+	isPrintLog := false
+	endSymbol := ""
+
+	// 判断下是否打印 log
+	if len(printLog) > 0 {
+		isPrintLog = true
+		endSymbol = ";"
+	}
+	return sqlObj.SetPrintLog(isPrintLog).SetCallerSkip(2).GetSqlStr("sqlStr", endSymbol)
+}
+
+// GetLikeSqlStrOfDbType
+func GetLikeSqlStrOfDbType(dbType dialect.DbType, likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
+	sqlObj := NewCacheSql(sqlStr)
+	switch likeType {
+	case internal.ALK:
+		sqlObj.SetAllLike(fieldName, value)
+	case internal.RLK:
+		sqlObj.SetRightLike(fieldName, value)
+	case internal.LLK:
+		sqlObj.SetLeftLike(fieldName, value)
+	}
+	isPrintLog := false
+	endSymbol := ""
+
+	// 判断下是否打印 log
+	if len(printLog) > 0 {
+		isPrintLog = true
+		endSymbol = ";"
+	}
+	return sqlObj.SetPrintLog(isPrintLog).SetCallerSkip(2).GetSqlStr("sqlStr", endSymbol)
+}
 
 // *******************************************************************************
 // *                             orm 常用封装                                     *

@@ -42,7 +42,6 @@ func TestNewCacheSql_INSERT(t *testing.T) {
 			t.Error(test.NoEqErr)
 		}
 	})
-
 	t.Run("have values", func(t *testing.T) {
 		s := NewCacheSql("INSERT INTO sys_user (username, password, name) VALUES (\"xuesongtao\", \"123456\", \"阿桃\")")
 		// s.SetPrintLog(false)
