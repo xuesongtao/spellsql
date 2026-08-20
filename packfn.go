@@ -19,9 +19,19 @@ func GetSqlStr(sqlStr string, args ...any) string {
 	return NewCacheSql(sqlStr, args...).SetCallerSkip(2).GetSqlStr()
 }
 
+// GetSqlStrOfDbType 适用直接获取 sqlStr, 每次会自动打印日志
+func GetSqlStrOfDbType(dbType dialect.DbType, sqlStr string, args ...any) string {
+	return NewCacheSql(sqlStr, args...).SetDbType(dbType).SetCallerSkip(2).GetSqlStr()
+}
+
 // GetSqlStrCtx 适用直接获取 sqlStr, 每次会自动打印日志
 func GetSqlStrCtx(ctx context.Context, sqlStr string, args ...any) string {
 	return NewCacheSql(sqlStr, args...).SetCtx(ctx).SetCallerSkip(2).GetSqlStr()
+}
+
+// GetSqlStrCtxOfDbType 适用直接获取 sqlStr, 每次会自动打印日志
+func GetSqlStrCtxOfDbType(dbType dialect.DbType, ctx context.Context, sqlStr string, args ...any) string {
+	return NewCacheSql(sqlStr, args...).SetDbType(dbType).SetCtx(ctx).SetCallerSkip(2).GetSqlStr()
 }
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
@@ -30,30 +40,12 @@ func FmtSqlStr(sqlStr string, args ...any) string {
 	return b.GetSqlStr()
 }
 
-// GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
-// 如: obj := GetLikeSqlStr(ALK, "SELECT id, username FROM sys_user", "name", "xue")
-//
-//	=> SELECT id, username FROM sys_user WHERE name LIKE "%xue%"
-func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
-	sqlObj := NewCacheSql(sqlStr)
-	switch likeType {
-	case internal.ALK:
-		sqlObj.SetAllLike(fieldName, value)
-	case internal.RLK:
-		sqlObj.SetRightLike(fieldName, value)
-	case internal.LLK:
-		sqlObj.SetLeftLike(fieldName, value)
-	}
-	isPrintLog := false
-	endSymbol := ""
-
-	// 判断下是否打印 log
-	if len(printLog) > 0 {
-		isPrintLog = true
-		endSymbol = ";"
-	}
-	return sqlObj.SetPrintLog(isPrintLog).SetCallerSkip(2).GetSqlStr("sqlStr", endSymbol)
+// FmtSqlStrOfDbType 适用直接获取 sqlStr, 不会打印日志
+func FmtSqlStrOfDbType(dbType dialect.DbType, sqlStr string, args ...any) string {
+	_, b := parseSQLBuilder(dbType, sqlStr, args...)
+	return b.GetSqlStr()
 }
+
 
 // *******************************************************************************
 // *                             orm 常用封装                                     *
