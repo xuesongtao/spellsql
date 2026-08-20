@@ -35,12 +35,12 @@ var (
 		Postgres: Pg(),
 		SQLite:   Sqlite(),
 	}
-	tableMeterMap = map[DbType]func() TableMeter{
-		MySQL:    func() TableMeter { return Mysql() },
-		Postgres: func() TableMeter { return Pg() },
-		SQLite:   func() TableMeter { return Sqlite() },
-	}
+	tableMeterMap = map[DbType]func() TableMeter{}
 )
+
+func RegisterTabaleMeter(dbType DbType, fn func() TableMeter) {
+	tableMeterMap[dbType] = fn
+}
 
 func WarpValue(d Dialect, value string) string {
 	if strings.HasPrefix(value, d.GetWarpValueStrSymbol()) {
@@ -75,5 +75,3 @@ func Placeholders(n ...int) string {
 	}
 	return strings.Repeat("?, ", nn-1) + "?"
 }
-
-

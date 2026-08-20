@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-
+	_ "gitee.com/xuesongtao/spellsql/v2/sqldb"
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"

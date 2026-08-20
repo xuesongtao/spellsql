@@ -23,13 +23,6 @@ const (
 
 var DefaultDbType = MySQL
 
-var (
-	_ Dialect = &MysqlTable{}
-	_ Dialect = &PgTable{}
-
-	_ TableMeter = &MysqlTable{}
-	_ TableMeter = &PgTable{}
-)
 
 // TableColInfo 表列详情
 type TableColInfo struct {
