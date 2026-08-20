@@ -262,6 +262,11 @@ func FindAllCtx(ctx context.Context, db DBer, sql any, dest any, fn ...SelectCal
 	return NewTable(db).Ctx(ctx).PrintSqlCallSkip(3).Raw(sql).FindAll(dest, fn...)
 }
 
+// GetTableCols 获取表的列名
+func GetTableCols(db DBer, model any, skipCols ...string) []string {
+	return NewTable(db).GetSafeCols(model, skipCols...)
+}
+
 // ConvStruct 转换 struct 的值
 // 注: 默认深拷贝
 func ConvStruct(src any, dest any, deepCopy ...bool) error {
