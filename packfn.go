@@ -35,14 +35,21 @@ func GetSqlStrCtxOfDbType(dbType dialect.DbType, ctx context.Context, sqlStr str
 }
 
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
+// 是按 Mysql 语法处理
 func FmtSqlStr(sqlStr string, args ...any) string {
 	_, b := parseSQLBuilder(dialect.DefaultDbType, sqlStr, args...)
 	return b.GetSqlStr()
 }
 
-// FmtSqlStrOfDbType 适用直接获取 sqlStr, 不会打印日志
-func FmtSqlStrOfDbType(dbType dialect.DbType, sqlStr string, args ...any) string {
-	_, b := parseSQLBuilder(dbType, sqlStr, args...)
+// FmtSqlStrOfPg 适用直接获取 sqlStr, 不会打印日志
+func FmtSqlStrOfPg(sqlStr string, args ...any) string {
+	_, b := parseSQLBuilder(dialect.Postgres, sqlStr, args...)
+	return b.GetSqlStr()
+}
+
+// FmtSqlStrOfSQLite 适用直接获取 sqlStr, 不会打印日志
+func FmtSqlStrOfSQLite(sqlStr string, args ...any) string {
+	_, b := parseSQLBuilder(dialect.SQLite, sqlStr, args...)
 	return b.GetSqlStr()
 }
 
