@@ -18,22 +18,7 @@ import (
 // 1. 可以多个通过逗号隔开
 // 2. 也可以直接添加
 func (t *Table) Select(fields ...string) *Table {
-	if len(fields) == 1 { // 如果只有一个字段, 可能有多个字段拼接的字符串, 需要解析
-		return t.setSelect(t.parseCols(fields[0])...)
-	} else {
-		return t.setSelect(fields...)
-	}
-}
-
-func (t *Table) parseCols(fields string) []string {
-	if utils.Null(fields) {
-		return nil
-	}
-	arr := make([]string, 0, 5)
-	for _, col := range strings.Split(fields, ",") {
-		arr = append(arr, strings.TrimSpace(col))
-	}
-	return arr
+	return t.setSelect(builder.ParseSelectCols(fields...)...)
 }
 
 func (t *Table) setSelect(col ...string) *Table {

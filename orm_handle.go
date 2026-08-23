@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
-	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/sqldb"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
@@ -268,7 +268,7 @@ func (t *Table) getHandleTableCol2Val(v any, op uint8, needCols map[string]bool)
 					continue
 				} else if needCols != nil && needCols[col] { // 需要的列, 使用数据库默认值
 					columns = append(columns, col)
-					values = append(values, dialect.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
+					values = append(values, sqldb.GetTableMeter(t.dbType).GetDefaultVal(col, tableField))
 					continue
 				}
 				// if tableField.NotNull() && !tableField.Default.Valid && !ok { // db 中没有设置默认值
@@ -339,14 +339,14 @@ func (t *Table) GetCols(skipCols ...string) []string {
 		sLog.Error(t.ctx, "t.initCacheCol2InfoMap is failed, err:", err)
 		return nil
 	}
-	infos := make([]*dialect.TableColInfo, 0, len(t.cacheCol2InfoMap))
+	infos := make([]*sqldb.TableColInfo, 0, len(t.cacheCol2InfoMap))
 	for _, col := range t.cacheCol2InfoMap {
 		if skipMap[col.Field] {
 			continue
 		}
 		infos = append(infos, col)
 	}
-	sort.Sort(dialect.SortByTableColInfo(infos))
+	sort.Sort(sqldb.SortByTableColInfo(infos))
 	l := len(infos)
 	cols := make([]string, l)
 	for i := 0; i < l; i++ {

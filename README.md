@@ -12,8 +12,8 @@
 
 在公司技术选型中，大多数 ORM 框架比较重，且性能与重量成正比。为了追求极致性能（接近原生 `database/sql`）和开发效率，我们开发了 spellsql：
 
-1.  提供了灵活且安全的 SQL 拼接工具。
-2.  在此基础上封装了轻量级的 ORM 功能，满足大部分业务场景的需求。
+1. 提供了灵活且安全的 SQL 拼接工具。
+2. 在此基础上封装了轻量级的 ORM 功能，满足大部分业务场景的需求。
 
 ## 安装
 
@@ -47,11 +47,13 @@ spellsql 提供了三种占位符来满足不同的 SQL 拼接需求：
   ```
 
 - **`?v`**: 原样输出字符串（不加引号），适用于表名、列名或子查询。
+
   ```go
   // 危险！请确保参数完全可控
   sql := NewSql("SELECT * FROM ?v WHERE id = ?d", "my_table", "100").GetSqlStr()
   // => SELECT * FROM my_table WHERE id = 100
   ```
+
   > ⚠️ **注意**: `?v` 不会进行转义处理，请勿直接用于外部用户输入，以避免 SQL 注入风险。
 
 ### 2. 基础 CRUD (SQL 构建器)
@@ -185,7 +187,7 @@ _ = NewTable(db).Delete(User{Id: 1}).Exec()
   - 包含 `Insert`, `Delete`, `Update`, `Select` 和 `Where` 的构建逻辑。
   - 使用 `Builder` 模式将参数安全地拼接成 SQL 字符串。
 - **`dialect/`**: 数据库方言适配器。
-  - 定义了 `Dialect` 接口，支持 MySQL 和 PostgreSQL。
+  - 定义了 `Dialect` 接口
   - 负责处理特定数据库的语法差异（如占位符、转义字符、LIMIT 语法）。
 - **`internal/`**: 内部工具包。
   - **Cache**: 使用 LRU 算法缓存表结构信息，提高反射性能。

@@ -38,11 +38,7 @@ func (s *Select) Select(col ...string) *Select {
 	if s.columns == nil {
 		s.columns = make([]string, 0, len(col))
 	}
-	if len(col) == 0 {
-		s.columns = append(s.columns, "*")
-	} else {
-		s.columns = append(s.columns, col...)
-	}
+	s.columns = append(s.columns, ParseSelectCols(col...)...)
 	return s
 }
 
@@ -285,4 +281,25 @@ func (s *Select) mergeSQL(b *Builder) {
 		b.writeSql(" ")
 		b.writeSql(dialect.GetDialect(s.dbType).GetLimitSql(s.limit, s.offset))
 	}
+}
+
+// ParseSelectCols 解析 select 的列, 支持多种形式
+func ParseSelectCols(cols ...string) []string {
+	if len(cols) == 0 {
+		return []string{"*"}
+	}
+	if len(cols) > 1 {
+		return cols
+	}
+
+	// 可能是 "id, name, age" 这种形式, 需要拆分
+	fields := cols[0]
+	if utils.Null(fields) {
+		return nil
+	}
+	arr := make([]string, 0, 5)
+	for _, col := range strings.Split(fields, ",") {
+		arr = append(arr, strings.TrimSpace(col))
+	}
+	return arr
 }

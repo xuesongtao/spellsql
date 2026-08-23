@@ -12,6 +12,7 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/builder"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/sqldb"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
@@ -35,17 +36,17 @@ type Table struct {
 	ctx                      context.Context
 	db                       DBer
 	dbType                   dialect.DbType
-	err                      error                            // 错误信息
-	printSqlCallSkip         uint8                            // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
-	destTypeFlag             uint8                            // 查询时, 用于标记 dest 类型的
-	isPrintSql               bool                             // 标记是否打印 sql
-	tag                      string                           // 记录解析 struct 中字段名的 tag
-	name                     string                           // 表名
-	handleCols               []string                         // Insert/Update/Delete/Select 操作的表字段名
-	builder                  builder.SQLBuilder               // 暂存 SqlStrObj 对象
-	cacheCol2InfoMap         map[string]*dialect.TableColInfo // 记录该表的所有字段名
-	waitHandleStructFieldMap map[string]*handleStructField    // 处理 struct 字段的方法, key: tag, value: 处理方法集
-	hook                     Hooker                           // 执行 Query/Exec 后回调
+	err                      error                          // 错误信息
+	printSqlCallSkip         uint8                          // 标记打印 sql 时, 需要跳过的 skip, 该参数为 runtime.Caller(skip)
+	destTypeFlag             uint8                          // 查询时, 用于标记 dest 类型的
+	isPrintSql               bool                           // 标记是否打印 sql
+	tag                      string                         // 记录解析 struct 中字段名的 tag
+	name                     string                         // 表名
+	handleCols               []string                       // Insert/Update/Delete/Select 操作的表字段名
+	builder                  builder.SQLBuilder             // 暂存 SqlStrObj 对象
+	cacheCol2InfoMap         map[string]*sqldb.TableColInfo // 记录该表的所有字段名
+	waitHandleStructFieldMap map[string]*handleStructField  // 处理 struct 字段的方法, key: tag, value: 处理方法集
+	hook                     Hooker                         // 执行 Query/Exec 后回调
 }
 
 // NewTable 初始化
@@ -73,6 +74,10 @@ func NewTableWithCtx(ctx context.Context, db DBer, args ...string) *Table {
 func (t *Table) initDb(db DBer, args ...string) *Table {
 	// 赋值
 	t.db = db
+	if v, ok := t.db.(*sqldb.DB); ok {
+		t.dbType = v.DbType
+	}
+
 	switch len(args) {
 	case 1:
 		t.name = args[0]
@@ -227,14 +232,14 @@ func (t *Table) initCacheCol2InfoMap() error {
 
 	// 先判断下缓存中有没有
 	if info, ok := cacheTableName2ColInfoMap.Load(tableName); ok {
-		t.cacheCol2InfoMap, ok = info.(map[string]*dialect.TableColInfo)
+		t.cacheCol2InfoMap, ok = info.(map[string]*sqldb.TableColInfo)
 		if ok {
 			return nil
 		}
 	}
 
 	var err error
-	t.cacheCol2InfoMap, err = dialect.GetTableMeter(t.dbType).GetColInfoMap(t.ctx, t.db, tableName)
+	t.cacheCol2InfoMap, err = sqldb.GetTableMeter(t.dbType).GetColInfoMap(t.ctx, t.db, tableName)
 	if err != nil {
 		return err
 	}

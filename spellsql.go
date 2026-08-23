@@ -11,9 +11,8 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
-// SqlStrObj 拼接 sql 对象
+// Deprecated: 该对象不进行后续维护, 后续主要维护 builder
 // 对 builder.SQLBuilder 进行了封装, 主要是为了方便打印 sqlStr log
-// 注: 该对象不进行后续维护, 后续主要维护 builder
 // 原因: v2 版本原本想去掉此对象, 但是考虑到 v1 版本的兼容性, 所以保留此对象
 type SqlStrObj struct {
 	ctx           context.Context
