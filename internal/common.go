@@ -1,13 +1,12 @@
 package internal
 
 import (
+	"slices"
 	"strings"
 	"sync"
 )
 
-var (
-	tmpBuf = sync.Pool{New: func() any { return new(strings.Builder) }}
-)
+var tmpBuf = sync.Pool{New: func() any { return new(strings.Builder) }}
 
 func GetTmpBuf(size ...int) *strings.Builder {
 	obj := tmpBuf.Get().(*strings.Builder)
@@ -27,12 +26,7 @@ func Equal(a, b uint8) bool {
 }
 
 func InArray(a uint8, arr ...uint8) bool {
-	for _, v := range arr {
-		if a == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(arr, a)
 }
 
 func ToUpper(str string) string {

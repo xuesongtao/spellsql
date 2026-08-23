@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"gitee.com/xuesongtao/spellsql/v2/builder"
-	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
+	"gitee.com/xuesongtao/spellsql/v2/sqldb"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
@@ -29,7 +29,7 @@ const (
 )
 
 // DBer
-type DBer = dialect.DBer
+type DBer = sqldb.DBer
 
 // Logger
 type Logger interface {

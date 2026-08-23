@@ -1,4 +1,4 @@
-package dialect
+package sqldb
 
 import (
 	"context"
@@ -6,64 +6,11 @@ import (
 	"fmt"
 
 	"gitee.com/xuesongtao/spellsql/v2/internal"
-	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
 
-type PgTable struct {
-	initArgs []string
-}
+type PgSQL struct{}
 
-// Pg, 默认模式: public
-// initArgs 允许自定义两个参数
-// initArgs[0] 为 schema
-// initArgs[1] 为 table name (此参数可以忽略, 因为 orm 内部会处理该值)
-func Pg(initArgs ...string) *PgTable {
-	obj := &PgTable{initArgs: make([]string, 2)}
-	l := len(initArgs)
-	switch l {
-	case 1:
-		obj.initArgs[0] = initArgs[0]
-	case 2:
-		obj.initArgs[0] = initArgs[0]
-		obj.initArgs[1] = initArgs[1]
-	}
-	if l == 0 {
-		obj.initArgs[0] = "public"
-	}
-	return obj
-}
-
-// GetWarpColSymbol implements [Dialect].
-func (p *PgTable) GetWarpColSymbol() string {
-	return `"`
-}
-
-// GetWarpValueStrSymbol implements [Dialect].
-func (p *PgTable) GetWarpValueStrSymbol() string {
-	return `'`
-}
-
-func (p *PgTable) GetAdapterName() string {
-	return "pg"
-}
-
-// GetLimitSql implements [Dialect].
-func (p *PgTable) GetLimitSql(limit int, offset int) string {
-	return "LIMIT " + utils.Int2Str(int64(limit)) + " OFFSET " + utils.Int2Str(int64(offset))
-}
-
-func (p *PgTable) SetTableName(name string) {
-	p.initArgs[1] = name
-}
-
-func (p *PgTable) GetValueEscapeMap() map[byte][]byte {
-	escapeMap := internal.GetValueEscapeMap()
-	// 将 "'" 进行转义
-	escapeMap['\''] = []byte{'\'', '\''}
-	return escapeMap
-}
-
-func (p *PgTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {
+func (p *PgSQL) GetColInfoMap(ctx context.Context, db DBer, tableName string) (map[string]*TableColInfo, error) {
 	sqlStr := fmt.Sprintf(
 		`
 		SELECT 
@@ -83,11 +30,12 @@ func (p *PgTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) 
         LEFT JOIN pg_catalog.pg_attrdef d 
             ON (a.attrelid = d.adrelid AND a.attnum = d.adnum)
         WHERE 
-            a.attrelid = ('%s.%s')::regclass
+            a.attrelid = ('public.%s')::regclass
             AND a.attnum > 0                   
             AND NOT a.attisdropped              
         ORDER BY a.attnum;
-		`, p.initArgs[0], tableName)
+		`, tableName,
+	)
 	rows, err := db.QueryContext(ctx, sqlStr)
 	if err != nil {
 		return nil, fmt.Errorf("pg query is failed, err: %v, sqlStr: %v", err, sqlStr)
@@ -118,6 +66,6 @@ func (p *PgTable) GetColInfoMap(ctx context.Context, db DBer, tableName string) 
 	return cacheCol2InfoMap, nil
 }
 
-func (p *PgTable) GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql {
+func (p *PgSQL) GetDefaultVal(col string, colInfo *TableColInfo) internal.RawSql {
 	return internal.DEFAULT
 }

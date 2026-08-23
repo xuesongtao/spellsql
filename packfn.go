@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"gitee.com/xuesongtao/spellsql/v2/builder"
+	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/internal"
 	"gitee.com/xuesongtao/spellsql/v2/utils"
 )
@@ -19,14 +19,38 @@ func GetSqlStr(sqlStr string, args ...any) string {
 	return NewCacheSql(sqlStr, args...).SetCallerSkip(2).GetSqlStr()
 }
 
+// GetSqlStrOfDbType 适用直接获取 sqlStr, 每次会自动打印日志
+func GetSqlStrOfDbType(dbType dialect.DbType, sqlStr string, args ...any) string {
+	return NewCacheSql(sqlStr, args...).SetDbType(dbType).SetCallerSkip(2).GetSqlStr()
+}
+
 // GetSqlStrCtx 适用直接获取 sqlStr, 每次会自动打印日志
 func GetSqlStrCtx(ctx context.Context, sqlStr string, args ...any) string {
 	return NewCacheSql(sqlStr, args...).SetCtx(ctx).SetCallerSkip(2).GetSqlStr()
 }
 
+// GetSqlStrCtxOfDbType 适用直接获取 sqlStr, 每次会自动打印日志
+func GetSqlStrCtxOfDbType(dbType dialect.DbType, ctx context.Context, sqlStr string, args ...any) string {
+	return NewCacheSql(sqlStr, args...).SetDbType(dbType).SetCtx(ctx).SetCallerSkip(2).GetSqlStr()
+}
+
 // FmtSqlStr 适用直接获取 sqlStr, 不会打印日志
+// 是按 Mysql 语法处理
 func FmtSqlStr(sqlStr string, args ...any) string {
-	return builder.NewBuilder().InitSql2Args(sqlStr, args...).GetSqlStr()
+	_, b := parseSQLBuilder(dialect.DefaultDbType, sqlStr, args...)
+	return b.GetSqlStr()
+}
+
+// FmtSqlStrOfPg 适用直接获取 sqlStr, 不会打印日志
+func FmtSqlStrOfPg(sqlStr string, args ...any) string {
+	_, b := parseSQLBuilder(dialect.Postgres, sqlStr, args...)
+	return b.GetSqlStr()
+}
+
+// FmtSqlStrOfSQLite 适用直接获取 sqlStr, 不会打印日志
+func FmtSqlStrOfSQLite(sqlStr string, args ...any) string {
+	_, b := parseSQLBuilder(dialect.SQLite, sqlStr, args...)
+	return b.GetSqlStr()
 }
 
 // GetLikeSqlStr 针对 LIKE 语句, 只有一个条件
@@ -34,6 +58,28 @@ func FmtSqlStr(sqlStr string, args ...any) string {
 //
 //	=> SELECT id, username FROM sys_user WHERE name LIKE "%xue%"
 func GetLikeSqlStr(likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
+	sqlObj := NewCacheSql(sqlStr)
+	switch likeType {
+	case internal.ALK:
+		sqlObj.SetAllLike(fieldName, value)
+	case internal.RLK:
+		sqlObj.SetRightLike(fieldName, value)
+	case internal.LLK:
+		sqlObj.SetLeftLike(fieldName, value)
+	}
+	isPrintLog := false
+	endSymbol := ""
+
+	// 判断下是否打印 log
+	if len(printLog) > 0 {
+		isPrintLog = true
+		endSymbol = ";"
+	}
+	return sqlObj.SetPrintLog(isPrintLog).SetCallerSkip(2).GetSqlStr("sqlStr", endSymbol)
+}
+
+// GetLikeSqlStrOfDbType
+func GetLikeSqlStrOfDbType(dbType dialect.DbType, likeType uint8, sqlStr, fieldName, value string, printLog ...bool) string {
 	sqlObj := NewCacheSql(sqlStr)
 	switch likeType {
 	case internal.ALK:
@@ -259,6 +305,11 @@ func FindAll(db DBer, sql any, dest any, fn ...SelectCallBackFn) error {
 // sql sqlStr 或 builder.SQLBuilder 或 *SqlStrObj
 func FindAllCtx(ctx context.Context, db DBer, sql any, dest any, fn ...SelectCallBackFn) error {
 	return NewTable(db).Ctx(ctx).PrintSqlCallSkip(3).Raw(sql).FindAll(dest, fn...)
+}
+
+// GetTableCols 获取表的列名
+func GetTableCols(db DBer, model any, skipCols ...string) []string {
+	return NewTable(db).GetSafeCols(model, skipCols...)
 }
 
 // ConvStruct 转换 struct 的值

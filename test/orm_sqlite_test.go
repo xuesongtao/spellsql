@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -11,51 +10,45 @@ import (
 	"gitee.com/xuesongtao/spellsql/v2"
 	"gitee.com/xuesongtao/spellsql/v2/dialect"
 	"gitee.com/xuesongtao/spellsql/v2/sqldb"
-	// _ "github.com/lib/pq"
+	// _ "github.com/glebarez/go-sqlite"
 )
 
-const (
-	sureName = "xue1234"
-	sureAge  = int32(18)
-	sureAddr = "成都市"
-)
+// 测试表
+var sqliteDb *sqldb.DB
 
-// CREATE TABLE "public"."man" (
-// 	"id" SERIAL PRIMARY KEY,
-// 	"name" varchar(10) COLLATE "pg_catalog"."default" NOT NULL,
-// 	"age" int4 NOT NULL,
-// 	"addr" varchar(50) COLLATE "pg_catalog"."default",
-// 	"hobby" varchar(255) COLLATE "pg_catalog"."default",
-// 	"json_txt" text COLLATE "pg_catalog"."default",
-// 	"nickname" varchar(30) COLLATE "pg_catalog"."default",
-// 	"xml_txt" text COLLATE "pg_catalog"."default",
-// 	"json1_txt" varchar(255) COLLATE "pg_catalog"."default",
+// CREATE TABLE man (
+// 	"id" INTEGER PRIMARY KEY AUTOINCREMENT,
+// 	"name" varchar(10) NOT NULL,
+// 	"age" int NOT NULL,
+// 	"addr" varchar(50) DEFAULT NULL,
+// 	"hobby" varchar(255) DEFAULT '',
+// 	"json_txt" text,
+// 	"nickname" varchar(30) DEFAULT '',
+// 	"xml_txt" text,
+// 	"json1_txt" varchar(255) DEFAULT NULL
 // );
-
-//   ALTER TABLE "public"."man"
-// 	OWNER TO "postgres";
-
-var pgDb *sqldb.DB
 
 func init() {
 	var err error
-	pgDb, err = sqldb.Open(dialect.Postgres, "host=localhost port=5432 user=postgres password=123456 dbname=postgres sslmode=disable")
+	sqliteDb, err = sqldb.Open(dialect.SQLite, "file:sqlite.db?cache=shared&mode=rwc")
 	if err != nil {
 		panic(err)
 	}
-	err = pgDb.Ping()
-	if err != nil {
-		panic(err)
-	}
-	pgDb.SetMaxOpenConns(1)
-	pgDb.SetMaxIdleConns(1)
 
-	// 初始化 pg tmer
-	// spellsql.GlobalDbType(dialect.Postgres)
-	pgDb.ExecContext(context.Background(), "TRUNCATE TABLE man RESTART IDENTITY")
+	// 关键：设置连接池参数（SQLite有特殊限制）
+	// 默认 sql.Open 会保留无限连接，但 SQLite 并发写容易锁库
+	sqliteDb.SetMaxOpenConns(1) // 强烈建议设为1，避免 "database is locked" 错误
+	sqliteDb.SetMaxIdleConns(1) // 保持一个空闲连接足矣
+
+	// 测试连通性
+	if err := sqliteDb.Ping(); err != nil {
+		panic(err)
+	}
+	sqliteDb.Exec("DELETE FROM man")
+	sqliteDb.Exec("DELETE FROM sqlite_sequence WHERE name = 'man';")
 }
 
-func InitPgTestMain(t *testing.T, size ...int) {
+func InitTestMainForSqlite(t *testing.T, size ...int) {
 	defaultSize := 1
 	if len(size) > 0 {
 		defaultSize = size[0]
@@ -72,14 +65,14 @@ func InitPgTestMain(t *testing.T, size ...int) {
 
 		// 强制插入 ID 为 1 的数据（假设表已 TRUNCATE）
 		// 或者使用 InsertsIg (Insert Ignore) 防止冲突
-		_, err := spellsql.NewTable(pgDb, "man").Insert(prepareMan).Exec()
+		_, err := spellsql.NewTable(sqliteDb, "man").DbType(dialect.SQLite).Insert(prepareMan).Exec()
 		if err != nil {
 			t.Fatal("prepare data failed:", err)
 		}
 	}
 }
 
-func TestLocalPg(t *testing.T) {
+func TestLocalForSqlite(t *testing.T) {
 	m := Man{
 		Name:  "xue1234",
 		Age:   18,
@@ -99,10 +92,10 @@ func TestLocalPg(t *testing.T) {
 		},
 	}
 
-	tableObj := spellsql.NewTable(pgDb, "man")
+	tableObj := spellsql.NewTable(sqliteDb, "man").DbType(dialect.SQLite)
 	tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 	tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
-	res, err := tableObj.Insert(m).DbType(dialect.Postgres).Exec()
+	res, err := tableObj.Insert(m).DbType(dialect.SQLite).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +108,7 @@ func TestLocalPg(t *testing.T) {
 	}
 }
 
-func TestInsertForPg(t *testing.T) {
+func TestInsertForSqlite(t *testing.T) {
 	t.Run("insert", func(t *testing.T) {
 		m := Man{
 			Name:  "xue1234",
@@ -136,7 +129,7 @@ func TestInsertForPg(t *testing.T) {
 			},
 		}
 
-		tableObj := spellsql.NewTable(pgDb, "man")
+		tableObj := spellsql.NewTable(sqliteDb, "man").DbType(dialect.SQLite)
 		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
 		res, err := tableObj.Insert(m).Exec()
@@ -172,7 +165,7 @@ func TestInsertForPg(t *testing.T) {
 			},
 		}
 
-		tableObj := spellsql.NewTable(pgDb, "man")
+		tableObj := spellsql.NewTable(sqliteDb, "man").DbType(dialect.SQLite)
 		tableObj.SetMarshalFn(json.Marshal, "json_txt", "json1_txt")
 		tableObj.SetMarshalFn(xml.Marshal, "xml_txt")
 		var mm []any
@@ -200,17 +193,17 @@ func TestInsertForPg(t *testing.T) {
 	})
 }
 
-func TestDeleteForPg(t *testing.T) {
+func TestDeleteForSqlite(t *testing.T) {
 	m := Man{
 		Id: 9,
 	}
-	_, err := spellsql.NewTable(pgDb).Delete(m).Exec()
+	_, err := spellsql.NewTable(sqliteDb).DbType(dialect.SQLite).Delete(m).Exec()
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestUpdateForPg(t *testing.T) {
+func TestUpdateForSqlite(t *testing.T) {
 	m := Man{
 		Name: "xue12",
 		Age:  20,
@@ -221,7 +214,7 @@ func TestUpdateForPg(t *testing.T) {
 		},
 	}
 
-	tableObj := spellsql.NewTable(pgDb, "man")
+	tableObj := spellsql.NewTable(sqliteDb, "man").DbType(dialect.SQLite)
 	tableObj.SetMarshalFn(json.Marshal, "json_txt")
 	_, err := tableObj.Update(m, "id=?", 2).Exec()
 	if err != nil {
@@ -229,11 +222,15 @@ func TestUpdateForPg(t *testing.T) {
 	}
 }
 
-func TestRawForPg(t *testing.T) {
-	InitPgTestMain(t)
+func TestInitManForSqlite(t *testing.T) {
+	InitTestMainForSqlite(t)
+}
+
+func TestRawForSqlite(t *testing.T) {
+	InitTestMainForSqlite(t)
 	var m Man
 	sqlObj := spellsql.NewCacheSql("SELECT name,age FROM man WHERE id=1")
-	err := spellsql.NewTable(pgDb).Raw(sqlObj).FindOne(&m)
+	err := spellsql.NewTable(sqliteDb).DbType(dialect.SQLite).Raw(sqlObj).FindOne(&m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,10 +240,10 @@ func TestRawForPg(t *testing.T) {
 	}
 }
 
-func TestFindOneForPg(t *testing.T) {
-	InitPgTestMain(t)
+func TestFindOneForSqlite(t *testing.T) {
+	InitTestMainForSqlite(t)
 	var m Man
-	tableObj := spellsql.NewTable(pgDb)
+	tableObj := spellsql.NewTable(sqliteDb).DbType(dialect.SQLite)
 	tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 	tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
 	err := tableObj.SelectAuto(Man{}).Where("id=1").FindOneFn(&m)
@@ -272,12 +269,12 @@ func TestFindOneForPg(t *testing.T) {
 	}
 }
 
-func TestFindAllForPg(t *testing.T) {
-	InitPgTestMain(t, 20)
+func TestFindAllForSqlite(t *testing.T) {
+	InitTestMainForSqlite(t, 20)
 	t.Run("ummarshal", func(t *testing.T) {
 		var m []Man
 		var err error
-		tableObj := spellsql.NewTable(pgDb)
+		tableObj := spellsql.NewTable(sqliteDb).DbType(dialect.SQLite)
 		tableObj.SetUnmarshalFn(json.Unmarshal, "json_txt", "json1_txt")
 		tableObj.SetUnmarshalFn(xml.Unmarshal, "xml_txt")
 		err = tableObj.SelectAuto(Man{}).Limit(1, 10).FindWhere(&m, "id>0")
@@ -310,7 +307,7 @@ func TestFindAllForPg(t *testing.T) {
 
 	t.Run("findAll page", func(t *testing.T) {
 		size := 5
-		tableObj := spellsql.NewTable(pgDb).Select("name").From("man")
+		tableObj := spellsql.NewTable(sqliteDb).DbType(dialect.SQLite).Select("name").From("man")
 		var total int
 		_ = tableObj.Count(&total)
 		if total == 0 {
