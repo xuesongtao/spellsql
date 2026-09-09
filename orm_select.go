@@ -55,27 +55,19 @@ func (t *Table) SelectAuto(src any, tableName ...string) *Table {
 		return t.Select(val)
 	}
 
-	ty := utils.RemoveTypePtr(reflect.TypeOf(src))
+	tv := utils.RemoveValuePtr(reflect.ValueOf(src))
 	selectFields := make([]string, 0, 5)
-	switch kind := ty.Kind(); kind {
+	switch kind := tv.Kind(); kind {
 	case reflect.Struct, reflect.Slice:
-		tv := reflect.ValueOf(src)
+		ty := tv.Type()
 		if ty.Kind() == reflect.Slice {
-			ty = ty.Elem()
-			if ty.Kind() == reflect.Pointer {
-				ty = utils.RemoveTypePtr(ty)
-			}
-			if tv.Len() > 0 {
-				tv = tv.Index(0)
-			} else {
-				tv = reflect.New(ty)
-			}
+			tv = reflect.New(utils.RemoveTypePtr(ty.Elem()))
+			ty = tv.Elem().Type()
 		}
 		if err := t.initTableName(tv, tableName...).initCacheCol2InfoMap(); err != nil {
 			t.err = fmt.Errorf("initCacheCol2InfoMap is failed, err: %v", err)
 			return t
 		}
-
 		_, sortCol := t.parseCol2StructField(ty, true)
 		for _, col := range sortCol {
 			// 排除结构体中的字段, 数据库没有
